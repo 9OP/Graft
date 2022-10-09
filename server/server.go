@@ -37,8 +37,7 @@ func election(server *Server, state *models.ServerState) {
 
 	// Reset election timer
 	rand.Seed(time.Now().UnixNano())
-	// timeout := rand.Intn(300-150) + 150
-	timeout := 1000
+	timeout := (rand.Intn(300-150) + 150) * 10
 	server.ElectionTimeout = time.NewTimer(time.Duration(timeout) * time.Millisecond)
 
 	// Request votes to each nodes
@@ -47,7 +46,12 @@ func election(server *Server, state *models.ServerState) {
 	voteGranted := 1 // self
 	for _, node := range state.Nodes {
 		// Send requestVote RPC
-		res, err := sendRequestVoteRpc(node.Host, &graft_rpc.RequestVoteInput{})
+		res, err := sendRequestVoteRpc(node.Host, &graft_rpc.RequestVoteInput{
+			Term:         int32(state.CurrentTerm),
+			CandidateId:  state.Name,
+			LastLogIndex: int32(len(state.PersistentState.Log)),
+			LastLogTerm:  int32(state.PersistentState.Log[len(state.PersistentState.Log)-1].Term),
+		})
 		if err != nil {
 			continue
 		}
@@ -60,6 +64,7 @@ func election(server *Server, state *models.ServerState) {
 			// Fallback to follower
 			log.Println("fallback to follower, received vote with higher term")
 			state.Role = models.Follower
+			server.ElectionTimeout.Stop() // stop election
 			break
 		}
 	}
@@ -68,11 +73,14 @@ func election(server *Server, state *models.ServerState) {
 	if voteGranted >= int(quorum) && state.Role == models.Candidate {
 		log.Printf("become leader, quorum: %v, votes %v \n", quorum, voteGranted)
 		state.Role = models.Leader
+		server.ElectionTimeout.Stop() // stop election
 	}
+
 }
 
 func heartbeat(server *Server, state *models.ServerState) {
 	// Receive heartbeat from cluster leader
+	server.ElectionTimeout.Stop()
 	server.TermTimeout.Stop()
 	server.TermTimeout = time.NewTicker(models.HEARTBEAT * time.Millisecond)
 }
@@ -81,9 +89,16 @@ func (s *Server) Start(state *models.ServerState) {
 	for {
 		select {
 		case <-s.ElectionTimeout.C:
-		case <-s.TermTimeout.C:
-			log.Println("timeout, start election")
+			log.Println("election timeout, start election")
+			s.TermTimeout.Stop() // prevent two elections ocurring at the same time
 			election(s, state)
+			s.TermTimeout = time.NewTicker(models.HEARTBEAT * time.Millisecond)
+
+		case <-s.TermTimeout.C:
+			if state.Role == models.Follower {
+				log.Println("term timeout, start election")
+				election(s, state)
+			}
 
 		case <-state.Heartbeat:
 			log.Println("heartbeat")
@@ -92,9 +107,11 @@ func (s *Server) Start(state *models.ServerState) {
 	}
 }
 
+// TODO: leader should send heartbeat request to followers
+
 func NewServer() *Server {
 	return &Server{
 		TermTimeout:     time.NewTicker(models.HEARTBEAT * time.Millisecond),
-		ElectionTimeout: time.NewTimer(1000 * time.Millisecond),
+		ElectionTimeout: time.NewTimer(3000 * time.Millisecond),
 	}
 }

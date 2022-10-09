@@ -34,6 +34,11 @@ func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*Req
 	state := ctx.Value("graft_server_state").(*models.ServerState)
 	state.Heartbeat <- true // Prevent receiver to turn into a candidate
 
+	// Leader does not grant vote
+	if state.Role == models.Leader {
+		return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: false}, nil
+	}
+
 	// Convert receiver back to follower
 	if vote.Term > int32(state.CurrentTerm) {
 		log.Println("convert back to follower, vote with higher term")
