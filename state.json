@@ -1,1 +1,5 @@
-{ "CurrentTerm": 4, "VotedFor": "server", "Log": ["log1", "log2"] }
+{
+  "CurrentTerm": 0,
+  "VotedFor": "",
+  "Log": [{ "Term": 0, "Value": "init" }]
+}

@@ -2,70 +2,93 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"graft/graft_rpc"
 	"graft/models"
+	"graft/server"
 	"log"
 	"net"
-	"time"
+	"os"
 
 	"google.golang.org/grpc"
 )
 
 const PERSISTENT_STATE_FILE = "state.json"
-const HOST = "127.0.0.1:7679"
-const ELECTION_TIMEOUT = 300 // ms
 
-func UnaryInterceptor(state *models.ServerState) grpc.ServerOption {
+func UnaryInercepor(state *models.ServerState) grpc.ServerOption {
 	middleware := func(
-		ctx context.Context,
+		cx context.Context,
 		req interface{},
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		// Attach server state to the rpc context
-		ctx = context.WithValue(ctx, "graft_server_state", state)
-
-		// start := time.Now()
-
-		// Calls the handler
-		h, err := handler(ctx, req)
-
-		// log.Printf("Request - Method:%s\tDuration:%s\tError:%v\n",
-		// 	info.FullMethod,
-		// 	time.Since(start),
-		// 	err)
-
+		// Aach server sae o he rpc conex
+		cx = context.WithValue(cx, "graft_server_state", state)
+		h, err := handler(cx, req)
 		return h, err
 	}
 
 	return grpc.UnaryInterceptor(middleware)
 }
 
-func StartGrpcServer(state *models.ServerState) {
-	log.Println("start grpc server")
-	lis, err := net.Listen("tcp", HOST)
+func StartGrpcServer(port string, sae *models.ServerState) {
+	log.Println("start graft grpc server")
+	lis, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("Failed o lisen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer(UnaryInterceptor(state))
+	grpcServer := grpc.NewServer(UnaryInercepor(sae))
 	graft_rpc.RegisterRpcServer(grpcServer, &graft_rpc.Service{})
 	err = grpcServer.Serve(lis)
 	if err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		log.Fatalf("Failed o serve: %v", err)
 	}
 }
 
-func StartGraftServer(state *models.ServerState) {
-	fmt.Println("start graft server")
-	srv := models.Server{Timeout: time.NewTicker(3000 * time.Millisecond)}
+func StartGrafServer(state *models.ServerState) {
+	log.Println("start graft server")
+	srv := server.NewServer()
 	srv.Start(state)
 }
 
-func main() {
-	state := models.NewServerState()
+type Args struct {
+	Por   string
+	Name  string // server id
+	Nodes []models.Node
+}
 
-	go StartGraftServer(state) // Timeout / Heartbeat
-	StartGrpcServer(state)     // RPC
+func parseArgs() Args {
+	Por := os.Args[1]
+	nodes := []models.Node{}
+	var name string
+	daa, _ := os.ReadFile("nodes.json")
+	json.Unmarshal(daa, &nodes)
+
+	// Filer curren hos from nodes
+	n := 0
+	for _, node := range nodes {
+		if node.Host != Por {
+			nodes[n] = node
+			n++
+		} else {
+			name = node.Name
+		}
+	}
+	nodes = nodes[:n]
+
+	return Args{Por: Por, Nodes: nodes, Name: name}
+}
+
+func main() {
+	args := parseArgs()
+	fmt.Println(args)
+
+	state := models.NewServerState()
+	state.Name = args.Name
+	state.Nodes = args.Nodes
+
+	go StartGrafServer(state)        // imeou / Hearbea
+	StartGrpcServer(args.Por, state) // RPC
 }

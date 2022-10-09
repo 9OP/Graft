@@ -2,17 +2,21 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
-	"time"
 )
 
 const PERSISTENT_STATE_FILE = "state.json"
+const HEARTBEAT = 3000 // ms
 
 type PersistentState struct {
 	CurrentTerm uint16
 	VotedFor    string
-	Log         []string
+	Log         []Log
+}
+
+type Log struct {
+	Term  uint16
+	Value string
 }
 
 func (state *PersistentState) saveState(location string) error {
@@ -57,11 +61,17 @@ var (
 	Leader    = Role{"Leader"}
 )
 
+type Node struct {
+	Name string
+	Host string
+}
 type ServerState struct {
 	PersistentState
 	FollowerState
 	Role
 	Heartbeat chan bool
+	Name      string
+	Nodes     []Node
 }
 
 func NewServerState() *ServerState {
@@ -73,21 +83,4 @@ func NewServerState() *ServerState {
 	}
 	state.PersistentState.loadState(PERSISTENT_STATE_FILE)
 	return &state
-}
-
-type Server struct {
-	Timeout *time.Ticker
-}
-
-func (s *Server) Start(state *ServerState) {
-	for {
-		select {
-		case <-s.Timeout.C:
-			fmt.Println("Server timeout, start election")
-		case <-state.Heartbeat:
-			fmt.Printf("Received heartbeat %v\n", <-state.Heartbeat)
-			s.Timeout.Stop()
-			s.Timeout = time.NewTicker(3000 * time.Millisecond)
-		}
-	}
 }
