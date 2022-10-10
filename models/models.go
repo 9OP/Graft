@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"os"
+	"sync"
 )
 
 const PERSISTENT_STATE_FILE = "state.json"
@@ -72,6 +73,7 @@ type ServerState struct {
 	Heartbeat chan bool
 	Name      string
 	Nodes     []Node
+	mu        sync.Mutex // required for safe mutation accross go routines
 }
 
 func NewServerState() *ServerState {
@@ -83,4 +85,16 @@ func NewServerState() *ServerState {
 	}
 	state.PersistentState.loadState(PERSISTENT_STATE_FILE)
 	return &state
+}
+
+func (state *ServerState) IsRole(role Role) bool {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	return state.Role == role
+}
+
+func (state *ServerState) SwitchRole(role Role) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.Role = role
 }

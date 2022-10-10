@@ -89,6 +89,6 @@ func main() {
 	state.Name = args.Name
 	state.Nodes = args.Nodes
 
-	go StartGrafServer(state)        // imeou / Hearbea
+	go StartGrafServer(state)        // timeou / Heartbeat
 	StartGrpcServer(args.Por, state) // RPC
 }

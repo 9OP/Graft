@@ -12,9 +12,11 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Should create helper function an mu to lock reset and set of timers/tickers
 type Server struct {
-	TermTimeout     *time.Ticker
+	TermTimeout     *time.Timer
 	ElectionTimeout *time.Timer
+	HeartbeatTicker *time.Ticker
 }
 
 func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
@@ -28,10 +30,21 @@ func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_
 	return res, err
 }
 
+func sendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*graft_rpc.AppendEntriesOutput, error) {
+	var conn *grpc.ClientConn
+	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
+	defer conn.Close()
+
+	c := graft_rpc.NewRpcClient(conn)
+
+	res, err := c.AppendEntries(context.Background(), input)
+	return res, err
+}
+
 func election(server *Server, state *models.ServerState) {
 	// Missed cluster leader heartbeat (leader down, network partition, delays etc...)
 	// Start new election
-	state.Role = models.Candidate               // become candidate
+	state.SwitchRole(models.Candidate)          // become candidate
 	state.CurrentTerm += 1                      // increment term
 	state.PersistentState.VotedFor = state.Name // vote for self
 
@@ -63,7 +76,7 @@ func election(server *Server, state *models.ServerState) {
 		if res.Term > int32(state.CurrentTerm) {
 			// Fallback to follower
 			log.Println("fallback to follower, received vote with higher term")
-			state.Role = models.Follower
+			state.SwitchRole(models.Follower)
 			server.ElectionTimeout.Stop() // stop election
 			break
 		}
@@ -72,7 +85,7 @@ func election(server *Server, state *models.ServerState) {
 	// Become leader if quorum reached
 	if voteGranted >= int(quorum) && state.Role == models.Candidate {
 		log.Printf("become leader, quorum: %v, votes %v \n", quorum, voteGranted)
-		state.Role = models.Leader
+		state.SwitchRole(models.Leader)
 		server.ElectionTimeout.Stop() // stop election
 	}
 
@@ -82,20 +95,49 @@ func heartbeat(server *Server, state *models.ServerState) {
 	// Receive heartbeat from cluster leader
 	server.ElectionTimeout.Stop()
 	server.TermTimeout.Stop()
-	server.TermTimeout = time.NewTicker(models.HEARTBEAT * time.Millisecond)
+	server.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
+}
+
+func sendHeartbeat(server *Server, state *models.ServerState) {
+	for _, node := range state.Nodes {
+		// Send heartbeat rpc
+		res, err := sendAppendEntriesRpc(node.Host, &graft_rpc.AppendEntriesInput{
+			Term:     int32(state.CurrentTerm),
+			LeaderId: state.Name,
+		})
+		if err != nil {
+			continue
+		}
+
+		if res.Term > int32(state.CurrentTerm) {
+			// Fallback to follower
+			state.SwitchRole(models.Follower)
+			server.TermTimeout.Stop()
+			server.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
+			break
+		}
+	}
 }
 
 func (s *Server) Start(state *models.ServerState) {
 	for {
 		select {
+		case <-s.HeartbeatTicker.C:
+			if state.IsRole(models.Leader) {
+				log.Println("send heartbeat to followers")
+				sendHeartbeat(s, state)
+			}
+
 		case <-s.ElectionTimeout.C:
-			log.Println("election timeout, start election")
-			s.TermTimeout.Stop() // prevent two elections ocurring at the same time
-			election(s, state)
-			s.TermTimeout = time.NewTicker(models.HEARTBEAT * time.Millisecond)
+			if state.IsRole(models.Candidate) {
+				log.Println("election timeout, restart election")
+				s.TermTimeout.Stop() // prevent two elections ocurring at the same time
+				election(s, state)
+				s.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
+			}
 
 		case <-s.TermTimeout.C:
-			if state.Role == models.Follower {
+			if state.IsRole(models.Follower) {
 				log.Println("term timeout, start election")
 				election(s, state)
 			}
@@ -111,7 +153,8 @@ func (s *Server) Start(state *models.ServerState) {
 
 func NewServer() *Server {
 	return &Server{
-		TermTimeout:     time.NewTicker(models.HEARTBEAT * time.Millisecond),
+		TermTimeout:     time.NewTimer(models.HEARTBEAT * time.Millisecond),
 		ElectionTimeout: time.NewTimer(3000 * time.Millisecond),
+		HeartbeatTicker: time.NewTicker(500 * time.Millisecond),
 	}
 }
