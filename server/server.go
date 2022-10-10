@@ -57,6 +57,7 @@ func election(server *Server, state *models.ServerState) {
 	totalNodes := len(state.Nodes) + 1 // add self
 	quorum := math.Ceil(float64(totalNodes) / 2.0)
 	voteGranted := 1 // self
+
 	for _, node := range state.Nodes {
 		// Send requestVote RPC
 		res, err := sendRequestVoteRpc(node.Host, &graft_rpc.RequestVoteInput{
@@ -76,14 +77,14 @@ func election(server *Server, state *models.ServerState) {
 		if res.Term > int32(state.CurrentTerm) {
 			// Fallback to follower
 			log.Println("fallback to follower, received vote with higher term")
-			state.SwitchRole(models.Follower)
+			state.FallbackToFollower(uint16(res.Term))
 			server.ElectionTimeout.Stop() // stop election
 			break
 		}
 	}
 
 	// Become leader if quorum reached
-	if voteGranted >= int(quorum) && state.Role == models.Candidate {
+	if voteGranted >= int(quorum) && state.IsRole(models.Candidate) {
 		log.Printf("become leader, quorum: %v, votes %v \n", quorum, voteGranted)
 		state.SwitchRole(models.Leader)
 		server.ElectionTimeout.Stop() // stop election
@@ -94,8 +95,7 @@ func election(server *Server, state *models.ServerState) {
 func heartbeat(server *Server, state *models.ServerState) {
 	// Receive heartbeat from cluster leader
 	server.ElectionTimeout.Stop()
-	server.TermTimeout.Stop()
-	server.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
+	server.TermTimeout.Reset(models.HEARTBEAT * time.Millisecond)
 }
 
 func sendHeartbeat(server *Server, state *models.ServerState) {
@@ -111,9 +111,8 @@ func sendHeartbeat(server *Server, state *models.ServerState) {
 
 		if res.Term > int32(state.CurrentTerm) {
 			// Fallback to follower
-			state.SwitchRole(models.Follower)
-			server.TermTimeout.Stop()
-			server.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
+			state.FallbackToFollower(uint16(res.Term))
+			server.TermTimeout.Reset(models.HEARTBEAT * time.Millisecond)
 			break
 		}
 	}
@@ -124,37 +123,35 @@ func (s *Server) Start(state *models.ServerState) {
 		select {
 		case <-s.HeartbeatTicker.C:
 			if state.IsRole(models.Leader) {
-				log.Println("send heartbeat to followers")
+				log.Println("PULSE")
 				sendHeartbeat(s, state)
 			}
 
 		case <-s.ElectionTimeout.C:
+			log.Println("ELECTION_TIMEOUT")
 			if state.IsRole(models.Candidate) {
-				log.Println("election timeout, restart election")
-				s.TermTimeout.Stop() // prevent two elections ocurring at the same time
+				log.Println("ELECTION_TIMEOUT: restart election")
 				election(s, state)
-				s.TermTimeout = time.NewTimer(models.HEARTBEAT * time.Millisecond)
 			}
 
 		case <-s.TermTimeout.C:
+			log.Println("TERM_TIMEOUT")
 			if state.IsRole(models.Follower) {
-				log.Println("term timeout, start election")
+				log.Println("TERM_TIMEOUT: start election")
 				election(s, state)
 			}
 
 		case <-state.Heartbeat:
-			log.Println("heartbeat")
+			log.Println("HEARTBEAT")
 			heartbeat(s, state)
 		}
 	}
 }
 
-// TODO: leader should send heartbeat request to followers
-
 func NewServer() *Server {
 	return &Server{
 		TermTimeout:     time.NewTimer(models.HEARTBEAT * time.Millisecond),
 		ElectionTimeout: time.NewTimer(3000 * time.Millisecond),
-		HeartbeatTicker: time.NewTicker(500 * time.Millisecond),
+		HeartbeatTicker: time.NewTicker(1000 * time.Millisecond),
 	}
 }

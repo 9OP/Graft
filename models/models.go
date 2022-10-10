@@ -98,3 +98,11 @@ func (state *ServerState) SwitchRole(role Role) {
 	defer state.mu.Unlock()
 	state.Role = role
 }
+
+func (state *ServerState) FallbackToFollower(term uint16) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.SwitchRole(Follower)
+	state.CurrentTerm = term
+	state.VotedFor = ""
+}
