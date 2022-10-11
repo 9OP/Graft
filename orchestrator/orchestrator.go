@@ -1,8 +1,8 @@
-package server
+package orchestrator
 
 import (
 	"context"
-	"graft/graft_rpc"
+	"graft/api/graft_rpc"
 	"graft/models"
 	"log"
 	"math"
@@ -13,12 +13,13 @@ import (
 )
 
 // Should create helper function an mu to lock reset and set of timers/tickers
-type Server struct {
-	TermTimeout     *time.Timer
-	ElectionTimeout *time.Timer
-	HeartbeatTicker *time.Ticker
+type EventOrchestrator struct {
+	heartbeatTicker *time.Ticker
+	termTicker      *time.Ticker
+	electionTimer   *time.Timer
 }
 
+// Move to api
 func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
@@ -30,6 +31,7 @@ func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_
 	return res, err
 }
 
+// Move to api
 func sendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*graft_rpc.AppendEntriesOutput, error) {
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
@@ -41,17 +43,62 @@ func sendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*gr
 	return res, err
 }
 
-func election(server *Server, state *models.ServerState) {
+func NewEventOrchestrator() *EventOrchestrator {
+	return &EventOrchestrator{
+		heartbeatTicker: time.NewTicker(1000 * time.Millisecond),
+		termTicker:      time.NewTicker(models.HEARTBEAT * time.Millisecond),
+		electionTimer:   time.NewTimer(3000 * time.Millisecond),
+	}
+}
+
+func (och *EventOrchestrator) Start(state *models.ServerState) {
+	for {
+		select {
+		case <-och.heartbeatTicker.C:
+			if state.IsRole(models.Leader) {
+				och.sendHeartbeat(state)
+			}
+
+		case <-och.electionTimer.C:
+			if state.IsRole(models.Candidate) {
+				log.Println("ELECTION_TIMEOUT")
+				och.startElection(state)
+			}
+
+		case <-och.termTicker.C:
+			if state.IsRole(models.Follower) {
+				log.Println("TERM_TIMEOUT")
+				och.startElection(state)
+			}
+
+		case <-state.Heartbeat:
+			log.Println("LEADER HEARTBEAT")
+			och.heartbeat()
+		}
+	}
+}
+
+func (och *EventOrchestrator) heartbeat() {
+	och.electionTimer.Stop()
+	och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
+}
+
+func (och *EventOrchestrator) resetElectionTimeout() {
+	rand.Seed(time.Now().UnixNano())
+	timeout := (rand.Intn(300-150) + 150) * 10
+	och.electionTimer.Reset(time.Duration(timeout) * time.Millisecond)
+}
+
+func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	// Missed cluster leader heartbeat (leader down, network partition, delays etc...)
 	// Start new election
+
+	// Should encode this logic in state.becomeCandidate()
 	state.SwitchRole(models.Candidate)          // become candidate
 	state.CurrentTerm += 1                      // increment term
 	state.PersistentState.VotedFor = state.Name // vote for self
 
-	// Reset election timer
-	rand.Seed(time.Now().UnixNano())
-	timeout := (rand.Intn(300-150) + 150) * 10
-	server.ElectionTimeout = time.NewTimer(time.Duration(timeout) * time.Millisecond)
+	och.resetElectionTimeout()
 
 	// Request votes to each nodes
 	totalNodes := len(state.Nodes) + 1 // add self
@@ -63,8 +110,8 @@ func election(server *Server, state *models.ServerState) {
 		res, err := sendRequestVoteRpc(node.Host, &graft_rpc.RequestVoteInput{
 			Term:         int32(state.CurrentTerm),
 			CandidateId:  state.Name,
-			LastLogIndex: int32(len(state.PersistentState.Log)),
-			LastLogTerm:  int32(state.PersistentState.Log[len(state.PersistentState.Log)-1].Term),
+			LastLogIndex: int32(len(state.PersistentState.Logs)),
+			LastLogTerm:  int32(state.PersistentState.Logs[len(state.PersistentState.Logs)-1].Term),
 		})
 		if err != nil {
 			continue
@@ -78,7 +125,7 @@ func election(server *Server, state *models.ServerState) {
 			// Fallback to follower
 			log.Println("fallback to follower, received vote with higher term")
 			state.FallbackToFollower(uint16(res.Term))
-			server.ElectionTimeout.Stop() // stop election
+			och.electionTimer.Stop() // stop election
 			break
 		}
 	}
@@ -86,19 +133,13 @@ func election(server *Server, state *models.ServerState) {
 	// Become leader if quorum reached
 	if voteGranted >= int(quorum) && state.IsRole(models.Candidate) {
 		log.Printf("become leader, quorum: %v, votes %v \n", quorum, voteGranted)
+
 		state.SwitchRole(models.Leader)
-		server.ElectionTimeout.Stop() // stop election
+		och.electionTimer.Stop()
 	}
-
 }
 
-func heartbeat(server *Server, state *models.ServerState) {
-	// Receive heartbeat from cluster leader
-	server.ElectionTimeout.Stop()
-	server.TermTimeout.Reset(models.HEARTBEAT * time.Millisecond)
-}
-
-func sendHeartbeat(server *Server, state *models.ServerState) {
+func (och *EventOrchestrator) sendHeartbeat(state *models.ServerState) {
 	for _, node := range state.Nodes {
 		// Send heartbeat rpc
 		res, err := sendAppendEntriesRpc(node.Host, &graft_rpc.AppendEntriesInput{
@@ -112,46 +153,15 @@ func sendHeartbeat(server *Server, state *models.ServerState) {
 		if res.Term > int32(state.CurrentTerm) {
 			// Fallback to follower
 			state.FallbackToFollower(uint16(res.Term))
-			server.TermTimeout.Reset(models.HEARTBEAT * time.Millisecond)
+			och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
 			break
 		}
 	}
 }
 
-func (s *Server) Start(state *models.ServerState) {
-	for {
-		select {
-		case <-s.HeartbeatTicker.C:
-			if state.IsRole(models.Leader) {
-				log.Println("PULSE")
-				sendHeartbeat(s, state)
-			}
-
-		case <-s.ElectionTimeout.C:
-			log.Println("ELECTION_TIMEOUT")
-			if state.IsRole(models.Candidate) {
-				log.Println("ELECTION_TIMEOUT: restart election")
-				election(s, state)
-			}
-
-		case <-s.TermTimeout.C:
-			log.Println("TERM_TIMEOUT")
-			if state.IsRole(models.Follower) {
-				log.Println("TERM_TIMEOUT: start election")
-				election(s, state)
-			}
-
-		case <-state.Heartbeat:
-			log.Println("HEARTBEAT")
-			heartbeat(s, state)
-		}
-	}
-}
-
-func NewServer() *Server {
-	return &Server{
-		TermTimeout:     time.NewTimer(models.HEARTBEAT * time.Millisecond),
-		ElectionTimeout: time.NewTimer(3000 * time.Millisecond),
-		HeartbeatTicker: time.NewTicker(1000 * time.Millisecond),
-	}
+func StartEventOrchestrator(state *models.ServerState) *EventOrchestrator {
+	log.Println("START EVENT ORCHESTRATOR")
+	orchestrator := NewEventOrchestrator()
+	go orchestrator.Start(state)
+	return orchestrator
 }

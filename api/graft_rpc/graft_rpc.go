@@ -53,8 +53,8 @@ func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*Req
 
 	// Receiver has not voted yet
 	if state.VotedFor == "" || state.VotedFor == vote.CandidateId {
-		currentLogIndex := len(state.PersistentState.Log)
-		currentLogTerm := state.PersistentState.Log[currentLogIndex-1].Term
+		currentLogIndex := len(state.PersistentState.Logs)
+		currentLogTerm := state.PersistentState.Logs[currentLogIndex-1].Term
 
 		if currentLogTerm <= uint16(vote.LastLogTerm) && currentLogIndex <= int(vote.LastLogIndex) {
 			// Candidate's log is at least up-to-date as receiver

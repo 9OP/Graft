@@ -6,18 +6,18 @@ import (
 	"sync"
 )
 
-const PERSISTENT_STATE_FILE = "state.json"
+const PERSISTENT_STATE_FILE = "orchestrator/state.json"
 const HEARTBEAT = 3000 // ms
 
 type PersistentState struct {
-	CurrentTerm uint16
-	VotedFor    string
-	Log         []Log
+	CurrentTerm uint16 `json:"current_term"`
+	VotedFor    string `json:"voted_for"`
+	Logs        []Log  `json:"logs"`
 }
 
 type Log struct {
-	Term  uint16
-	Value string
+	Term  uint16 `json:"term"`
+	Value string `json:"value"`
 }
 
 func (state *PersistentState) saveState(location string) error {
