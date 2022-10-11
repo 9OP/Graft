@@ -8,7 +8,6 @@ import (
 )
 
 const PERSISTENT_STATE_FILE = "orchestrator/state.json"
-const HEARTBEAT = 3000 // ms
 
 type PersistentState struct {
 	CurrentTerm uint16 `json:"current_term"`

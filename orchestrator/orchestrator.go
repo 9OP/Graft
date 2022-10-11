@@ -1,7 +1,7 @@
 package orchestrator
 
 import (
-	"context"
+	"graft/api"
 	"graft/api/graft_rpc"
 	"graft/models"
 	"log"
@@ -9,8 +9,6 @@ import (
 	"math/rand"
 	"sync"
 	"time"
-
-	"google.golang.org/grpc"
 )
 
 // Should create helper function an mu to lock reset and set of timers/tickers
@@ -21,36 +19,11 @@ type EventOrchestrator struct {
 	mu              sync.Mutex
 }
 
-// Move to api
-func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
-	log.Printf("send vote request to %v", host)
-	var conn *grpc.ClientConn
-	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
-	defer conn.Close()
-
-	c := graft_rpc.NewRpcClient(conn)
-
-	res, err := c.RequestVote(context.Background(), input)
-	return res, err
-}
-
-// Move to api
-func sendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*graft_rpc.AppendEntriesOutput, error) {
-	var conn *grpc.ClientConn
-	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
-	defer conn.Close()
-
-	c := graft_rpc.NewRpcClient(conn)
-
-	res, err := c.AppendEntries(context.Background(), input)
-	return res, err
-}
-
 func NewEventOrchestrator() *EventOrchestrator {
 	return &EventOrchestrator{
 		heartbeatTicker: time.NewTicker(1000 * time.Millisecond),
-		termTicker:      time.NewTicker(models.HEARTBEAT * time.Millisecond),
-		electionTimer:   time.NewTimer(3000 * time.Millisecond),
+		termTicker:      time.NewTicker(3000 * time.Millisecond),
+		electionTimer:   time.NewTimer(4000 * time.Millisecond),
 	}
 }
 
@@ -86,7 +59,7 @@ func (och *EventOrchestrator) heartbeat() {
 	defer och.mu.Unlock()
 
 	och.electionTimer.Stop()
-	och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
+	och.termTicker.Reset(3000 * time.Millisecond)
 }
 
 func (och *EventOrchestrator) resetElectionTimeout() {
@@ -95,8 +68,6 @@ func (och *EventOrchestrator) resetElectionTimeout() {
 
 	rand.Seed(time.Now().UnixNano())
 	timeout := (rand.Intn(300-150) + 150) * 10
-	// och.electionTimer = time.NewTimer(time.Duration(timeout) * time.Millisecond)
-	// och.electionTimer.Stop()
 	och.electionTimer.Reset(time.Duration(timeout) * time.Millisecond)
 }
 
@@ -119,7 +90,7 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 		wg.Add(1)
 		go (func(host string, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := sendRequestVoteRpc(host, voteInput); err == nil {
+			if res, err := api.SendRequestVoteRpc(host, voteInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
 				}
@@ -149,10 +120,9 @@ func (och *EventOrchestrator) sendHeartbeat(state *models.ServerState) {
 		wg.Add(1)
 		go (func(host string, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := sendAppendEntriesRpc(node.Host, heartbeatInput); err == nil {
+			if res, err := api.SendAppendEntriesRpc(host, heartbeatInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
-					// och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
 				}
 			}
 		})(node.Host, &wg)

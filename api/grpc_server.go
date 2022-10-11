@@ -11,9 +11,32 @@ import (
 )
 
 // Move to global const / or config file
-type graftServerStateCtxKeyType string
+// type graftServerStateCtxKeyType string
 
-const GRAFT_SERVER_STATE graftServerStateCtxKeyType = "graft_server_state"
+// const GRAFT_SERVER_STATE graftServerStateCtxKeyType = "graft_server_state"
+
+func SendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
+	log.Printf("send vote request to %v", host)
+	var conn *grpc.ClientConn
+	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
+	defer conn.Close()
+
+	c := graft_rpc.NewRpcClient(conn)
+
+	res, err := c.RequestVote(context.Background(), input)
+	return res, err
+}
+
+func SendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*graft_rpc.AppendEntriesOutput, error) {
+	var conn *grpc.ClientConn
+	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
+	defer conn.Close()
+
+	c := graft_rpc.NewRpcClient(conn)
+
+	res, err := c.AppendEntries(context.Background(), input)
+	return res, err
+}
 
 func attachContextMiddleware(state *models.ServerState) grpc.ServerOption {
 	middleware := func(
@@ -22,7 +45,7 @@ func attachContextMiddleware(state *models.ServerState) grpc.ServerOption {
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (interface{}, error) {
-		ctx = context.WithValue(ctx, GRAFT_SERVER_STATE, state)
+		ctx = context.WithValue(ctx, "graft_server_state", state)
 		h, err := handler(ctx, req)
 		return h, err
 	}
