@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -17,10 +18,12 @@ type EventOrchestrator struct {
 	heartbeatTicker *time.Ticker
 	termTicker      *time.Ticker
 	electionTimer   *time.Timer
+	mu              sync.Mutex
 }
 
 // Move to api
 func sendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
+	log.Printf("send vote request to %v", host)
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
 	defer conn.Close()
@@ -51,7 +54,7 @@ func NewEventOrchestrator() *EventOrchestrator {
 	}
 }
 
-func (och *EventOrchestrator) Start(state *models.ServerState) {
+func (och *EventOrchestrator) start(state *models.ServerState) {
 	for {
 		select {
 		case <-och.heartbeatTicker.C:
@@ -79,89 +82,87 @@ func (och *EventOrchestrator) Start(state *models.ServerState) {
 }
 
 func (och *EventOrchestrator) heartbeat() {
+	och.mu.Lock()
+	defer och.mu.Unlock()
+
 	och.electionTimer.Stop()
 	och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
 }
 
 func (och *EventOrchestrator) resetElectionTimeout() {
+	och.mu.Lock()
+	defer och.mu.Unlock()
+
 	rand.Seed(time.Now().UnixNano())
 	timeout := (rand.Intn(300-150) + 150) * 10
+	// och.electionTimer = time.NewTimer(time.Duration(timeout) * time.Millisecond)
+	// och.electionTimer.Stop()
 	och.electionTimer.Reset(time.Duration(timeout) * time.Millisecond)
 }
 
 func (och *EventOrchestrator) startElection(state *models.ServerState) {
-	// Missed cluster leader heartbeat (leader down, network partition, delays etc...)
-	// Start new election
-
-	// Should encode this logic in state.becomeCandidate()
-	state.SwitchRole(models.Candidate)          // become candidate
-	state.CurrentTerm += 1                      // increment term
-	state.PersistentState.VotedFor = state.Name // vote for self
-
+	state.RaiseToCandidate()
 	och.resetElectionTimeout()
 
-	// Request votes to each nodes
-	totalNodes := len(state.Nodes) + 1 // add self
-	quorum := math.Ceil(float64(totalNodes) / 2.0)
-	voteGranted := 1 // self
-
-	for _, node := range state.Nodes {
-		// Send requestVote RPC
-		res, err := sendRequestVoteRpc(node.Host, &graft_rpc.RequestVoteInput{
-			Term:         int32(state.CurrentTerm),
-			CandidateId:  state.Name,
-			LastLogIndex: int32(len(state.PersistentState.Logs)),
-			LastLogTerm:  int32(state.PersistentState.Logs[len(state.PersistentState.Logs)-1].Term),
-		})
-		if err != nil {
-			continue
-		}
-
-		if res.VoteGranted {
-			log.Printf("grant vote by %v \n", node.Host)
-			voteGranted += 1
-		}
-		if res.Term > int32(state.CurrentTerm) {
-			// Fallback to follower
-			log.Println("fallback to follower, received vote with higher term")
-			state.FallbackToFollower(uint16(res.Term))
-			och.electionTimer.Stop() // stop election
-			break
-		}
+	quorum := math.Ceil(float64(len(state.Nodes)+1) / 2.0)
+	votesGranted := 1 // self
+	voteInput := &graft_rpc.RequestVoteInput{
+		Term:         int32(state.CurrentTerm),
+		CandidateId:  string(state.Name),
+		LastLogIndex: int32(state.LastLogIndex()),
+		LastLogTerm:  int32(state.LastLogTerm()),
 	}
 
-	// Become leader if quorum reached
-	if voteGranted >= int(quorum) && state.IsRole(models.Candidate) {
-		log.Printf("become leader, quorum: %v, votes %v \n", quorum, voteGranted)
+	var m sync.Mutex
+	var wg sync.WaitGroup
+	for _, node := range state.Nodes {
+		wg.Add(1)
+		go (func(host string, w *sync.WaitGroup) {
+			defer w.Done()
+			if res, err := sendRequestVoteRpc(host, voteInput); err == nil {
+				if res.Term > int32(state.CurrentTerm) {
+					state.DowngradeToFollower(uint16(res.Term))
+				}
+				if res.VoteGranted {
+					m.Lock()
+					defer m.Unlock()
+					votesGranted += 1
+				}
+			}
+		})(node.Host, &wg)
+	}
+	wg.Wait()
 
-		state.SwitchRole(models.Leader)
-		och.electionTimer.Stop()
+	if votesGranted >= int(quorum) && state.IsRole(models.Candidate) {
+		state.PromoteToLeader()
 	}
 }
 
 func (och *EventOrchestrator) sendHeartbeat(state *models.ServerState) {
-	for _, node := range state.Nodes {
-		// Send heartbeat rpc
-		res, err := sendAppendEntriesRpc(node.Host, &graft_rpc.AppendEntriesInput{
-			Term:     int32(state.CurrentTerm),
-			LeaderId: state.Name,
-		})
-		if err != nil {
-			continue
-		}
-
-		if res.Term > int32(state.CurrentTerm) {
-			// Fallback to follower
-			state.FallbackToFollower(uint16(res.Term))
-			och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
-			break
-		}
+	heartbeatInput := &graft_rpc.AppendEntriesInput{
+		Term:     int32(state.CurrentTerm),
+		LeaderId: state.Name,
 	}
+
+	var wg sync.WaitGroup
+	for _, node := range state.Nodes {
+		wg.Add(1)
+		go (func(host string, w *sync.WaitGroup) {
+			defer w.Done()
+			if res, err := sendAppendEntriesRpc(node.Host, heartbeatInput); err == nil {
+				if res.Term > int32(state.CurrentTerm) {
+					state.DowngradeToFollower(uint16(res.Term))
+					// och.termTicker.Reset(models.HEARTBEAT * time.Millisecond)
+				}
+			}
+		})(node.Host, &wg)
+	}
+	wg.Wait()
 }
 
 func StartEventOrchestrator(state *models.ServerState) *EventOrchestrator {
 	log.Println("START EVENT ORCHESTRATOR")
 	orchestrator := NewEventOrchestrator()
-	go orchestrator.Start(state)
+	go orchestrator.start(state)
 	return orchestrator
 }

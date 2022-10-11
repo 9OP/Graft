@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"sync"
 )
@@ -34,6 +35,17 @@ func (state *PersistentState) loadState(location string) error {
 		return err
 	}
 	return json.Unmarshal(data, state)
+}
+
+func (state *PersistentState) LastLogIndex() uint16 {
+	return uint16(len(state.Logs))
+}
+
+func (state *PersistentState) LastLogTerm() uint16 {
+	if lastLogIndex := state.LastLogIndex(); lastLogIndex != 0 {
+		return uint16(state.Logs[lastLogIndex-1].Term)
+	}
+	return 0
 }
 
 type FollowerState struct {
@@ -93,16 +105,32 @@ func (state *ServerState) IsRole(role Role) bool {
 	return state.Role == role
 }
 
-func (state *ServerState) SwitchRole(role Role) {
+func (state *ServerState) DowngradeToFollower(term uint16) {
+	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	state.mu.Lock()
 	defer state.mu.Unlock()
-	state.Role = role
-}
 
-func (state *ServerState) FallbackToFollower(term uint16) {
-	state.mu.Lock()
-	defer state.mu.Unlock()
-	state.SwitchRole(Follower)
+	state.Role = Follower
 	state.CurrentTerm = term
 	state.VotedFor = ""
+	// state.saveState(PERSISTENT_STATE_FILE)
+}
+
+func (state *ServerState) RaiseToCandidate() {
+	log.Printf("RAISE TO CANDIDATE TERM: %d\n", state.CurrentTerm+1)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	state.Role = Candidate
+	state.CurrentTerm += 1
+	state.VotedFor = state.Name
+	// state.saveState(PERSISTENT_STATE_FILE)
+}
+
+func (state *ServerState) PromoteToLeader() {
+	log.Println("PROMOTE TO LEADER")
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	state.Role = Leader
 }

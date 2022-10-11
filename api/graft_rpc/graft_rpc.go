@@ -17,11 +17,7 @@ func (s *Service) AppendEntries(ctx context.Context, entries *AppendEntriesInput
 
 	// Convert receiver back to follower
 	if entries.Term > int32(state.CurrentTerm) {
-		log.Println("->AppendEntries, convert to follower")
-		state.SwitchRole(models.Follower)
-		// TODO: should set in lock
-		state.VotedFor = ""
-		state.CurrentTerm = uint16(entries.Term)
+		state.DowngradeToFollower(uint16(entries.Term))
 	}
 
 	return &AppendEntriesOutput{}, nil
@@ -39,10 +35,7 @@ func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*Req
 
 	// Convert receiver back to follower
 	if vote.Term > int32(state.CurrentTerm) {
-		log.Println("->RequestVote, convert to follower")
-		state.SwitchRole(models.Follower)
-		state.VotedFor = ""
-		state.CurrentTerm = uint16(vote.Term)
+		state.DowngradeToFollower(uint16(vote.Term))
 	}
 
 	// Candidate's term is outdated

@@ -1,5 +1,5 @@
 {
-  "CurrentTerm": 0,
-  "VotedFor": "",
-  "Log": [{ "Term": 0, "Value": "init" }]
+  "current_term": 0,
+  "voted_for": "",
+  "logs": [{ "term": 0, "value": "init" }]
 }
