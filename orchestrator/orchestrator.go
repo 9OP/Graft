@@ -5,7 +5,6 @@ import (
 	"graft/api/graft_rpc"
 	"graft/models"
 	"log"
-	"math"
 	"math/rand"
 	"sync"
 	"time"
@@ -74,7 +73,6 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	state.RaiseToCandidate()
 	och.resetElectionTimeout()
 
-	quorum := math.Ceil(float64(len(state.Nodes)+1) / 2.0)
 	votesGranted := 1 // self
 	voteInput := &graft_rpc.RequestVoteInput{
 		Term:         int32(state.CurrentTerm),
@@ -103,7 +101,7 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	}
 	wg.Wait()
 
-	if votesGranted >= int(quorum) && state.IsRole(models.Candidate) {
+	if votesGranted >= state.Quorum() && state.IsRole(models.Candidate) {
 		state.PromoteToLeader()
 	}
 }

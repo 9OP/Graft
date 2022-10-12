@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"os"
 	"sync"
 )
@@ -110,13 +111,22 @@ func (state *ServerState) Heartbeat() chan bool {
 	return state.heartbeat
 }
 
+func (state *ServerState) Quorum() int {
+	totalNodes := len(state.Nodes) + 1 // add self
+	return int(math.Ceil(float64(totalNodes) / 2.0))
+}
+
 func (state *ServerState) Vote(candidateId string) {
 	state.mu.Lock()
 	defer state.mu.Unlock()
+
 	state.VotedFor = candidateId
 }
 
 func (state *ServerState) CanVote(candidateId string, candidateLastLogIndex int, candidateLastLogTerm int) bool {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
 	currentLogIndex := state.LastLogIndex()
 	currentLogTerm := state.LastLogTerm()
 
@@ -129,6 +139,7 @@ func (state *ServerState) CanVote(candidateId string, candidateLastLogIndex int,
 func (state *ServerState) IsRole(role Role) bool {
 	state.mu.Lock()
 	defer state.mu.Unlock()
+
 	return state.Role == role
 }
 
