@@ -10,61 +10,51 @@ import (
 	"time"
 )
 
-const HEARTBEAT_FREQ = 50
-const TERM_TIMEOUT = 250
-const ELECTION_TIMEOUT = 350
+const HEARTBEAT_TICKER = 50  // ms
+const ELECTION_TIMEOUT = 350 // ms
 
 type EventOrchestrator struct {
+	serverState *models.ServerState
+
 	heartbeatTicker *time.Ticker
-	termTicker      *time.Ticker
 	electionTimer   *time.Timer
 	mu              sync.Mutex
 }
 
-func NewEventOrchestrator() *EventOrchestrator {
+func NewEventOrchestrator(state *models.ServerState) *EventOrchestrator {
 	return &EventOrchestrator{
-		heartbeatTicker: time.NewTicker(HEARTBEAT_FREQ * time.Millisecond),
-		termTicker:      time.NewTicker(TERM_TIMEOUT * time.Millisecond),
+		serverState: state,
+
+		heartbeatTicker: time.NewTicker(HEARTBEAT_TICKER * time.Millisecond),
 		electionTimer:   time.NewTimer(ELECTION_TIMEOUT * time.Millisecond),
 	}
 }
 
-func (och *EventOrchestrator) start(state *models.ServerState) {
+func (och *EventOrchestrator) Start() {
+	log.Println("START EVENT ORCHESTRATOR")
+
 	counter := 0
 	for {
 		select {
 		case <-och.heartbeatTicker.C:
-			if state.IsLeader() {
-				och.sendHeartbeat(state)
+			if och.serverState.IsLeader() {
+				och.sendHeartbeat()
 			}
 
 		case <-och.electionTimer.C:
-			if state.IsCandidate() {
-				log.Println("ELECTION_TIMEOUT")
-				och.startElection(state)
+			if och.serverState.IsFollower() || och.serverState.IsCandidate() {
+				log.Println("TIMEOUT")
+				och.startElection()
 			}
 
-		case <-och.termTicker.C:
-			if state.IsFollower() {
-				log.Println("TERM_TIMEOUT")
-				och.startElection(state)
-			}
-
-		case <-state.Heartbeat():
+		case <-och.serverState.Heartbeat():
 			counter += 1
-			if counter%(HEARTBEAT_FREQ*3) == 0 {
+			if counter%(HEARTBEAT_TICKER*3) == 0 {
 				log.Println("HEARTBEAT")
 			}
-			och.heartbeat(state)
+			och.resetElectionTimeout()
 		}
 	}
-}
-
-func (och *EventOrchestrator) heartbeat(state *models.ServerState) {
-	och.mu.Lock()
-	defer och.mu.Unlock()
-
-	och.termTicker.Reset(TERM_TIMEOUT * time.Millisecond)
 }
 
 func (och *EventOrchestrator) resetElectionTimeout() {
@@ -76,14 +66,15 @@ func (och *EventOrchestrator) resetElectionTimeout() {
 	och.electionTimer.Reset(time.Duration(timeout) * time.Millisecond)
 }
 
-func (och *EventOrchestrator) startElection(state *models.ServerState) {
+func (och *EventOrchestrator) startElection() {
+	state := och.serverState
 	state.RaiseToCandidate()
 	och.resetElectionTimeout()
 
 	votesGranted := 1 // vote for self
 	voteInput := &graft_rpc.RequestVoteInput{
-		Term:         int32(state.CurrentTerm),
 		CandidateId:  string(state.Name),
+		Term:         int32(state.CurrentTerm),
 		LastLogIndex: int32(state.LastLogIndex()),
 		LastLogTerm:  int32(state.LastLogTerm()),
 	}
@@ -97,6 +88,7 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 			if res, err := api.SendRequestVoteRpc(host, voteInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
+					return
 				}
 				if res.VoteGranted {
 					m.Lock()
@@ -113,7 +105,9 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	}
 }
 
-func (och *EventOrchestrator) sendHeartbeat(state *models.ServerState) {
+func (och *EventOrchestrator) sendHeartbeat() {
+	state := och.serverState
+
 	heartbeatInput := &graft_rpc.AppendEntriesInput{
 		Term:     int32(state.CurrentTerm),
 		LeaderId: state.Name,
@@ -127,16 +121,10 @@ func (och *EventOrchestrator) sendHeartbeat(state *models.ServerState) {
 			if res, err := api.SendAppendEntriesRpc(host, heartbeatInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
+					return
 				}
 			}
 		})(node.Host, &wg)
 	}
 	wg.Wait()
-}
-
-func StartEventOrchestrator(state *models.ServerState) *EventOrchestrator {
-	log.Println("START EVENT ORCHESTRATOR")
-	orchestrator := NewEventOrchestrator()
-	go orchestrator.start(state)
-	return orchestrator
 }

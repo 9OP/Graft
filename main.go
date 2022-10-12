@@ -39,6 +39,10 @@ func parseArgs() Args {
 func main() {
 	args := parseArgs()
 	state := models.NewServerState(args.name, &args.nodes)
-	orchestrator.StartEventOrchestrator(state)
-	api.StartGrpcServer(args.port, state)
+
+	och := orchestrator.NewEventOrchestrator(state)
+	go och.Start()
+
+	srv := api.NewGrpcServer(state)
+	srv.Start(args.port)
 }

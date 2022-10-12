@@ -52,19 +52,28 @@ func attachContextMiddleware(state *models.ServerState) grpc.ServerOption {
 	return grpc.UnaryInterceptor(middleware)
 }
 
-func StartGrpcServer(port string, state *models.ServerState) *grpc.Server {
+type GrpcServer struct {
+	serverState *models.ServerState
+}
+
+func NewGrpcServer(state *models.ServerState) *GrpcServer {
+	return &GrpcServer{
+		serverState: state,
+	}
+}
+
+func (srv *GrpcServer) Start(port string) {
 	log.Println("START GRPC SERVER")
+
 	lis, err := net.Listen("tcp", "127.0.0.1:"+port)
 	if err != nil {
 		log.Fatalf("Failed to listen: \n\t%v\n", err)
 	}
 
-	server := grpc.NewServer(attachContextMiddleware(state))
+	server := grpc.NewServer(attachContextMiddleware(srv.serverState))
 	graft_rpc.RegisterRpcServer(server, &graft_rpc.Service{})
 
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: \n\t%v\n", err)
 	}
-
-	return server
 }
