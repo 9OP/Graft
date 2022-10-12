@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const HEARTBEAT_FREQ = 50
+const TERM_TIMEOUT = 250
+const ELECTION_TIMEOUT = 350
+
 type EventOrchestrator struct {
 	heartbeatTicker *time.Ticker
 	termTicker      *time.Ticker
@@ -19,13 +23,14 @@ type EventOrchestrator struct {
 
 func NewEventOrchestrator() *EventOrchestrator {
 	return &EventOrchestrator{
-		heartbeatTicker: time.NewTicker(1000 * time.Millisecond),
-		termTicker:      time.NewTicker(3000 * time.Millisecond),
-		electionTimer:   time.NewTimer(4000 * time.Millisecond),
+		heartbeatTicker: time.NewTicker(HEARTBEAT_FREQ * time.Millisecond),
+		termTicker:      time.NewTicker(TERM_TIMEOUT * time.Millisecond),
+		electionTimer:   time.NewTimer(ELECTION_TIMEOUT * time.Millisecond),
 	}
 }
 
 func (och *EventOrchestrator) start(state *models.ServerState) {
+	counter := 0
 	for {
 		select {
 		case <-och.heartbeatTicker.C:
@@ -46,7 +51,10 @@ func (och *EventOrchestrator) start(state *models.ServerState) {
 			}
 
 		case <-state.Heartbeat():
-			log.Println("LEADER HEARTBEAT")
+			counter += 1
+			if counter%(HEARTBEAT_FREQ*3) == 0 {
+				log.Println("HEARTBEAT")
+			}
 			och.heartbeat(state)
 		}
 	}
@@ -56,7 +64,7 @@ func (och *EventOrchestrator) heartbeat(state *models.ServerState) {
 	och.mu.Lock()
 	defer och.mu.Unlock()
 
-	och.termTicker.Reset(3000 * time.Millisecond)
+	och.termTicker.Reset(TERM_TIMEOUT * time.Millisecond)
 }
 
 func (och *EventOrchestrator) resetElectionTimeout() {
@@ -64,7 +72,7 @@ func (och *EventOrchestrator) resetElectionTimeout() {
 	defer och.mu.Unlock()
 
 	rand.Seed(time.Now().UnixNano())
-	timeout := (rand.Intn(300-150) + 150) * 10
+	timeout := (rand.Intn(ELECTION_TIMEOUT/2) + ELECTION_TIMEOUT/2)
 	och.electionTimer.Reset(time.Duration(timeout) * time.Millisecond)
 }
 

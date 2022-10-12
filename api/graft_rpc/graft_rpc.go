@@ -24,6 +24,7 @@ func (s *Service) AppendEntries(ctx context.Context, entries *AppendEntriesInput
 
 func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*RequestVoteOutput, error) {
 	state := ctx.Value("graft_server_state").(*models.ServerState)
+	state.Ping() // retard receiver to raise to candidate
 
 	output := &RequestVoteOutput{
 		Term:        int32(state.CurrentTerm),
