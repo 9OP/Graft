@@ -47,18 +47,17 @@ func (och *EventOrchestrator) start(state *models.ServerState) {
 				och.startElection(state)
 			}
 
-		case <-state.Heartbeat:
+		case <-state.Heartbeat():
 			log.Println("LEADER HEARTBEAT")
-			och.heartbeat()
+			och.heartbeat(state)
 		}
 	}
 }
 
-func (och *EventOrchestrator) heartbeat() {
+func (och *EventOrchestrator) heartbeat(state *models.ServerState) {
 	och.mu.Lock()
 	defer och.mu.Unlock()
 
-	och.electionTimer.Stop()
 	och.termTicker.Reset(3000 * time.Millisecond)
 }
 

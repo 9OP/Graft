@@ -16,7 +16,6 @@ import (
 // const GRAFT_SERVER_STATE graftServerStateCtxKeyType = "graft_server_state"
 
 func SendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
-	log.Printf("send vote request to %v", host)
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
 	defer conn.Close()

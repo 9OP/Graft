@@ -81,10 +81,11 @@ type ServerState struct {
 	PersistentState
 	FollowerState
 	Role
-	Heartbeat chan bool
-	Name      string
-	Nodes     []Node
-	mu        sync.Mutex // required for safe mutation accross go routines
+	Name  string
+	Nodes []Node
+
+	heartbeat chan bool
+	mu        sync.Mutex
 }
 
 func NewServerState() *ServerState {
@@ -92,10 +93,21 @@ func NewServerState() *ServerState {
 		Role:            Follower,
 		PersistentState: PersistentState{},
 		FollowerState:   FollowerState{CommitIndex: 0, LastApplied: 0},
-		Heartbeat:       make(chan bool),
+		// heartbeat need to be buffered 1 otherwise it is blocking
+		heartbeat: make(chan bool, 1),
 	}
 	state.PersistentState.loadState(PERSISTENT_STATE_FILE)
 	return &state
+}
+
+func (state *ServerState) Ping() {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.heartbeat <- true
+}
+
+func (state *ServerState) Heartbeat() chan bool {
+	return state.heartbeat
 }
 
 func (state *ServerState) Vote(candidateId string) {
