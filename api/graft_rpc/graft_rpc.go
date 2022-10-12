@@ -3,7 +3,6 @@ package graft_rpc
 import (
 	"context"
 	"graft/models"
-	"log"
 )
 
 type Service struct {
@@ -11,55 +10,38 @@ type Service struct {
 }
 
 func (s *Service) AppendEntries(ctx context.Context, entries *AppendEntriesInput) (*AppendEntriesOutput, error) {
-	log.Println("->AppendEntries")
 	state := ctx.Value("graft_server_state").(*models.ServerState)
 	state.Heartbeat <- true
 
-	// Convert receiver back to follower
+	output := &AppendEntriesOutput{}
+
 	if entries.Term > int32(state.CurrentTerm) {
 		state.DowngradeToFollower(uint16(entries.Term))
 	}
 
-	return &AppendEntriesOutput{}, nil
+	return output, nil
 }
 
 func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*RequestVoteOutput, error) {
-	log.Println("->RequestVote")
 	state := ctx.Value("graft_server_state").(*models.ServerState)
-	// state.Heartbeat <- true // Prevent receiver to turn into a candidate
 
-	// Leader does not grant vote
-	if state.IsRole(models.Leader) {
-		return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: false}, nil
+	output := &RequestVoteOutput{
+		Term:        int32(state.CurrentTerm),
+		VoteGranted: false,
 	}
 
-	// Convert receiver back to follower
 	if vote.Term > int32(state.CurrentTerm) {
 		state.DowngradeToFollower(uint16(vote.Term))
 	}
 
-	// Candidate's term is outdated
 	if vote.Term < int32(state.CurrentTerm) {
-		log.Println("->RequestVote: Candidate term is outdated")
-		return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: false}, nil
+		return output, nil
 	}
 
-	// Receiver has not voted yet
-	if state.VotedFor == "" || state.VotedFor == vote.CandidateId {
-		currentLogIndex := len(state.PersistentState.Logs)
-		currentLogTerm := state.PersistentState.Logs[currentLogIndex-1].Term
-
-		if currentLogTerm <= uint16(vote.LastLogTerm) && currentLogIndex <= int(vote.LastLogIndex) {
-			// Candidate's log is at least up-to-date as receiver
-			state.VotedFor = vote.CandidateId
-			return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: true}, nil
-		}
-
-		// Candidate's log is not up-to-date
-		return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: false}, nil
+	if state.CanVote(vote.CandidateId, int(vote.LastLogIndex), int(vote.LastLogTerm)) {
+		state.Vote(vote.CandidateId)
+		output.VoteGranted = true
 	}
 
-	// Receiver already voted
-	log.Println("->RequestVote: recevier already voted")
-	return &RequestVoteOutput{Term: int32(state.CurrentTerm), VoteGranted: false}, nil
+	return output, nil
 }

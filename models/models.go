@@ -98,6 +98,22 @@ func NewServerState() *ServerState {
 	return &state
 }
 
+func (state *ServerState) Vote(candidateId string) {
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	state.VotedFor = candidateId
+}
+
+func (state *ServerState) CanVote(candidateId string, candidateLastLogIndex int, candidateLastLogTerm int) bool {
+	currentLogIndex := state.LastLogIndex()
+	currentLogTerm := state.LastLogTerm()
+
+	voteAvailable := state.VotedFor == "" || state.VotedFor == candidateId
+	candidateUpToDate := int(currentLogTerm) <= candidateLastLogTerm && currentLogIndex <= currentLogIndex
+
+	return voteAvailable && candidateUpToDate
+}
+
 func (state *ServerState) IsRole(role Role) bool {
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -127,7 +143,7 @@ func (state *ServerState) RaiseToCandidate() {
 }
 
 func (state *ServerState) PromoteToLeader() {
-	log.Println("PROMOTE TO LEADER")
+	log.Printf("PROMOTE TO LEADER TERM: %d\n", state.CurrentTerm)
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
