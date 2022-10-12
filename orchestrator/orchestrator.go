@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// Should create helper function an mu to lock reset and set of timers/tickers
 type EventOrchestrator struct {
 	heartbeatTicker *time.Ticker
 	termTicker      *time.Ticker
@@ -30,18 +29,18 @@ func (och *EventOrchestrator) start(state *models.ServerState) {
 	for {
 		select {
 		case <-och.heartbeatTicker.C:
-			if state.IsRole(models.Leader) {
+			if state.IsLeader() {
 				och.sendHeartbeat(state)
 			}
 
 		case <-och.electionTimer.C:
-			if state.IsRole(models.Candidate) {
+			if state.IsCandidate() {
 				log.Println("ELECTION_TIMEOUT")
 				och.startElection(state)
 			}
 
 		case <-och.termTicker.C:
-			if state.IsRole(models.Follower) {
+			if state.IsFollower() {
 				log.Println("TERM_TIMEOUT")
 				och.startElection(state)
 			}
@@ -73,7 +72,7 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	state.RaiseToCandidate()
 	och.resetElectionTimeout()
 
-	votesGranted := 1 // self
+	votesGranted := 1 // vote for self
 	voteInput := &graft_rpc.RequestVoteInput{
 		Term:         int32(state.CurrentTerm),
 		CandidateId:  string(state.Name),
@@ -101,7 +100,7 @@ func (och *EventOrchestrator) startElection(state *models.ServerState) {
 	}
 	wg.Wait()
 
-	if votesGranted >= state.Quorum() && state.IsRole(models.Candidate) {
+	if votesGranted >= state.Quorum() && state.IsCandidate() {
 		state.PromoteToLeader()
 	}
 }

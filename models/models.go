@@ -136,11 +136,19 @@ func (state *ServerState) CanVote(candidateId string, candidateLastLogIndex int,
 	return voteAvailable && candidateUpToDate
 }
 
-func (state *ServerState) IsRole(role Role) bool {
+func (state *ServerState) isRole(role Role) bool {
 	state.mu.Lock()
 	defer state.mu.Unlock()
-
 	return state.Role == role
+}
+func (state *ServerState) IsFollower() bool {
+	return state.isRole(Follower)
+}
+func (state *ServerState) IsCandidate() bool {
+	return state.isRole(Candidate)
+}
+func (state *ServerState) IsLeader() bool {
+	return state.isRole(Leader)
 }
 
 func (state *ServerState) DowngradeToFollower(term uint16) {
