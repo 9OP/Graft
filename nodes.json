@@ -1,14 +1,14 @@
 [
   {
-    "name": "Server-1",
+    "name": "turing",
     "host": "10001"
   },
   {
-    "name": "Server-2",
+    "name": "ritchie",
     "host": "10002"
   },
   {
-    "name": "Server-3",
+    "name": "lovelace",
     "host": "10003"
   }
 ]

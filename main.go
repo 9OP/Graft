@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"graft/api"
 	"graft/models"
 	"graft/orchestrator"
@@ -10,22 +9,22 @@ import (
 )
 
 type Args struct {
-	Por   string
-	Name  string // server id
-	Nodes []models.Node
+	port  string
+	name  string // server id
+	nodes []models.Node
 }
 
 func parseArgs() Args {
-	Por := os.Args[1]
+	port := os.Args[1]
 	nodes := []models.Node{}
 	var name string
 	daa, _ := os.ReadFile("nodes.json")
 	json.Unmarshal(daa, &nodes)
 
-	// Filer curren hos from nodes
+	// Filtert current host from nodes
 	n := 0
 	for _, node := range nodes {
-		if node.Host != Por {
+		if node.Host != port {
 			nodes[n] = node
 			n++
 		} else {
@@ -34,17 +33,12 @@ func parseArgs() Args {
 	}
 	nodes = nodes[:n]
 
-	return Args{Por: Por, Nodes: nodes, Name: name}
+	return Args{port: port, nodes: nodes, name: name}
 }
 
 func main() {
 	args := parseArgs()
-	fmt.Println(args)
-
-	state := models.NewServerState()
-	state.Name = args.Name
-	state.Nodes = args.Nodes
-
+	state := models.NewServerState(args.name, &args.nodes)
 	orchestrator.StartEventOrchestrator(state)
-	api.StartGrpcServer(args.Por, state)
+	api.StartGrpcServer(args.port, state)
 }

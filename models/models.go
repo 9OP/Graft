@@ -8,21 +8,25 @@ import (
 	"sync"
 )
 
-const PERSISTENT_STATE_FILE = "orchestrator/state.json"
-
 type PersistentState struct {
-	CurrentTerm uint16 `json:"current_term"`
-	VotedFor    string `json:"voted_for"`
-	Logs        []Log  `json:"logs"`
+	CurrentTerm uint16       `json:"current_term"`
+	VotedFor    string       `json:"voted_for"`
+	MachineLogs []MachineLog `json:"machine_logs"`
 }
 
-type Log struct {
+type MachineLog struct {
 	Term  uint16 `json:"term"`
 	Value string `json:"value"`
 }
 
+var DEFAULT_STATE PersistentState = PersistentState{
+	CurrentTerm: 0,
+	VotedFor:    "",
+	MachineLogs: []MachineLog{{Term: 0, Value: ""}},
+}
+
 func (state *PersistentState) saveState(location string) error {
-	data, err := json.Marshal(*state)
+	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -32,18 +36,21 @@ func (state *PersistentState) saveState(location string) error {
 func (state *PersistentState) loadState(location string) error {
 	data, err := os.ReadFile(location)
 	if err != nil {
+		state.CurrentTerm = DEFAULT_STATE.CurrentTerm
+		state.VotedFor = DEFAULT_STATE.VotedFor
+		state.MachineLogs = DEFAULT_STATE.MachineLogs
 		return err
 	}
 	return json.Unmarshal(data, state)
 }
 
 func (state *PersistentState) LastLogIndex() uint16 {
-	return uint16(len(state.Logs))
+	return uint16(len(state.MachineLogs))
 }
 
 func (state *PersistentState) LastLogTerm() uint16 {
 	if lastLogIndex := state.LastLogIndex(); lastLogIndex != 0 {
-		return uint16(state.Logs[lastLogIndex-1].Term)
+		return uint16((state.MachineLogs)[lastLogIndex-1].Term)
 	}
 	return 0
 }
@@ -89,16 +96,29 @@ type ServerState struct {
 	mu        sync.Mutex
 }
 
-func NewServerState() *ServerState {
+func NewServerState(name string, nodes *[]Node) *ServerState {
 	state := ServerState{
 		Role:            Follower,
 		PersistentState: PersistentState{},
 		FollowerState:   FollowerState{CommitIndex: 0, LastApplied: 0},
+		Name:            name,
+		Nodes:           *nodes,
 		// heartbeat need to be buffered 1 otherwise it is blocking
 		heartbeat: make(chan bool, 1),
 	}
-	state.PersistentState.loadState(PERSISTENT_STATE_FILE)
+	state.loadState()
 	return &state
+}
+
+func (state *ServerState) persistenceLocation() string {
+	location := "orchestrator/state_" + state.Name + ".json"
+	return location
+}
+func (state *ServerState) loadState() {
+	state.PersistentState.loadState(state.persistenceLocation())
+}
+func (state *ServerState) saveState() {
+	state.PersistentState.saveState(state.persistenceLocation())
 }
 
 func (state *ServerState) Ping() {
@@ -121,17 +141,18 @@ func (state *ServerState) Vote(candidateId string) {
 	defer state.mu.Unlock()
 
 	state.VotedFor = candidateId
+	state.saveState()
 }
 
 func (state *ServerState) CanVote(candidateId string, candidateLastLogIndex int, candidateLastLogTerm int) bool {
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
-	currentLogIndex := state.LastLogIndex()
+	currentLogIndex := int(state.LastLogIndex())
 	currentLogTerm := state.LastLogTerm()
 
 	voteAvailable := state.VotedFor == "" || state.VotedFor == candidateId
-	candidateUpToDate := int(currentLogTerm) <= candidateLastLogTerm && currentLogIndex <= currentLogIndex
+	candidateUpToDate := int(currentLogTerm) <= candidateLastLogTerm && currentLogIndex <= candidateLastLogIndex
 
 	return voteAvailable && candidateUpToDate
 }
@@ -159,7 +180,7 @@ func (state *ServerState) DowngradeToFollower(term uint16) {
 	state.Role = Follower
 	state.CurrentTerm = term
 	state.VotedFor = ""
-	// state.saveState(PERSISTENT_STATE_FILE)
+	state.saveState()
 }
 
 func (state *ServerState) RaiseToCandidate() {
@@ -170,7 +191,7 @@ func (state *ServerState) RaiseToCandidate() {
 	state.Role = Candidate
 	state.CurrentTerm += 1
 	state.VotedFor = state.Name
-	// state.saveState(PERSISTENT_STATE_FILE)
+	state.saveState()
 }
 
 func (state *ServerState) PromoteToLeader() {
