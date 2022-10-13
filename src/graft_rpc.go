@@ -1,19 +1,19 @@
-package graft_rpc
+package main
 
 import (
 	"context"
-	"graft/models"
+	rpc "graft/src/api/graft_rpc"
 )
 
 type Service struct {
-	UnimplementedRpcServer
+	rpc.UnimplementedRpcServer
 }
 
-func (s *Service) AppendEntries(ctx context.Context, entries *AppendEntriesInput) (*AppendEntriesOutput, error) {
-	state := ctx.Value("graft_server_state").(*models.ServerState)
+func (s *Service) AppendEntries(ctx context.Context, entries *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+	state := ctx.Value("graft_server_state").(*ServerState)
 	state.Ping()
 
-	output := &AppendEntriesOutput{}
+	output := &rpc.AppendEntriesOutput{}
 
 	if entries.Term > int32(state.CurrentTerm) {
 		state.DowngradeToFollower(uint16(entries.Term))
@@ -22,11 +22,11 @@ func (s *Service) AppendEntries(ctx context.Context, entries *AppendEntriesInput
 	return output, nil
 }
 
-func (s *Service) RequestVote(ctx context.Context, vote *RequestVoteInput) (*RequestVoteOutput, error) {
-	state := ctx.Value("graft_server_state").(*models.ServerState)
+func (s *Service) RequestVote(ctx context.Context, vote *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+	state := ctx.Value("graft_server_state").(*ServerState)
 	state.Ping() // retard receiver to raise to candidate
 
-	output := &RequestVoteOutput{
+	output := &rpc.RequestVoteOutput{
 		Term:        int32(state.CurrentTerm),
 		VoteGranted: false,
 	}

@@ -1,9 +1,8 @@
-package api
+package main
 
 import (
 	"context"
-	"graft/api/graft_rpc"
-	"graft/models"
+	rpc "graft/src/api/graft_rpc"
 	"log"
 	"net"
 
@@ -15,29 +14,29 @@ import (
 
 // const GRAFT_SERVER_STATE graftServerStateCtxKeyType = "graft_server_state"
 
-func SendRequestVoteRpc(host string, input *graft_rpc.RequestVoteInput) (*graft_rpc.RequestVoteOutput, error) {
+func SendRequestVoteRpc(host string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
 	defer conn.Close()
 
-	c := graft_rpc.NewRpcClient(conn)
+	c := rpc.NewRpcClient(conn)
 
 	res, err := c.RequestVote(context.Background(), input)
 	return res, err
 }
 
-func SendAppendEntriesRpc(host string, input *graft_rpc.AppendEntriesInput) (*graft_rpc.AppendEntriesOutput, error) {
+func SendAppendEntriesRpc(host string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
 	var conn *grpc.ClientConn
 	conn, _ = grpc.Dial("127.0.0.1:"+host, grpc.WithInsecure())
 	defer conn.Close()
 
-	c := graft_rpc.NewRpcClient(conn)
+	c := rpc.NewRpcClient(conn)
 
 	res, err := c.AppendEntries(context.Background(), input)
 	return res, err
 }
 
-func attachContextMiddleware(state *models.ServerState) grpc.ServerOption {
+func attachContextMiddleware(state *ServerState) grpc.ServerOption {
 	middleware := func(
 		ctx context.Context,
 		req interface{},
@@ -53,10 +52,10 @@ func attachContextMiddleware(state *models.ServerState) grpc.ServerOption {
 }
 
 type GrpcServer struct {
-	serverState *models.ServerState
+	serverState *ServerState
 }
 
-func NewGrpcServer(state *models.ServerState) *GrpcServer {
+func NewGrpcServer(state *ServerState) *GrpcServer {
 	return &GrpcServer{
 		serverState: state,
 	}
@@ -71,7 +70,7 @@ func (srv *GrpcServer) Start(port string) {
 	}
 
 	server := grpc.NewServer(attachContextMiddleware(srv.serverState))
-	graft_rpc.RegisterRpcServer(server, &graft_rpc.Service{})
+	rpc.RegisterRpcServer(server, &Service{})
 
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: \n\t%v\n", err)

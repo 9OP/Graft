@@ -1,9 +1,7 @@
-package orchestrator
+package main
 
 import (
-	"graft/api"
-	"graft/api/graft_rpc"
-	"graft/models"
+	"graft/src/api/graft_rpc"
 	"log"
 	"math/rand"
 	"sync"
@@ -14,14 +12,14 @@ const HEARTBEAT_TICKER = 50  // ms
 const ELECTION_TIMEOUT = 350 // ms
 
 type EventOrchestrator struct {
-	serverState *models.ServerState
+	serverState *ServerState
 
 	heartbeatTicker *time.Ticker
 	electionTimer   *time.Timer
 	mu              sync.Mutex
 }
 
-func NewEventOrchestrator(state *models.ServerState) *EventOrchestrator {
+func NewEventOrchestrator(state *ServerState) *EventOrchestrator {
 	return &EventOrchestrator{
 		serverState: state,
 
@@ -85,7 +83,7 @@ func (och *EventOrchestrator) startElection() {
 		wg.Add(1)
 		go (func(host string, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := api.SendRequestVoteRpc(host, voteInput); err == nil {
+			if res, err := SendRequestVoteRpc(host, voteInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
 					return
@@ -118,7 +116,7 @@ func (och *EventOrchestrator) sendHeartbeat() {
 		wg.Add(1)
 		go (func(host string, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := api.SendAppendEntriesRpc(host, heartbeatInput); err == nil {
+			if res, err := SendAppendEntriesRpc(host, heartbeatInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
 					return

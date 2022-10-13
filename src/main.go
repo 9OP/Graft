@@ -2,21 +2,18 @@ package main
 
 import (
 	"encoding/json"
-	"graft/api"
-	"graft/models"
-	"graft/orchestrator"
 	"os"
 )
 
 type Args struct {
 	port  string
 	name  string // server id
-	nodes []models.Node
+	nodes []Node
 }
 
 func parseArgs() Args {
 	port := os.Args[1]
-	nodes := []models.Node{}
+	nodes := []Node{}
 	var name string
 	daa, _ := os.ReadFile("nodes.json")
 	json.Unmarshal(daa, &nodes)
@@ -38,11 +35,11 @@ func parseArgs() Args {
 
 func main() {
 	args := parseArgs()
-	state := models.NewServerState(args.name, &args.nodes)
+	state := NewServerState(args.name, &args.nodes)
 
-	och := orchestrator.NewEventOrchestrator(state)
+	och := NewEventOrchestrator(state)
 	go och.Start()
 
-	srv := api.NewGrpcServer(state)
+	srv := NewGrpcServer(state)
 	srv.Start(args.port)
 }
