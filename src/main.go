@@ -13,19 +13,20 @@ type Args struct {
 
 func parseArgs() Args {
 	port := os.Args[1]
+	host := os.Args[2]
 	nodes := []Node{}
 	var name string
 	daa, _ := os.ReadFile("nodes.json")
 	json.Unmarshal(daa, &nodes)
 
-	// Filtert current host from nodes
+	// Filter current host from nodes
 	n := 0
 	for _, node := range nodes {
-		if node.Host != port {
+		if node.host != host || node.port != port {
 			nodes[n] = node
 			n++
 		} else {
-			name = node.Name
+			name = node.id
 		}
 	}
 	nodes = nodes[:n]
@@ -40,6 +41,6 @@ func main() {
 	och := NewEventOrchestrator(state)
 	go och.Start()
 
-	srv := NewGrpcServer(state)
+	srv := NewRpcServer(state)
 	srv.Start(args.port)
 }

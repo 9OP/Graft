@@ -1,7 +1,7 @@
 package main
 
 import (
-	"graft/src/api/graft_rpc"
+	"graft/src/rpc"
 	"log"
 	"math/rand"
 	"sync"
@@ -70,7 +70,7 @@ func (och *EventOrchestrator) startElection() {
 	och.resetElectionTimeout()
 
 	votesGranted := 1 // vote for self
-	voteInput := &graft_rpc.RequestVoteInput{
+	voteInput := &rpc.RequestVoteInput{
 		CandidateId:  string(state.Name),
 		Term:         int32(state.CurrentTerm),
 		LastLogIndex: int32(state.LastLogIndex()),
@@ -81,9 +81,10 @@ func (och *EventOrchestrator) startElection() {
 	var wg sync.WaitGroup
 	for _, node := range state.Nodes {
 		wg.Add(1)
-		go (func(host string, w *sync.WaitGroup) {
+		go (func(n Node, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := SendRequestVoteRpc(host, voteInput); err == nil {
+			rpcClient := RpcClient{host: n.host, port: n.port}
+			if res, err := rpcClient.SendRequestVoteRpc(voteInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
 					return
@@ -94,7 +95,7 @@ func (och *EventOrchestrator) startElection() {
 					votesGranted += 1
 				}
 			}
-		})(node.Host, &wg)
+		})(node, &wg)
 	}
 	wg.Wait()
 
@@ -106,7 +107,7 @@ func (och *EventOrchestrator) startElection() {
 func (och *EventOrchestrator) sendHeartbeat() {
 	state := och.serverState
 
-	heartbeatInput := &graft_rpc.AppendEntriesInput{
+	heartbeatInput := &rpc.AppendEntriesInput{
 		Term:     int32(state.CurrentTerm),
 		LeaderId: state.Name,
 	}
@@ -114,15 +115,16 @@ func (och *EventOrchestrator) sendHeartbeat() {
 	var wg sync.WaitGroup
 	for _, node := range state.Nodes {
 		wg.Add(1)
-		go (func(host string, w *sync.WaitGroup) {
+		go (func(n Node, w *sync.WaitGroup) {
 			defer w.Done()
-			if res, err := SendAppendEntriesRpc(host, heartbeatInput); err == nil {
+			rpcClient := RpcClient{host: n.host, port: n.port}
+			if res, err := rpcClient.SendAppendEntriesRpc(heartbeatInput); err == nil {
 				if res.Term > int32(state.CurrentTerm) {
 					state.DowngradeToFollower(uint16(res.Term))
 					return
 				}
 			}
-		})(node.Host, &wg)
+		})(node, &wg)
 	}
 	wg.Wait()
 }

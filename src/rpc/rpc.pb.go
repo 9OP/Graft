@@ -4,7 +4,7 @@
 // 	protoc        v3.21.7
 // source: graft_rpc.proto
 
-package graft_rpc
+package rpc
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
