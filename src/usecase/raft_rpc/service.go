@@ -1,4 +1,4 @@
-package raft
+package raft_rpc
 
 import "graft/src/rpc"
 

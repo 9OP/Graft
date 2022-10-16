@@ -1,4 +1,4 @@
-package raft
+package raft_rpc
 
 import (
 	"graft/src/entity"
@@ -6,10 +6,10 @@ import (
 )
 
 type Server interface {
-	getState() entity.State
-	heartbeat()
-	grantVote()
-	downgradeFollower()
+	GetState() entity.State
+	Heartbeat()
+	GrantVote()
+	DowngradeFollower()
 }
 
 type Repository interface {
