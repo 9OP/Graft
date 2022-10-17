@@ -1,27 +1,21 @@
-package raft_server
+package runner
 
-import "graft/src2/entity"
-
-type Repository interface {
-	GetState() entity.State
-}
+import "time"
 
 type UseCase interface {
 	RunFollower(follower Follower)
-	RunCandidate(candidate Candidate)
+	RunCandidate(candadidate Candidate)
 	RunLeader(leader Leader)
 }
 
 type Follower interface {
-	// investigate if property can be private
+	Timeout() <-chan time.Time
 	UpgradeCandidate()
-	GrantVote() bool
 }
 
 type Candidate interface {
 	DowngradeFollower(term uint32)
 	UpgradeLeader()
-	GrantVote() bool
 }
 
 type Leader interface {

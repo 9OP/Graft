@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.2.0
 // - protoc             v3.21.7
-// source: graft_rpc.proto
+// source: rpc.proto
 
 package rpc
 
@@ -36,7 +36,7 @@ func NewRpcClient(cc grpc.ClientConnInterface) RpcClient {
 
 func (c *rpcClient) AppendEntries(ctx context.Context, in *AppendEntriesInput, opts ...grpc.CallOption) (*AppendEntriesOutput, error) {
 	out := new(AppendEntriesOutput)
-	err := c.cc.Invoke(ctx, "/graft_rpc.Rpc/AppendEntries", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpc.Rpc/AppendEntries", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +45,7 @@ func (c *rpcClient) AppendEntries(ctx context.Context, in *AppendEntriesInput, o
 
 func (c *rpcClient) RequestVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error) {
 	out := new(RequestVoteOutput)
-	err := c.cc.Invoke(ctx, "/graft_rpc.Rpc/RequestVote", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/rpc.Rpc/RequestVote", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func _Rpc_AppendEntries_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/graft_rpc.Rpc/AppendEntries",
+		FullMethod: "/rpc.Rpc/AppendEntries",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RpcServer).AppendEntries(ctx, req.(*AppendEntriesInput))
@@ -112,7 +112,7 @@ func _Rpc_RequestVote_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/graft_rpc.Rpc/RequestVote",
+		FullMethod: "/rpc.Rpc/RequestVote",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RpcServer).RequestVote(ctx, req.(*RequestVoteInput))
@@ -124,7 +124,7 @@ func _Rpc_RequestVote_Handler(srv interface{}, ctx context.Context, dec func(int
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Rpc_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "graft_rpc.Rpc",
+	ServiceName: "rpc.Rpc",
 	HandlerType: (*RpcServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -137,5 +137,5 @@ var Rpc_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "graft_rpc.proto",
+	Metadata: "rpc.proto",
 }

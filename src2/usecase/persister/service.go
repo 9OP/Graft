@@ -1,6 +1,8 @@
-package state
+package persister
 
-import "graft/src2/entity"
+import (
+	"graft/src2/entity"
+)
 
 type Service struct {
 	repository Repository

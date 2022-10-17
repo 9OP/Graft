@@ -1,19 +1,36 @@
 package main
 
 import (
-	"graft/src2/usecase/state"
+	"graft/src2/servers"
+	"graft/src2/usecase/persister"
+	"graft/src2/usecase/receiver"
+	"graft/src2/usecase/runner"
 )
 
 func main() {
 	// Parse args
 
-	// Create stateService
-	persister := Persister{}
-	stateService := state.NewService("state.json", &persister)
-	stateService.LoadState()
+	var stateService *persister.Service
+	var runnerService *runner.Service
+	var receiverService *receiver.Service
+	var runnerServer *servers.Runner
+	var receiverServer *servers.Receiver
 
-	// Create rpcService
+	stateService = persister.NewService("state.json", &JsonPersister{})
+	runnerService = runner.NewService()
+	receiverService = receiver.NewService(runnerServer)
 
-	// Create raftService
+	runnerServer = servers.NewRunner(
+		"id",
+		nil,
+		stateService,
+		runnerService,
+	)
+	receiverServer = servers.NewReceiver(
+		receiverService,
+		"10000",
+	)
 
+	go receiverServer.Start()
+	runnerServer.Start()
 }

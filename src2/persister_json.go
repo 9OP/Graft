@@ -6,9 +6,10 @@ import (
 	"os"
 )
 
-type Persister struct{}
+// Implements state.Repository
+type JsonPersister struct{}
 
-func (p *Persister) Load(location string) (*entity.PersistentState, error) {
+func (p *JsonPersister) Load(location string) (*entity.PersistentState, error) {
 	data, err := os.ReadFile(location)
 	if err != nil {
 		return nil, err
@@ -18,7 +19,7 @@ func (p *Persister) Load(location string) (*entity.PersistentState, error) {
 	return state, err
 }
 
-func (p *Persister) Save(location string, state *entity.PersistentState) error {
+func (p *JsonPersister) Save(location string, state *entity.PersistentState) error {
 	data, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
