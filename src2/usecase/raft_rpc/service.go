@@ -1,6 +1,6 @@
 package raft_rpc
 
-import "graft/src/rpc"
+import "graft/src2/rpc"
 
 type Service struct {
 	repository Repository

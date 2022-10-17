@@ -2,6 +2,7 @@ package main
 
 import (
 	"graft/src2/entity"
+	"graft/src2/usecase/state"
 	"log"
 	"math/rand"
 	"sync"
@@ -11,27 +12,37 @@ import (
 // Create /server/interface
 // Create /server/entity
 type Server struct {
-	id      string
-	role    chan entity.Role
-	peers   []entity.Peer
-	state   entity.State
-	timeout time.Timer
-	mu      sync.Mutex
+	id           string
+	role         chan entity.Role
+	peers        []entity.Peer
+	state        entity.State
+	timeout      time.Timer
+	mu           sync.Mutex
+	stateService *state.Service
 }
 
-func NewServer(id string, peers []entity.Peer) *Server {
+func NewServer(id string, peers []entity.Peer, stateService *state.Service) *Server {
+	ps, _ := stateService.LoadState()
+
 	srv := &Server{
-		id:      id,
-		peers:   peers,
-		timeout: *time.NewTimer(350 * time.Millisecond),
-		role:    make(chan entity.Role, 1),
+		id:           id,
+		peers:        peers,
+		state:        *entity.NewState(ps),
+		timeout:      *time.NewTimer(350 * time.Millisecond),
+		role:         make(chan entity.Role, 1),
+		stateService: stateService,
 	}
+
 	srv.role <- entity.Follower
 	return srv
 }
 
 func (s *Server) GetState() entity.State {
 	return s.state
+}
+
+func (s *Server) saveState() {
+	s.stateService.SaveState(&s.state.PersistentState)
 }
 
 func (s *Server) Heartbeat() {
@@ -52,18 +63,20 @@ func (s *Server) DowngradeFollower(term uint32) {
 
 	s.state.CurrentTerm = term
 	s.state.VotedFor = ""
-	s.state.SaveState("state.json")
+
+	s.saveState()
 }
 
 func (s *Server) UpgradeCandidate() {
 	log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	s.role <- entity.Candidate
+
 	s.state.CurrentTerm += 1
 	s.state.VotedFor = s.id
-	s.state.SaveState("state.json")
+
+	s.saveState()
 }
 
 func (s *Server) UpgradeLeader() {

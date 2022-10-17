@@ -1,6 +1,6 @@
 package raft_server
 
-import "graft/src/entity"
+import "graft/src2/entity"
 
 type Repository interface {
 	GetState() entity.State
@@ -13,6 +13,7 @@ type UseCase interface {
 }
 
 type Follower interface {
+	// investigate if property can be private
 	UpgradeCandidate()
 	GrantVote() bool
 }

@@ -1,8 +1,8 @@
 package raft_rpc
 
 import (
-	"graft/src/entity"
-	"graft/src/rpc"
+	"graft/src2/entity"
+	"graft/src2/rpc"
 )
 
 type Server interface {

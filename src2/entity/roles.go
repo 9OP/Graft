@@ -1,6 +1,5 @@
 package entity
 
-// Create /role/entity
 type Role struct {
 	string
 }
