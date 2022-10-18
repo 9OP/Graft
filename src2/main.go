@@ -2,6 +2,7 @@ package main
 
 import (
 	"graft/src2/repository"
+	"graft/src2/repository/clients"
 	"graft/src2/repository/servers"
 	"graft/src2/usecase/persister"
 	"graft/src2/usecase/receiver"
@@ -18,20 +19,14 @@ func main() {
 	var receiverServer *servers.Receiver
 
 	stateService = persister.NewService("state.json", &repository.JsonPersister{})
-	runnerService = runner.NewService()
+	runnerService = runner.NewService(&clients.Runner{})
 	receiverService = receiver.NewService(runnerServer)
 
-	runnerServer = servers.NewRunner(
-		"id",
-		nil,
-		stateService,
-		runnerService,
-	)
-	receiverServer = servers.NewReceiver(
-		receiverService,
-		"10000",
-	)
+	id := "id"
 
-	go receiverServer.Start()
-	runnerServer.Start()
+	runnerServer = servers.NewRunner(id, nil, stateService)
+	receiverServer = servers.NewReceiver("10000")
+
+	go receiverServer.Start(receiverService)
+	runnerServer.Start(runnerService)
 }

@@ -2,10 +2,12 @@ package runner
 
 import "fmt"
 
-type Service struct{}
+type Service struct {
+	repository Repository
+}
 
-func NewService() *Service {
-	return &Service{}
+func NewService(repo Repository) *Service {
+	return &Service{repository: repo}
 }
 
 func (s *Service) RunFollower(follower Follower) {

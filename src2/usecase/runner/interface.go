@@ -2,12 +2,13 @@ package runner
 
 import (
 	"graft/src2/entity"
+	"graft/src2/rpc"
 	"time"
 )
 
 type Repository interface {
-	AppendEntries()
-	RequestVote()
+	AppendEntries(peer entity.Peer, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
+	RequestVote(peer entity.Peer, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
 }
 
 type UseCase interface {
@@ -24,10 +25,10 @@ type Follower interface {
 type Candidate interface {
 	DowngradeFollower(term uint32)
 	UpgradeLeader()
-	Broadcast(fn func(peer entity.Peer, cd Candidate))
+	Broadcast(fn func(peer entity.Peer))
 }
 
 type Leader interface {
 	DowngradeFollower(term uint32)
-	Broadcast(fn func(peer entity.Peer, ld Leader))
+	Broadcast(fn func(peer entity.Peer))
 }

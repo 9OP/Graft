@@ -10,8 +10,7 @@ import (
 	"time"
 )
 
-// Create /server/interface
-// Create /server/entity
+const ELECTION_TIMEOUT = 350 // ms
 type Runner struct {
 	id        string
 	role      chan entity.Role
@@ -20,20 +19,18 @@ type Runner struct {
 	timeout   time.Timer
 	mu        sync.Mutex
 	persister *persister.Service
-	runner    *runner.Service
 }
 
-func NewRunner(id string, peers []entity.Peer, persister *persister.Service, runner *runner.Service) *Runner {
+func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Runner {
 	ps, _ := persister.LoadState()
 
 	srv := &Runner{
 		id:        id,
 		peers:     peers,
 		state:     *entity.NewState(ps),
-		timeout:   *time.NewTimer(350 * time.Millisecond),
+		timeout:   *time.NewTimer(ELECTION_TIMEOUT * time.Millisecond),
 		role:      make(chan entity.Role, 1),
 		persister: persister,
-		runner:    runner,
 	}
 
 	srv.role <- entity.Follower
@@ -57,7 +54,10 @@ func (s *Runner) saveState() {
 }
 
 func (s *Runner) Heartbeat() {
-	ELECTION_TIMEOUT := 350 // ms
+	s.resetElectionTimer()
+}
+
+func (s *Runner) resetElectionTimer() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -68,6 +68,8 @@ func (s *Runner) Heartbeat() {
 
 func (s *Runner) DowngradeFollower(term uint32) {
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", s.state.CurrentTerm)
+	s.resetElectionTimer()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.role <- entity.Follower
@@ -79,7 +81,9 @@ func (s *Runner) DowngradeFollower(term uint32) {
 }
 
 func (s *Runner) UpgradeCandidate() {
-	log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm)
+	log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
+	s.resetElectionTimer()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.role <- entity.Candidate
@@ -113,7 +117,7 @@ func (s *Runner) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 	return false
 }
 
-func (s *Runner) Broadcast(fn func(peer entity.Peer, rn *Runner)) {
+func (s *Runner) Broadcast(fn func(peer entity.Peer)) {
 	// state := s.state
 	peers := s.peers
 
@@ -122,21 +126,21 @@ func (s *Runner) Broadcast(fn func(peer entity.Peer, rn *Runner)) {
 		wg.Add(1)
 		go func(p entity.Peer, w *sync.WaitGroup) {
 			defer w.Done()
-			fn(p, s)
+			fn(p)
 		}(peer, &wg)
 	}
 	wg.Wait()
 }
 
-func (s *Runner) Start() {
+func (s *Runner) Start(service *runner.Service) {
 	for {
 		switch <-s.role {
 		case entity.Follower:
-			s.runner.RunFollower(s)
+			service.RunFollower(s)
 		case entity.Candidate:
-			s.runner.RunCandidate(s)
+			service.RunCandidate(s)
 		case entity.Leader:
-			s.runner.RunLeader(s)
+			service.RunLeader(s)
 		}
 	}
 }
