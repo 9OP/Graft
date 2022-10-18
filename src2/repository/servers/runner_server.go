@@ -15,12 +15,17 @@ import (
 const ELECTION_TIMEOUT = 350 // ms
 type Runner struct {
 	id        string
-	role      entity.Role
+	role      Role
 	peers     []entity.Peer
 	state     entity.State
 	timeout   time.Timer
 	mu        sync.Mutex
 	persister *persister.Service
+}
+
+type Role struct {
+	value  entity.Role
+	signal chan struct{}
 }
 
 func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Runner {
@@ -31,7 +36,7 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Ru
 		peers:     peers,
 		state:     *entity.NewState(ps),
 		timeout:   *time.NewTimer(50 * time.Millisecond),
-		role:      entity.Follower,
+		role:      Role{value: entity.Follower, signal: make(chan struct{}, 1)},
 		persister: persister,
 	}
 
@@ -75,33 +80,36 @@ func (s *Runner) DowngradeFollower(term uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.role = entity.Follower
+	s.role.value = entity.Follower
 	s.state.CurrentTerm = term
 	s.state.VotedFor = ""
 
 	s.saveState()
+	s.role.signal <- struct{}{}
 }
 
 func (s *Runner) UpgradeCandidate() {
-	if s.role == entity.Follower {
+	if s.role.value == entity.Follower {
 		log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
 		s.resetElectionTimer()
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
-		s.role = entity.Candidate
+		s.role.value = entity.Candidate
 		s.state.CurrentTerm += 1
 		s.state.VotedFor = s.id
 
 		s.saveState()
+		s.role.signal <- struct{}{}
 	}
 }
 
 func (s *Runner) UpgradeLeader() {
-	if s.role == entity.Candidate {
+	if s.role.value == entity.Candidate {
 		log.Printf("UPGRADE TO LEADER TERM: %d\n", s.state.CurrentTerm)
-		s.role = entity.Leader
+		s.role.value = entity.Leader
+		s.role.signal <- struct{}{}
 	}
 }
 
@@ -157,9 +165,12 @@ func (s *Runner) Broadcast(fn func(peer entity.Peer)) {
 
 func (s *Runner) Start(service *runner.Service) {
 	log.Println("START RUNNER SERVER")
-	for {
 
-		switch s.role {
+	s.role.signal <- struct{}{}
+
+	for range s.role.signal {
+
+		switch s.role.value {
 		case entity.Follower:
 			service.RunFollower(s)
 		case entity.Candidate:
@@ -167,5 +178,6 @@ func (s *Runner) Start(service *runner.Service) {
 		case entity.Leader:
 			service.RunLeader(s)
 		}
+
 	}
 }

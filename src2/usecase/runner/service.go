@@ -2,7 +2,6 @@ package runner
 
 import (
 	"graft/src2/entity"
-	"log"
 	"sync"
 	"time"
 )
@@ -16,15 +15,9 @@ func NewService(repo Repository) *Service {
 }
 
 func (s *Service) RunFollower(follower Follower) {
-run:
-	for {
-		select {
-		case <-follower.Timeout().C:
-			follower.UpgradeCandidate()
-			break run
-		default:
-			continue
-		}
+	for range follower.Timeout().C {
+		follower.UpgradeCandidate()
+		return
 	}
 }
 
@@ -33,21 +26,14 @@ func (s *Service) RunCandidate(candidate Candidate) {
 		return
 	}
 
-run:
-	for {
-		select {
-		case <-candidate.Timeout().C:
-			if s.startElection(candidate) {
-				break run
-			}
-		default:
-			continue
+	for range candidate.Timeout().C {
+		if s.startElection(candidate) {
+			return
 		}
 	}
 }
 
 func (s *Service) startElection(candidate Candidate) bool {
-	log.Println("start election")
 	state := candidate.GetState()
 	input := candidate.RequestVoteInput()
 	quorum := candidate.GetQuorum()
@@ -81,13 +67,8 @@ func (s *Service) startElection(candidate Candidate) bool {
 func (s *Service) RunLeader(leader Leader) {
 	tick := time.NewTicker(50 * time.Millisecond)
 
-	for {
-		select {
-		case <-tick.C:
-			s.sendHeartbeat(leader)
-		default:
-			continue
-		}
+	for range tick.C {
+		s.sendHeartbeat(leader)
 	}
 }
 
