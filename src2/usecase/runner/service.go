@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"graft/src2/entity"
 	"sync"
 	"time"
@@ -15,25 +16,37 @@ func NewService(repo Repository) *Service {
 }
 
 func (s *Service) RunFollower(follower Follower) {
-	for range follower.Timeout().C {
+	// timeout := follower.GetTimeout()
+
+	timeout := time.NewTimer(350 * time.Millisecond)
+
+	for range timeout.C {
 		follower.UpgradeCandidate()
 		return
 	}
 }
 
 func (s *Service) RunCandidate(candidate Candidate) {
-	if s.startElection(candidate) {
-		return
-	}
+	timeout := time.NewTimer(350 * time.Millisecond)
+	signal := make(chan struct{}, 1)
 
-	for range candidate.Timeout().C {
-		if s.startElection(candidate) {
-			return
+	go s.startElection(candidate, signal, timeout)
+run:
+	for {
+		select {
+		case <-timeout.C:
+			go s.startElection(candidate, signal, timeout)
+		case <-signal:
+			break run
 		}
 	}
+
 }
 
-func (s *Service) startElection(candidate Candidate) bool {
+func (s *Service) startElection(candidate Candidate, signal chan struct{}, t *time.Timer) {
+	fmt.Println("start election")
+	t.Reset(350 * time.Millisecond)
+
 	state := candidate.GetState()
 	input := candidate.RequestVoteInput()
 	quorum := candidate.GetQuorum()
@@ -58,10 +71,8 @@ func (s *Service) startElection(candidate Candidate) bool {
 
 	if votesGranted >= quorum {
 		candidate.UpgradeLeader()
-		return true
+		signal <- struct{}{}
 	}
-
-	return false
 }
 
 func (s *Service) RunLeader(leader Leader) {

@@ -3,7 +3,6 @@ package runner
 import (
 	"graft/src2/entity"
 	"graft/src2/rpc"
-	"time"
 )
 
 type Repository interface {
@@ -21,25 +20,37 @@ type role interface {
 	GetState() entity.State
 }
 
+type timeout interface {
+	GetTimeout() *entity.Timeout
+}
+
+type broadcaster interface {
+	Broadcast(fn func(peer entity.Peer))
+}
+
+type downgrader interface {
+	DowngradeFollower(term uint32)
+}
+
 type Follower interface {
 	role
-	Timeout() time.Timer
+	timeout
 	UpgradeCandidate()
 }
 
 type Candidate interface {
 	role
-	Timeout() time.Timer
+	timeout
+	downgrader
+	broadcaster
 	RequestVoteInput() *rpc.RequestVoteInput
 	GetQuorum() int
-	DowngradeFollower(term uint32)
 	UpgradeLeader()
-	Broadcast(fn func(peer entity.Peer))
 }
 
 type Leader interface {
 	role
+	downgrader
+	broadcaster
 	AppendEntriesInput() *rpc.AppendEntriesInput
-	DowngradeFollower(term uint32)
-	Broadcast(fn func(peer entity.Peer))
 }

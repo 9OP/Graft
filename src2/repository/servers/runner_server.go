@@ -7,7 +7,6 @@ import (
 	"graft/src2/usecase/runner"
 	"log"
 	"math"
-	"math/rand"
 	"sync"
 	"time"
 )
@@ -18,9 +17,9 @@ type Runner struct {
 	role      Role
 	peers     []entity.Peer
 	state     entity.State
-	timeout   time.Timer
-	mu        sync.Mutex
+	timeout   *entity.Timeout
 	persister *persister.Service
+	mu        sync.Mutex
 }
 
 type Role struct {
@@ -35,7 +34,7 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Ru
 		id:        id,
 		peers:     peers,
 		state:     *entity.NewState(ps),
-		timeout:   *time.NewTimer(50 * time.Millisecond),
+		timeout:   &entity.Timeout{*time.NewTimer(50 * time.Millisecond)},
 		role:      Role{value: entity.Follower, signal: make(chan struct{}, 1)},
 		persister: persister,
 	}
@@ -45,10 +44,6 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Ru
 
 func (s *Runner) GetState() entity.State {
 	return s.state
-}
-
-func (s *Runner) Timeout() time.Timer {
-	return s.timeout
 }
 
 func (s *Runner) GetQuorum() int {
@@ -61,21 +56,27 @@ func (s *Runner) saveState() {
 }
 
 func (s *Runner) Heartbeat() {
-	s.resetElectionTimer()
+	s.timeout.RReset()
 }
 
-func (s *Runner) resetElectionTimer() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	rand.Seed(time.Now().UnixNano())
-	timeout := (rand.Intn(ELECTION_TIMEOUT/2) + ELECTION_TIMEOUT/2)
-	s.timeout.Reset(time.Duration(timeout) * time.Millisecond)
+func (s *Runner) GetTimeout() *entity.Timeout {
+	return s.timeout
 }
+
+// func (s *Runner) resetElectionTimer() {
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
+
+// 	s.timeout.Stop()
+// 	rand.Seed(time.Now().UnixNano())
+// 	timeout := (rand.Intn(ELECTION_TIMEOUT/2) + ELECTION_TIMEOUT/2)
+
+// 	s.timeout = time.NewTimer(time.Duration(timeout) * time.Millisecond)
+// }
 
 func (s *Runner) DowngradeFollower(term uint32) {
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", s.state.CurrentTerm)
-	s.resetElectionTimer()
+	s.timeout.RReset()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -91,7 +92,7 @@ func (s *Runner) DowngradeFollower(term uint32) {
 func (s *Runner) UpgradeCandidate() {
 	if s.role.value == entity.Follower {
 		log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
-		s.resetElectionTimer()
+		s.timeout.RReset()
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -172,11 +173,11 @@ func (s *Runner) Start(service *runner.Service) {
 
 		switch s.role.value {
 		case entity.Follower:
-			service.RunFollower(s)
+			go service.RunFollower(s)
 		case entity.Candidate:
-			service.RunCandidate(s)
+			go service.RunCandidate(s)
 		case entity.Leader:
-			service.RunLeader(s)
+			go service.RunLeader(s)
 		}
 
 	}
