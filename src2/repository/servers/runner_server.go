@@ -113,7 +113,19 @@ func (s *Runner) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 	return false
 }
 
-func (s *Runner) Broadcast() {
+func (s *Runner) Broadcast(fn func(peer entity.Peer, rn *Runner)) {
+	// state := s.state
+	peers := s.peers
+
+	var wg sync.WaitGroup
+	for _, peer := range peers {
+		wg.Add(1)
+		go func(p entity.Peer, w *sync.WaitGroup) {
+			defer w.Done()
+			fn(p, s)
+		}(peer, &wg)
+	}
+	wg.Wait()
 }
 
 func (s *Runner) Start() {

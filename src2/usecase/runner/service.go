@@ -27,5 +27,6 @@ func (s *Service) RunCandidate(candidate Candidate) {
 	// Start election
 	// if timeout, restart election
 	// if quorum reached, upgradeLeader
+	//candidate.Broadcast()
 }
 func (s *Service) RunLeader(leader Leader) {}

@@ -1,6 +1,14 @@
 package runner
 
-import "time"
+import (
+	"graft/src2/entity"
+	"time"
+)
+
+type Repository interface {
+	AppendEntries()
+	RequestVote()
+}
 
 type UseCase interface {
 	RunFollower(follower Follower)
@@ -16,9 +24,10 @@ type Follower interface {
 type Candidate interface {
 	DowngradeFollower(term uint32)
 	UpgradeLeader()
+	Broadcast(fn func(peer entity.Peer, cd Candidate))
 }
 
 type Leader interface {
 	DowngradeFollower(term uint32)
-	Broadcast()
+	Broadcast(fn func(peer entity.Peer, ld Leader))
 }
