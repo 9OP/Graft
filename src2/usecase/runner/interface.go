@@ -17,18 +17,29 @@ type UseCase interface {
 	RunLeader(leader Leader)
 }
 
+type role interface {
+	GetState() entity.State
+}
+
 type Follower interface {
-	Timeout() <-chan time.Time
+	role
+	Timeout() time.Timer
 	UpgradeCandidate()
 }
 
 type Candidate interface {
+	role
+	Timeout() time.Timer
+	RequestVoteInput() *rpc.RequestVoteInput
+	GetQuorum() int
 	DowngradeFollower(term uint32)
 	UpgradeLeader()
 	Broadcast(fn func(peer entity.Peer))
 }
 
 type Leader interface {
+	role
+	AppendEntriesInput() *rpc.AppendEntriesInput
 	DowngradeFollower(term uint32)
 	Broadcast(fn func(peer entity.Peer))
 }

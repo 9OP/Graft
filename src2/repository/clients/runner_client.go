@@ -7,17 +7,19 @@ import (
 	"graft/src2/rpc"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Runner struct{}
 
 func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](peer entity.Peer, fn func(c rpc.RpcClient) (K, error)) (K, error) {
 	target := fmt.Sprintf("%s:%s", peer.Host, peer.Id)
-	conn, err := grpc.Dial(target, grpc.WithInsecure())
+	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
+
+	conn, err := grpc.Dial(target, creds)
 	if err != nil {
 		return nil, err
 	}
-
 	defer conn.Close()
 	c := rpc.NewRpcClient(conn)
 	return fn(c)
