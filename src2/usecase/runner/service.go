@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"graft/src2/entity"
 	"graft/src2/rpc"
 	"sync"
@@ -52,7 +51,6 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 	var m sync.Mutex
 
 	gatherVote := func(p entity.Peer) {
-		fmt.Println("gather vote")
 		var err error
 		var res *rpc.RequestVoteOutput
 		if res, err = s.repository.RequestVote(p, input); err == nil {
@@ -66,7 +64,6 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 				votesGranted += 1
 			}
 		}
-		fmt.Println(err)
 	}
 
 	candidate.Broadcast(gatherVote)

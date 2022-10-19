@@ -28,6 +28,7 @@ type Role struct {
 }
 
 func NewRunner(id string, peers []entity.Peer, persister *persister.Service, timeout *entity.Timeout, ticker *entity.Ticker) *Runner {
+
 	ps, _ := persister.LoadState()
 
 	srv := &Runner{
@@ -56,17 +57,16 @@ func (s *Runner) saveState() {
 	s.persister.SaveState(&s.state.PersistentState)
 }
 
-func (s *Runner) Heartbeat() {
+func (s *Runner) resetTimeout() {
 	s.timeout.RReset()
 }
-
-func (s *Runner) GetTimeout() *entity.Timeout {
-	return s.timeout
+func (s *Runner) Heartbeat() {
+	s.resetTimeout()
 }
 
 func (s *Runner) DowngradeFollower(term uint32) {
-	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", s.state.CurrentTerm)
-	s.timeout.RReset()
+	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
+	s.resetTimeout()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -82,7 +82,7 @@ func (s *Runner) DowngradeFollower(term uint32) {
 func (s *Runner) IncrementTerm() {
 	if s.role.value == entity.Candidate {
 		log.Printf("INCREMENT CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
-		s.timeout.RReset()
+		s.resetTimeout()
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -172,7 +172,6 @@ func (s *Runner) Start(service *runner.Service) {
 	s.role.signal <- struct{}{}
 
 	for range s.role.signal {
-
 		switch s.role.value {
 		case entity.Follower:
 			go service.RunFollower(s)
