@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"sync"
-	"time"
 )
 
 const ELECTION_TIMEOUT = 350 // ms
@@ -27,14 +26,14 @@ type Role struct {
 	signal chan struct{}
 }
 
-func NewRunner(id string, peers []entity.Peer, persister *persister.Service) *Runner {
+func NewRunner(id string, peers []entity.Peer, timeout *entity.Timeout, persister *persister.Service) *Runner {
 	ps, _ := persister.LoadState()
 
 	srv := &Runner{
 		id:        id,
 		peers:     peers,
 		state:     *entity.NewState(ps),
-		timeout:   &entity.Timeout{*time.NewTimer(50 * time.Millisecond)},
+		timeout:   timeout,
 		role:      Role{value: entity.Follower, signal: make(chan struct{}, 1)},
 		persister: persister,
 	}
@@ -87,6 +86,21 @@ func (s *Runner) DowngradeFollower(term uint32) {
 
 	s.saveState()
 	s.role.signal <- struct{}{}
+}
+
+func (s *Runner) IncrementTerm() {
+	if s.role.value == entity.Candidate {
+		log.Printf("INCREMENT CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
+		s.timeout.RReset()
+
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		s.state.CurrentTerm += 1
+
+		s.saveState()
+		s.role.signal <- struct{}{}
+	}
 }
 
 func (s *Runner) UpgradeCandidate() {

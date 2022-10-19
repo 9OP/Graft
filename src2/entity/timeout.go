@@ -2,17 +2,29 @@ package entity
 
 import (
 	"math/rand"
+	"sync"
 	"time"
 )
 
-const ELECTION_TIMEOUT = 350
-
 type Timeout struct {
-	time.Timer // Use ticker ?
+	duration int
+	*time.Timer
+	mu sync.Mutex
+}
+
+func NewTimeout(t int) *Timeout {
+	return &Timeout{
+		t,
+		time.NewTimer(time.Duration(t) * time.Millisecond),
+		sync.Mutex{},
+	}
 }
 
 func (t *Timeout) RReset() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	rand.Seed(time.Now().UnixNano())
-	timeout := (rand.Intn(ELECTION_TIMEOUT/2) + ELECTION_TIMEOUT/2)
+	timeout := (rand.Intn(t.duration/2) + t.duration/2)
 	t.Reset(time.Duration(timeout) * time.Millisecond)
 }

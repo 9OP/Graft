@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"graft/src2/entity"
 	"sync"
 	"time"
@@ -9,33 +8,30 @@ import (
 
 type Service struct {
 	repository Repository
+	timeout    *entity.Timeout
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repository: repo}
+func NewService(repo Repository, timeout *entity.Timeout) *Service {
+	return &Service{repository: repo, timeout: timeout}
 }
 
 func (s *Service) RunFollower(follower Follower) {
-	// timeout := follower.GetTimeout()
-
-	timeout := time.NewTimer(350 * time.Millisecond)
-
-	for range timeout.C {
+	for range s.timeout.C {
 		follower.UpgradeCandidate()
 		return
 	}
 }
 
 func (s *Service) RunCandidate(candidate Candidate) {
-	timeout := time.NewTimer(350 * time.Millisecond)
 	signal := make(chan struct{}, 1)
 
-	go s.startElection(candidate, signal, timeout)
+	go s.startElection(candidate, signal)
+
 run:
 	for {
 		select {
-		case <-timeout.C:
-			go s.startElection(candidate, signal, timeout)
+		case <-s.timeout.C:
+			go s.restartElection(candidate, signal)
 		case <-signal:
 			break run
 		}
@@ -43,10 +39,12 @@ run:
 
 }
 
-func (s *Service) startElection(candidate Candidate, signal chan struct{}, t *time.Timer) {
-	fmt.Println("start election")
-	t.Reset(350 * time.Millisecond)
+func (s *Service) restartElection(candidate Candidate, signal chan struct{}) {
+	candidate.IncrementTerm()
+	s.startElection(candidate, signal)
+}
 
+func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 	state := candidate.GetState()
 	input := candidate.RequestVoteInput()
 	quorum := candidate.GetQuorum()

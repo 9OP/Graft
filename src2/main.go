@@ -45,17 +45,23 @@ func parseArgs() Args {
 func main() {
 	args := parseArgs()
 
+	var ELECTION_TIMEOUT int = 350 // ms
+	//var LEADER_TICKER int = 35     // ms
+	timeout := entity.NewTimeout(ELECTION_TIMEOUT)
+
 	var stateService *persister.Service
 	var runnerService *runner.Service
 	var receiverService *receiver.Service
+
 	var runnerServer *servers.Runner
 	var receiverServer *servers.Receiver
+	var clientRunner = &clients.Runner{}
 
 	stateService = persister.NewService(fmt.Sprintf("state_%s.json", args.id), &repository.JsonPersister{})
-	runnerService = runner.NewService(&clients.Runner{})
+	runnerService = runner.NewService(clientRunner, timeout)
 	receiverService = receiver.NewService(runnerServer)
 
-	runnerServer = servers.NewRunner(args.id, args.peers, stateService)
+	runnerServer = servers.NewRunner(args.id, args.peers, timeout, stateService)
 	receiverServer = servers.NewReceiver(args.port)
 
 	go receiverServer.Start(receiverService)

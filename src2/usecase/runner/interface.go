@@ -20,10 +20,6 @@ type role interface {
 	GetState() entity.State
 }
 
-type timeout interface {
-	GetTimeout() *entity.Timeout
-}
-
 type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
 }
@@ -34,15 +30,14 @@ type downgrader interface {
 
 type Follower interface {
 	role
-	timeout
 	UpgradeCandidate()
 }
 
 type Candidate interface {
 	role
-	timeout
 	downgrader
 	broadcaster
+	IncrementTerm()
 	RequestVoteInput() *rpc.RequestVoteInput
 	GetQuorum() int
 	UpgradeLeader()
