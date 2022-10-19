@@ -46,7 +46,22 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service, tim
 }
 
 func (s *Runner) GetState() entity.State {
-	return s.state
+	// Returns a new copy of the server state
+
+	var logs []entity.MachineLog
+	copy(logs, s.state.MachineLogs)
+
+	return entity.State{
+		PersistentState: entity.PersistentState{
+			CurrentTerm: s.state.CurrentTerm,
+			VotedFor:    s.state.VotedFor,
+			MachineLogs: logs,
+		},
+		CommitIndex: s.state.CommitIndex,
+		LastApplied: s.state.LastApplied,
+		NextIndex:   s.state.NextIndex,  // do deep copy
+		MatchIndex:  s.state.MatchIndex, // do deep copy
+	}
 }
 
 func (s *Runner) GetQuorum() int {

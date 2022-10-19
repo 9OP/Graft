@@ -31,6 +31,8 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 		srv.DowngradeFollower(input.Term, input.LeaderId)
 	}
 
+	// Set cluster leader
+
 	srv.Heartbeat()
 
 	log := state.GetLogIndex(int(input.PrevLogIndex))
@@ -38,9 +40,11 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	// Refactor write to server directly
 
 	if log.Term != input.PrevLogTerm {
+		// srv.DeleteLogsFrom()
 		state.DeleteLogFrom(int(input.PrevLogIndex))
 	} else {
 		output.Success = true
+		// srv.AppendLogs()
 		state.AppendLogs(input.Entries)
 	}
 
