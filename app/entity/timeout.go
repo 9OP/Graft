@@ -13,7 +13,7 @@ type base struct {
 
 type Timeout struct {
 	base
-	*time.Timer
+	*time.Ticker
 }
 
 type Ticker struct {
@@ -24,6 +24,7 @@ type Ticker struct {
 func randomizeTime(t int) time.Duration {
 	rand.Seed(time.Now().UnixNano())
 	timeout := (rand.Intn(t/2) + t/2)
+	// fmt.Println(timeout)
 	return time.Duration(timeout)
 }
 
@@ -35,7 +36,7 @@ func NewTimeout(t int) *Timeout {
 			t,
 			sync.Mutex{},
 		},
-		time.NewTimer(rnd * time.Millisecond),
+		time.NewTicker(rnd * time.Millisecond),
 	}
 }
 

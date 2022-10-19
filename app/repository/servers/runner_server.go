@@ -69,7 +69,9 @@ func (s *Runner) saveState() {
 
 func (s *Runner) resetTimeout() {
 	s.timeout.RReset()
+	s.ticker.Stop()
 }
+
 func (s *Runner) Heartbeat() {
 	s.resetTimeout()
 }
@@ -80,11 +82,10 @@ func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
 	s.resetTimeout()
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	s.role.value = entity.Follower
 	s.state.CurrentTerm = term
 	s.state.VotedFor = ""
+	s.mu.Unlock()
 
 	s.saveState()
 	s.role.signal <- struct{}{}
@@ -96,10 +97,9 @@ func (s *Runner) IncrementTerm() {
 		s.resetTimeout()
 
 		s.mu.Lock()
-		defer s.mu.Unlock()
-
 		s.state.CurrentTerm += 1
 		s.state.VotedFor = s.id
+		s.mu.Unlock()
 
 		s.saveState()
 	}
@@ -110,9 +110,8 @@ func (s *Runner) UpgradeCandidate() {
 		log.Println("UPGRADE TO CANDIDATE")
 
 		s.mu.Lock()
-		defer s.mu.Unlock()
-
 		s.role.value = entity.Candidate
+		s.mu.Unlock()
 
 		s.saveState()
 		s.role.signal <- struct{}{}
@@ -122,6 +121,7 @@ func (s *Runner) UpgradeCandidate() {
 func (s *Runner) UpgradeLeader() {
 	if s.role.value == entity.Candidate {
 		log.Printf("UPGRADE TO LEADER TERM: %d\n", s.state.CurrentTerm)
+		s.ticker.Start()
 		s.role.value = entity.Leader
 		s.role.signal <- struct{}{}
 	}
