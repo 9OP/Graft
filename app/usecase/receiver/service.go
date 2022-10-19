@@ -33,8 +33,27 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 
 	srv.Heartbeat()
 
-	state.LastLogIndex()
-	state.LastLogTerm()
+	log := state.GetLogIndex(int(input.PrevLogIndex))
+
+	// Refactor write to server directly
+
+	if log.Term != input.PrevLogTerm {
+		state.DeleteLogFrom(int(input.PrevLogIndex))
+	} else {
+		output.Success = true
+		state.AppendLogs(input.Entries)
+	}
+
+	if input.LeaderCommit > state.CommitIndex {
+		lastLogIndex := state.LastLogIndex()
+		if input.LeaderCommit > lastLogIndex {
+			state.CommitIndex = lastLogIndex
+		} else {
+			state.CommitIndex = input.LeaderCommit
+		}
+	}
+
+	srv.SaveState()
 
 	return output, nil
 }

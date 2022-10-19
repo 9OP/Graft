@@ -52,3 +52,17 @@ func (state *PersistentState) LastLogTerm() uint32 {
 	}
 	return 0
 }
+
+func (state *PersistentState) DeleteLogFrom(n int) {
+	if n < int(state.LastLogIndex()) {
+		state.MachineLogs = state.MachineLogs[:n]
+	}
+}
+
+func (state *PersistentState) AppendLogs(entries []string) {
+	logs := state.MachineLogs
+	for _, entry := range entries {
+		logs = append(logs, MachineLog{Term: state.CurrentTerm, Value: entry})
+	}
+	state.MachineLogs = logs
+}

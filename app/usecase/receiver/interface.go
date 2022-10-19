@@ -8,6 +8,7 @@ import (
 
 type Server interface {
 	GetState() entity.State
+	SaveState()
 	Heartbeat()
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DowngradeFollower(term uint32, leaderId string)

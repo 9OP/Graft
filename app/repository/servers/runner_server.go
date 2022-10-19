@@ -63,8 +63,10 @@ func (s *Runner) setClusterLeader(leaderId string) {
 	}
 }
 
-func (s *Runner) saveState() {
+func (s *Runner) SaveState() {
+	s.mu.Lock()
 	s.persister.SaveState(&s.state.PersistentState)
+	s.mu.Unlock()
 }
 
 func (s *Runner) resetTimeout() {
@@ -87,7 +89,7 @@ func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
 	s.state.VotedFor = ""
 	s.mu.Unlock()
 
-	s.saveState()
+	s.SaveState()
 	s.role.signal <- struct{}{}
 }
 
@@ -101,7 +103,7 @@ func (s *Runner) IncrementTerm() {
 		s.state.VotedFor = s.id
 		s.mu.Unlock()
 
-		s.saveState()
+		s.SaveState()
 	}
 }
 
@@ -113,7 +115,7 @@ func (s *Runner) UpgradeCandidate() {
 		s.role.value = entity.Candidate
 		s.mu.Unlock()
 
-		s.saveState()
+		s.SaveState()
 		s.role.signal <- struct{}{}
 	}
 }
