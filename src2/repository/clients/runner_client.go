@@ -13,7 +13,7 @@ import (
 type Runner struct{}
 
 func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](peer entity.Peer, fn func(c rpc.RpcClient) (K, error)) (K, error) {
-	target := fmt.Sprintf("%s:%s", peer.Host, peer.Id)
+	target := fmt.Sprintf("%s:%s", peer.Host, peer.Port)
 	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
 
 	conn, err := grpc.Dial(target, creds)

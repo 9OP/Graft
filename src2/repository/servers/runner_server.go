@@ -17,6 +17,7 @@ type Runner struct {
 	peers     []entity.Peer
 	state     entity.State
 	timeout   *entity.Timeout
+	ticker    *entity.Ticker
 	persister *persister.Service
 	mu        sync.Mutex
 }
@@ -26,7 +27,7 @@ type Role struct {
 	signal chan struct{}
 }
 
-func NewRunner(id string, peers []entity.Peer, timeout *entity.Timeout, persister *persister.Service) *Runner {
+func NewRunner(id string, peers []entity.Peer, persister *persister.Service, timeout *entity.Timeout, ticker *entity.Ticker) *Runner {
 	ps, _ := persister.LoadState()
 
 	srv := &Runner{
@@ -34,6 +35,7 @@ func NewRunner(id string, peers []entity.Peer, timeout *entity.Timeout, persiste
 		peers:     peers,
 		state:     *entity.NewState(ps),
 		timeout:   timeout,
+		ticker:    ticker,
 		role:      Role{value: entity.Follower, signal: make(chan struct{}, 1)},
 		persister: persister,
 	}
@@ -62,17 +64,6 @@ func (s *Runner) GetTimeout() *entity.Timeout {
 	return s.timeout
 }
 
-// func (s *Runner) resetElectionTimer() {
-// 	s.mu.Lock()
-// 	defer s.mu.Unlock()
-
-// 	s.timeout.Stop()
-// 	rand.Seed(time.Now().UnixNano())
-// 	timeout := (rand.Intn(ELECTION_TIMEOUT/2) + ELECTION_TIMEOUT/2)
-
-// 	s.timeout = time.NewTimer(time.Duration(timeout) * time.Millisecond)
-// }
-
 func (s *Runner) DowngradeFollower(term uint32) {
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", s.state.CurrentTerm)
 	s.timeout.RReset()
@@ -97,23 +88,20 @@ func (s *Runner) IncrementTerm() {
 		defer s.mu.Unlock()
 
 		s.state.CurrentTerm += 1
+		s.state.VotedFor = s.id
 
 		s.saveState()
-		s.role.signal <- struct{}{}
 	}
 }
 
 func (s *Runner) UpgradeCandidate() {
 	if s.role.value == entity.Follower {
-		log.Printf("UPGRADE TO CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
-		s.timeout.RReset()
+		log.Println("UPGRADE TO CANDIDATE")
 
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
 		s.role.value = entity.Candidate
-		s.state.CurrentTerm += 1
-		s.state.VotedFor = s.id
 
 		s.saveState()
 		s.role.signal <- struct{}{}

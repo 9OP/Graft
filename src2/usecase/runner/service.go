@@ -1,18 +1,20 @@
 package runner
 
 import (
+	"fmt"
 	"graft/src2/entity"
+	"graft/src2/rpc"
 	"sync"
-	"time"
 )
 
 type Service struct {
 	repository Repository
 	timeout    *entity.Timeout
+	ticker     *entity.Ticker
 }
 
-func NewService(repo Repository, timeout *entity.Timeout) *Service {
-	return &Service{repository: repo, timeout: timeout}
+func NewService(repo Repository, timeout *entity.Timeout, ticker *entity.Ticker) *Service {
+	return &Service{repository: repo, timeout: timeout, ticker: ticker}
 }
 
 func (s *Service) RunFollower(follower Follower) {
@@ -31,7 +33,7 @@ run:
 	for {
 		select {
 		case <-s.timeout.C:
-			go s.restartElection(candidate, signal)
+			s.startElection(candidate, signal)
 		case <-signal:
 			break run
 		}
@@ -39,20 +41,21 @@ run:
 
 }
 
-func (s *Service) restartElection(candidate Candidate, signal chan struct{}) {
-	candidate.IncrementTerm()
-	s.startElection(candidate, signal)
-}
-
 func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
+	candidate.IncrementTerm()
+
 	state := candidate.GetState()
 	input := candidate.RequestVoteInput()
 	quorum := candidate.GetQuorum()
 	votesGranted := 1 // vote for self
+
 	var m sync.Mutex
 
 	gatherVote := func(p entity.Peer) {
-		if res, err := s.repository.RequestVote(p, input); err == nil {
+		fmt.Println("gather vote")
+		var err error
+		var res *rpc.RequestVoteOutput
+		if res, err = s.repository.RequestVote(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
 				candidate.DowngradeFollower(res.Term)
 				return
@@ -63,6 +66,7 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 				votesGranted += 1
 			}
 		}
+		fmt.Println(err)
 	}
 
 	candidate.Broadcast(gatherVote)
@@ -74,9 +78,9 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 }
 
 func (s *Service) RunLeader(leader Leader) {
-	tick := time.NewTicker(50 * time.Millisecond)
+	s.ticker.Start()
 
-	for range tick.C {
+	for range s.ticker.C {
 		s.sendHeartbeat(leader)
 	}
 }
