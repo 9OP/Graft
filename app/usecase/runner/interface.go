@@ -25,7 +25,7 @@ type broadcaster interface {
 }
 
 type downgrader interface {
-	DowngradeFollower(term uint32)
+	DowngradeFollower(term uint32, leaderId string)
 }
 
 type Follower interface {

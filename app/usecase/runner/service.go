@@ -55,7 +55,7 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 		var res *rpc.RequestVoteOutput
 		if res, err = s.repository.RequestVote(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
-				candidate.DowngradeFollower(res.Term)
+				candidate.DowngradeFollower(res.Term, p.Id)
 				return
 			}
 			if res.VoteGranted {
@@ -89,7 +89,7 @@ func (s *Service) sendHeartbeat(leader Leader) {
 	heartbeat := func(p entity.Peer) {
 		if res, err := s.repository.AppendEntries(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
-				leader.DowngradeFollower(res.Term)
+				leader.DowngradeFollower(res.Term, p.Id)
 				return
 			}
 		}

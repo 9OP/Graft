@@ -28,11 +28,11 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	}
 
 	if input.Term > state.CurrentTerm {
-		srv.DowngradeFollower(input.Term)
+		srv.DowngradeFollower(input.Term, input.LeaderId)
 	}
 
 	srv.Heartbeat()
-	srv.SetClusterLeader(input.LeaderId)
+
 	state.LastLogIndex()
 	state.LastLogTerm()
 
@@ -55,7 +55,7 @@ func (service *Service) RequestVote(ctx context.Context, input *rpc.RequestVoteI
 	srv.Heartbeat()
 
 	if input.Term > state.CurrentTerm {
-		srv.DowngradeFollower(input.Term)
+		srv.DowngradeFollower(input.Term, input.CandidateId)
 	}
 
 	if srv.GrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {

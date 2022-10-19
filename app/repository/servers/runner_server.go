@@ -54,9 +54,11 @@ func (s *Runner) GetQuorum() int {
 	return int(math.Ceil(float64(totalNodes) / 2.0))
 }
 
-func (s *Runner) SetClusterLeader(leaderId string) {
+func (s *Runner) setClusterLeader(leaderId string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.clusterLeader != leaderId {
-		log.Printf("CLUSTER LEADER: %s\n", leaderId)
+		log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
 		s.clusterLeader = leaderId
 	}
 }
@@ -72,7 +74,8 @@ func (s *Runner) Heartbeat() {
 	s.resetTimeout()
 }
 
-func (s *Runner) DowngradeFollower(term uint32) {
+func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
+	s.setClusterLeader(leaderId)
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	s.resetTimeout()
 

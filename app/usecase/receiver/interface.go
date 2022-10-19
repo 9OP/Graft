@@ -9,9 +9,8 @@ import (
 type Server interface {
 	GetState() entity.State
 	Heartbeat()
-	SetClusterLeader(leaderId string)
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
-	DowngradeFollower(term uint32)
+	DowngradeFollower(term uint32, leaderId string)
 }
 
 type Repository interface {
