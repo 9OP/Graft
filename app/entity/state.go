@@ -39,6 +39,13 @@ func (state *PersistentState) LastLogIndex() uint32 {
 	return uint32(len(state.MachineLogs))
 }
 
+func (state *PersistentState) GetLogIndex(n int) MachineLog {
+	if n < int(state.LastLogIndex()) {
+		return state.MachineLogs[n]
+	}
+	return MachineLog{Term: 0}
+}
+
 func (state *PersistentState) LastLogTerm() uint32 {
 	if lastLogIndex := state.LastLogIndex(); lastLogIndex != 0 {
 		return uint32((state.MachineLogs)[lastLogIndex-1].Term)

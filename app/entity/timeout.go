@@ -21,13 +21,21 @@ type Ticker struct {
 	*time.Ticker
 }
 
+func randomizeTime(t int) time.Duration {
+	rand.Seed(time.Now().UnixNano())
+	timeout := (rand.Intn(t/2) + t/2)
+	return time.Duration(timeout)
+}
+
 func NewTimeout(t int) *Timeout {
+	rnd := randomizeTime(t)
+
 	return &Timeout{
 		base{
 			t,
 			sync.Mutex{},
 		},
-		time.NewTimer(time.Duration(t) * time.Millisecond),
+		time.NewTimer(rnd * time.Millisecond),
 	}
 }
 
@@ -35,9 +43,9 @@ func (t *Timeout) RReset() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	rand.Seed(time.Now().UnixNano())
-	timeout := (rand.Intn(t.duration/2) + t.duration/2)
-	t.Reset(time.Duration(timeout) * time.Millisecond)
+	rnd := randomizeTime(t.duration)
+	t.Stop()
+	t.Reset(rnd * time.Millisecond)
 }
 
 func NewTicker(t int) *Ticker {

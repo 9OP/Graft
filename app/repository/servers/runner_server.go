@@ -12,14 +12,15 @@ import (
 
 const ELECTION_TIMEOUT = 350 // ms
 type Runner struct {
-	id        string
-	role      Role
-	peers     []entity.Peer
-	state     entity.State
-	timeout   *entity.Timeout
-	ticker    *entity.Ticker
-	persister *persister.Service
-	mu        sync.Mutex
+	id            string
+	role          Role
+	peers         []entity.Peer
+	clusterLeader string
+	state         entity.State
+	timeout       *entity.Timeout
+	ticker        *entity.Ticker
+	persister     *persister.Service
+	mu            sync.Mutex
 }
 
 type Role struct {
@@ -51,6 +52,13 @@ func (s *Runner) GetState() entity.State {
 func (s *Runner) GetQuorum() int {
 	totalNodes := len(s.peers) + 1 // add self
 	return int(math.Ceil(float64(totalNodes) / 2.0))
+}
+
+func (s *Runner) SetClusterLeader(leaderId string) {
+	if s.clusterLeader != leaderId {
+		log.Printf("CLUSTER LEADER: %s\n", leaderId)
+		s.clusterLeader = leaderId
+	}
 }
 
 func (s *Runner) saveState() {
