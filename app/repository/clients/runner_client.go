@@ -3,8 +3,8 @@ package clients
 import (
 	"context"
 	"fmt"
-	"graft/src2/entity"
-	"graft/src2/rpc"
+	"graft/app/entity"
+	"graft/app/rpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

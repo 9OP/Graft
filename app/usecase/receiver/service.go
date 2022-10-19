@@ -2,7 +2,7 @@ package receiver
 
 import (
 	"context"
-	"graft/src2/rpc"
+	"graft/app/rpc"
 )
 
 type Service struct {

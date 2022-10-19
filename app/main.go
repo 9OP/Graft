@@ -3,13 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"graft/src2/entity"
-	"graft/src2/repository"
-	"graft/src2/repository/clients"
-	"graft/src2/repository/servers"
-	"graft/src2/usecase/persister"
-	"graft/src2/usecase/receiver"
-	"graft/src2/usecase/runner"
+	"graft/app/entity"
+	"graft/app/repository"
+	"graft/app/repository/clients"
+	"graft/app/repository/servers"
+	"graft/app/usecase/persister"
+	"graft/app/usecase/receiver"
+	"graft/app/usecase/runner"
 	"os"
 )
 

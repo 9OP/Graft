@@ -2,8 +2,8 @@ package servers
 
 import (
 	"fmt"
-	"graft/src2/rpc"
-	"graft/src2/usecase/receiver"
+	"graft/app/rpc"
+	"graft/app/usecase/receiver"
 	"log"
 	"net"
 

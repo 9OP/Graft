@@ -2,7 +2,7 @@ package repository
 
 import (
 	"encoding/json"
-	"graft/src2/entity"
+	"graft/app/entity"
 	"os"
 )
 

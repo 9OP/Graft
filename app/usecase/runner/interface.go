@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"graft/src2/entity"
-	"graft/src2/rpc"
+	"graft/app/entity"
+	"graft/app/rpc"
 )
 
 type Repository interface {

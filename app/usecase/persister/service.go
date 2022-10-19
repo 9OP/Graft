@@ -1,7 +1,7 @@
 package persister
 
 import (
-	"graft/src2/entity"
+	"graft/app/entity"
 )
 
 type Service struct {

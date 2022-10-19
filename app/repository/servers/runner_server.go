@@ -1,10 +1,10 @@
 package servers
 
 import (
-	"graft/src2/entity"
-	"graft/src2/rpc"
-	"graft/src2/usecase/persister"
-	"graft/src2/usecase/runner"
+	"graft/app/entity"
+	"graft/app/rpc"
+	"graft/app/usecase/persister"
+	"graft/app/usecase/runner"
 	"log"
 	"math"
 	"sync"

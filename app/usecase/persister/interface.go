@@ -1,6 +1,6 @@
 package persister
 
-import "graft/src2/entity"
+import "graft/app/entity"
 
 type Repository interface {
 	Load(location string) (*entity.PersistentState, error)

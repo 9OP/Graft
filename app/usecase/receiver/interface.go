@@ -2,8 +2,8 @@ package receiver
 
 import (
 	"context"
-	"graft/src2/entity"
-	"graft/src2/rpc"
+	"graft/app/entity"
+	"graft/app/rpc"
 )
 
 type Server interface {
