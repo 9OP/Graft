@@ -6,7 +6,7 @@ type Peer struct {
 	Port string
 }
 
-type State struct {
+type ImmerState struct {
 	PersistentState
 	CommitIndex uint32
 	LastApplied uint32
@@ -14,13 +14,24 @@ type State struct {
 	MatchIndex  []string // leader only
 }
 
+type State struct {
+	ImmerState
+	tmp int
+}
+
 func NewState(ps *PersistentState) *State {
+	i := ImmerState{}
+	i.LastLogTerm()
+
 	return &State{
-		PersistentState: *ps,
-		CommitIndex:     0,
-		LastApplied:     0,
-		NextIndex:       []string{},
-		MatchIndex:      []string{},
+		ImmerState{
+			PersistentState: *ps,
+			CommitIndex:     0,
+			LastApplied:     0,
+			NextIndex:       []string{},
+			MatchIndex:      []string{},
+		},
+		0,
 	}
 }
 

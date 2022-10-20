@@ -10,7 +10,6 @@ import (
 	"sync"
 )
 
-const ELECTION_TIMEOUT = 350 // ms
 type Runner struct {
 	id            string
 	role          Role
@@ -45,13 +44,13 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service, tim
 	return srv
 }
 
-func (s *Runner) GetState() entity.State {
+func (s *Runner) GetState() entity.ImmerState {
 	// Returns a new copy of the server state
 
 	var logs []entity.MachineLog
 	copy(logs, s.state.MachineLogs)
 
-	return entity.State{
+	return entity.ImmerState{
 		PersistentState: entity.PersistentState{
 			CurrentTerm: s.state.CurrentTerm,
 			VotedFor:    s.state.VotedFor,
@@ -69,16 +68,16 @@ func (s *Runner) GetQuorum() int {
 	return int(math.Ceil(float64(totalNodes) / 2.0))
 }
 
-func (s *Runner) setClusterLeader(leaderId string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Runner) SetClusterLeader(leaderId string) {
 	if s.clusterLeader != leaderId {
 		log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
+		s.mu.Lock()
 		s.clusterLeader = leaderId
+		s.mu.Unlock()
 	}
 }
 
-func (s *Runner) SaveState() {
+func (s *Runner) saveState() {
 	s.mu.Lock()
 	s.persister.SaveState(&s.state.PersistentState)
 	s.mu.Unlock()
@@ -93,10 +92,24 @@ func (s *Runner) Heartbeat() {
 	s.resetTimeout()
 }
 
+func (s *Runner) DeleteLogsFrom(n int) {
+	s.state.PersistentState.DeleteLogFrom(n)
+	s.saveState()
+}
+
+func (s *Runner) AppendLogs(entries []string) {
+	s.state.PersistentState.AppendLogs(entries)
+	s.saveState()
+}
+
+func (s *Runner) SetCommitIndex(ind uint32) {
+	s.state.CommitIndex = ind
+}
+
 func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
-	s.setClusterLeader(leaderId)
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	s.resetTimeout()
+	s.SetClusterLeader(leaderId)
 
 	s.mu.Lock()
 	s.role.value = entity.Follower
@@ -104,7 +117,7 @@ func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
 	s.state.VotedFor = ""
 	s.mu.Unlock()
 
-	s.SaveState()
+	s.saveState()
 	s.role.signal <- struct{}{}
 }
 
@@ -118,7 +131,7 @@ func (s *Runner) IncrementTerm() {
 		s.state.VotedFor = s.id
 		s.mu.Unlock()
 
-		s.SaveState()
+		s.saveState()
 	}
 }
 
@@ -130,7 +143,7 @@ func (s *Runner) UpgradeCandidate() {
 		s.role.value = entity.Candidate
 		s.mu.Unlock()
 
-		s.SaveState()
+		s.saveState()
 		s.role.signal <- struct{}{}
 	}
 }

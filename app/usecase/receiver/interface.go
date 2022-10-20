@@ -6,16 +6,15 @@ import (
 	"graft/app/rpc"
 )
 
-type Server interface {
-	GetState() entity.State
-	SaveState()
+type Repository interface {
+	GetState() entity.ImmerState
 	Heartbeat()
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DowngradeFollower(term uint32, leaderId string)
-}
-
-type Repository interface {
-	Server
+	SetClusterLeader(leaderId string)
+	DeleteLogsFrom(n int)
+	AppendLogs(entries []string)
+	SetCommitIndex(ind uint32)
 }
 
 type UseCase interface {
