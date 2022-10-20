@@ -12,32 +12,29 @@ import (
 
 type Runner struct {
 	id            string
-	role          Role
+	role          *entity.Role
 	peers         []entity.Peer
 	clusterLeader string
-	state         entity.State
+	state         *entity.State
 	timeout       *entity.Timeout
 	ticker        *entity.Ticker
 	persister     *persister.Service
 	mu            sync.Mutex
 }
 
-type Role struct {
-	value  entity.Role
-	signal chan struct{}
-}
-
 func NewRunner(id string, peers []entity.Peer, persister *persister.Service, timeout *entity.Timeout, ticker *entity.Ticker) *Runner {
 
 	ps, _ := persister.LoadState()
+	state := entity.NewState(ps)
+	role := entity.NewRole()
 
 	srv := &Runner{
 		id:        id,
 		peers:     peers,
-		state:     *entity.NewState(ps),
+		state:     state,
 		timeout:   timeout,
 		ticker:    ticker,
-		role:      Role{value: entity.Follower, signal: make(chan struct{}, 1)},
+		role:      role,
 		persister: persister,
 	}
 
