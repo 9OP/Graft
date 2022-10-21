@@ -14,6 +14,27 @@ func NewState() *state {
 	}
 }
 
+/*
+Goal:
+- GetState returns a state immutable that does not contain methods to update srv.state
+- srv contains a state and can mute the state with methods
+
+*/
+
+// Public
+type State struct {
+	Persistent
+	CommitIndex uint32
+	LastApplied uint32
+	NextIndex   map[string]uint32
+	MatchIndex  map[string]uint32
+}
+
+// Public
+type Persistent struct {
+	persistentState
+}
+
 type state struct {
 	persistent  persistentState
 	commitIndex uint32
@@ -34,33 +55,30 @@ type machineLog struct {
 }
 
 // Getters
-func (s *state) CommitIndex() uint32 {
-	return s.commitIndex
+func (s *state) GetImmutable() *State {
+	return &State{
+		Persistent:  Persistent{},
+		CommitIndex: s.commitIndex,
+		LastApplied: s.lastApplied,
+		NextIndex:   s.copyNextIndex(),
+		MatchIndex:  s.copyMatchIndex(),
+	}
 }
-func (s *state) LastApplied() uint32 {
-	return s.lastApplied
-}
-func (s *state) NextIndex() map[string]uint32 {
+func (s *state) copyNextIndex() map[string]uint32 {
 	cp := make(map[string]uint32, len(s.nextIndex))
 	for k, v := range s.nextIndex {
 		cp[k] = v
 	}
 	return cp
 }
-func (s *state) MatchIndex() map[string]uint32 {
+func (s *state) copyMatchIndex() map[string]uint32 {
 	cp := make(map[string]uint32, len(s.matchIndex))
 	for k, v := range s.matchIndex {
 		cp[k] = v
 	}
 	return cp
 }
-func (s *state) CurrentTerm() uint32 {
-	return s.persistent.CurrentTerm
-}
-func (s *state) VotedFor() string {
-	return s.persistent.VotedFor
-}
-func (s *state) MachineLogs() []machineLog {
+func (s *state) copyMachineLogs() []machineLog {
 	cp := make([]machineLog, len(s.persistent.MachineLogs))
 	copy(cp, s.persistent.MachineLogs)
 	return cp
@@ -82,43 +100,43 @@ func (s *state) LastLogTerm() uint32 {
 }
 
 // Transforms
-func DeleteLogFrom(s state, n uint32) state {
-	machineLogs := s.MachineLogs()
-	lastLogIndex := s.LastLogIndex()
+// func DeleteLogFrom(s state, n uint32) state {
+// 	machineLogs := s.copyMachineLogs()
+// 	lastLogIndex := s.LastLogIndex()
 
-	if n < lastLogIndex {
-		machineLogs = machineLogs[:n]
-	}
+// 	if n < lastLogIndex {
+// 		machineLogs = machineLogs[:n]
+// 	}
 
-	return state{
-		persistent: persistentState{
-			CurrentTerm: s.CurrentTerm(),
-			VotedFor:    s.VotedFor(),
-			MachineLogs: machineLogs,
-		},
-		commitIndex: s.CommitIndex(),
-		lastApplied: s.LastApplied(),
-		nextIndex:   s.NextIndex(),
-		matchIndex:  s.MatchIndex(),
-	}
-}
-func AppendLogs(s state, entries []string) state {
-	machineLogs := s.MachineLogs()
-	currentTerm := s.CurrentTerm()
-	for _, entry := range entries {
-		machineLogs = append(machineLogs, machineLog{Term: currentTerm, Value: entry})
-	}
+// 	return state{
+// 		persistent: persistentState{
+// 			CurrentTerm: s.CurrentTerm(),
+// 			VotedFor:    s.VotedFor(),
+// 			MachineLogs: machineLogs,
+// 		},
+// 		commitIndex: s.CommitIndex(),
+// 		lastApplied: s.LastApplied(),
+// 		nextIndex:   s.NextIndex(),
+// 		matchIndex:  s.MatchIndex(),
+// 	}
+// }
+// func AppendLogs(s state, entries []string) state {
+// 	machineLogs := s.MachineLogs()
+// 	currentTerm := s.CurrentTerm()
+// 	for _, entry := range entries {
+// 		machineLogs = append(machineLogs, machineLog{Term: currentTerm, Value: entry})
+// 	}
 
-	return state{
-		persistent: persistentState{
-			CurrentTerm: s.CurrentTerm(),
-			VotedFor:    s.VotedFor(),
-			MachineLogs: machineLogs,
-		},
-		commitIndex: s.CommitIndex(),
-		lastApplied: s.LastApplied(),
-		nextIndex:   s.NextIndex(),
-		matchIndex:  s.MatchIndex(),
-	}
+// 	return state{
+// 		persistent: persistentState{
+// 			CurrentTerm: s.CurrentTerm(),
+// 			VotedFor:    s.VotedFor(),
+// 			MachineLogs: machineLogs,
+// 		},
+// 		commitIndex: s.CommitIndex(),
+// 		lastApplied: s.LastApplied(),
+// 		nextIndex:   s.NextIndex(),
+// 		matchIndex:  s.MatchIndex(),
+// 	}
 
-}
+// }
