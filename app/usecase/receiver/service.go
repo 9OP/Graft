@@ -17,6 +17,7 @@ func NewService(repo Repository) *Service {
 func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
 	srv := service.repository
 	state := srv.GetState()
+	log := state.GetLog(input.PrevLogIndex)
 
 	output := &rpc.AppendEntriesOutput{
 		Term:    state.CurrentTerm,
@@ -34,13 +35,11 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	srv.SetClusterLeader(input.LeaderId)
 	srv.Heartbeat()
 
-	log := state.GetLogIndex(int(input.PrevLogIndex))
-
 	if log.Term == input.PrevLogTerm {
 		srv.AppendLogs(input.Entries)
 		output.Success = true
 	} else {
-		srv.DeleteLogsFrom(int(input.PrevLogIndex))
+		srv.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
 	if input.LeaderCommit > state.CommitIndex {

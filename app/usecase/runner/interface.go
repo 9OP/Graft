@@ -17,7 +17,7 @@ type UseCase interface {
 }
 
 type role interface {
-	GetState() entity.ImmerState
+	GetState() *entity.State
 }
 
 type broadcaster interface {

@@ -3,11 +3,11 @@ package persister
 import "graft/app/entity"
 
 type Repository interface {
-	Load(location string) (*entity.PersistentState, error)
-	Save(location string, state *entity.PersistentState) error
+	Load(location string) (*entity.Persistent, error)
+	Save(location string, state *entity.Persistent) error
 }
 
 type UseCase interface {
-	LoadState() (*entity.PersistentState, error)
-	SaveState(state *entity.PersistentState) error
+	LoadState() (*entity.Persistent, error)
+	SaveState(state *entity.Persistent) error
 }

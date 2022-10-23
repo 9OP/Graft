@@ -7,12 +7,12 @@ import (
 )
 
 type Repository interface {
-	GetState() entity.ImmerState
+	GetState() *entity.State
 	Heartbeat()
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DowngradeFollower(term uint32, leaderId string)
 	SetClusterLeader(leaderId string)
-	DeleteLogsFrom(n int)
+	DeleteLogsFrom(index uint32)
 	AppendLogs(entries []string)
 	SetCommitIndex(ind uint32)
 }

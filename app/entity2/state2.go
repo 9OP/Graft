@@ -1,27 +1,54 @@
 package entity2
 
-func NewState() *state {
-	return &state{
-		persistent: persistentState{
-			CurrentTerm: 0,
-			VotedFor:    "",
-			MachineLogs: []machineLog{},
-		},
-		commitIndex: 0,
-		lastApplied: 0,
-		nextIndex:   map[string]uint32{},
-		matchIndex:  map[string]uint32{},
-	}
+import "sync"
+
+type state struct {
+	persistent  Persistent
+	commitIndex uint32
+	lastApplied uint32
+	nextIndex   map[string]uint32
+	matchIndex  map[string]uint32
+	mu          sync.RWMutex
 }
 
-/*
-Goal:
-- GetState returns a state immutable that does not contain methods to update srv.state
-- srv contains a state and can mute the state with methods
+func NewState() *state {
+	return &state{}
+}
 
-*/
+type Persistent struct {
+	CurrentTerm uint32       `json:"current_term"`
+	VotedFor    string       `json:"voted_for"`
+	MachineLogs []MachineLog `json:"machine_logs"`
+}
 
-// Public
+type MachineLog struct {
+	Term  uint32 `json:"term"`
+	Value string `json:"value"`
+}
+
+func (s *state) DeleteLogsFrom(index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	lastLogIndex := int32(len(s.persistent.MachineLogs))
+	if index < uint32(lastLogIndex) {
+		s.persistent.MachineLogs = s.persistent.MachineLogs[:index]
+	}
+}
+func (s *state) AppendLogs(entries []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	size := len(entries) + len(s.persistent.MachineLogs)
+	currentTerm := s.persistent.CurrentTerm
+	logs := make([]MachineLog, size)
+	for _, entry := range entries {
+		logs = append(
+			logs,
+			MachineLog{Term: currentTerm, Value: entry},
+		)
+	}
+	s.persistent.MachineLogs = logs
+}
+
 type State struct {
 	Persistent
 	CommitIndex uint32
@@ -30,113 +57,52 @@ type State struct {
 	MatchIndex  map[string]uint32
 }
 
-// Public
-type Persistent struct {
-	persistentState
-}
+func (s *state) GetState() *State {
+	s.mu.RUnlock()
+	defer s.mu.RUnlock()
 
-type state struct {
-	persistent  persistentState
-	commitIndex uint32
-	lastApplied uint32
-	nextIndex   map[string]uint32
-	matchIndex  map[string]uint32
-}
+	machineLogs := make([]MachineLog, len(s.persistent.MachineLogs))
+	copy(machineLogs, s.persistent.MachineLogs)
 
-type persistentState struct {
-	CurrentTerm uint32       `json:"current_term"`
-	VotedFor    string       `json:"voted_for"`
-	MachineLogs []machineLog `json:"machine_logs"`
-}
+	nextIndex := map[string]uint32{}
+	for k, v := range s.nextIndex {
+		nextIndex[k] = v
+	}
 
-type machineLog struct {
-	Term  uint32 `json:"term"`
-	Value string `json:"value"`
-}
+	matchIndex := map[string]uint32{}
+	for k, v := range s.matchIndex {
+		matchIndex[k] = v
+	}
 
-// Getters
-func (s *state) GetImmutable() *State {
 	return &State{
-		Persistent:  Persistent{},
+		Persistent: Persistent{
+			CurrentTerm: s.persistent.CurrentTerm,
+			VotedFor:    s.persistent.VotedFor,
+			MachineLogs: machineLogs,
+		},
 		CommitIndex: s.commitIndex,
 		LastApplied: s.lastApplied,
-		NextIndex:   s.copyNextIndex(),
-		MatchIndex:  s.copyMatchIndex(),
+		NextIndex:   nextIndex,
+		MatchIndex:  matchIndex,
 	}
 }
-func (s *state) copyNextIndex() map[string]uint32 {
-	cp := make(map[string]uint32, len(s.nextIndex))
-	for k, v := range s.nextIndex {
-		cp[k] = v
+
+func (s *State) GetLog(index int) MachineLog {
+	if index < int(s.LastLogIndex()) {
+		log := MachineLog{
+			Term:  s.MachineLogs[index].Term,
+			Value: s.MachineLogs[index].Value,
+		}
+		return log
 	}
-	return cp
+	return MachineLog{Term: 0}
 }
-func (s *state) copyMatchIndex() map[string]uint32 {
-	cp := make(map[string]uint32, len(s.matchIndex))
-	for k, v := range s.matchIndex {
-		cp[k] = v
-	}
-	return cp
+func (s *State) LastLogIndex() uint32 {
+	return uint32(len(s.MachineLogs))
 }
-func (s *state) copyMachineLogs() []machineLog {
-	cp := make([]machineLog, len(s.persistent.MachineLogs))
-	copy(cp, s.persistent.MachineLogs)
-	return cp
-}
-func (s *state) LastLogIndex() uint32 {
-	return uint32(len(s.persistent.MachineLogs))
-}
-func (s *state) GetLogIndex(n int) machineLog {
-	if n < int(s.LastLogIndex()) {
-		return s.persistent.MachineLogs[n]
-	}
-	return machineLog{Term: 0}
-}
-func (s *state) LastLogTerm() uint32 {
+func (s *State) LastLogTerm() uint32 {
 	if lastLogIndex := s.LastLogIndex(); lastLogIndex != 0 {
-		return s.persistent.MachineLogs[lastLogIndex-1].Term
+		return s.MachineLogs[lastLogIndex-1].Term
 	}
 	return 0
 }
-
-// Transforms
-// func DeleteLogFrom(s state, n uint32) state {
-// 	machineLogs := s.copyMachineLogs()
-// 	lastLogIndex := s.LastLogIndex()
-
-// 	if n < lastLogIndex {
-// 		machineLogs = machineLogs[:n]
-// 	}
-
-// 	return state{
-// 		persistent: persistentState{
-// 			CurrentTerm: s.CurrentTerm(),
-// 			VotedFor:    s.VotedFor(),
-// 			MachineLogs: machineLogs,
-// 		},
-// 		commitIndex: s.CommitIndex(),
-// 		lastApplied: s.LastApplied(),
-// 		nextIndex:   s.NextIndex(),
-// 		matchIndex:  s.MatchIndex(),
-// 	}
-// }
-// func AppendLogs(s state, entries []string) state {
-// 	machineLogs := s.MachineLogs()
-// 	currentTerm := s.CurrentTerm()
-// 	for _, entry := range entries {
-// 		machineLogs = append(machineLogs, machineLog{Term: currentTerm, Value: entry})
-// 	}
-
-// 	return state{
-// 		persistent: persistentState{
-// 			CurrentTerm: s.CurrentTerm(),
-// 			VotedFor:    s.VotedFor(),
-// 			MachineLogs: machineLogs,
-// 		},
-// 		commitIndex: s.CommitIndex(),
-// 		lastApplied: s.LastApplied(),
-// 		nextIndex:   s.NextIndex(),
-// 		matchIndex:  s.MatchIndex(),
-// 	}
-
-// }

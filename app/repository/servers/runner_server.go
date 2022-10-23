@@ -15,11 +15,11 @@ type Runner struct {
 	role          *entity.Role
 	peers         []entity.Peer
 	clusterLeader string
-	state         *entity.State
+	state         *entity.Istate
 	timeout       *entity.Timeout
 	ticker        *entity.Ticker
 	persister     *persister.Service
-	// mu            sync.Mutex
+	mu            sync.Mutex
 }
 
 func NewRunner(id string, peers []entity.Peer, persister *persister.Service, timeout *entity.Timeout, ticker *entity.Ticker) *Runner {
@@ -41,23 +41,8 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service, tim
 	return srv
 }
 
-func (s *Runner) GetState() entity.ImmerState {
-	// Returns a new copy of the server state
-
-	var logs []entity.MachineLog
-	copy(logs, s.state.MachineLogs)
-
-	return entity.ImmerState{
-		PersistentState: entity.PersistentState{
-			CurrentTerm: s.state.CurrentTerm,
-			VotedFor:    s.state.VotedFor,
-			MachineLogs: logs,
-		},
-		CommitIndex: s.state.CommitIndex,
-		LastApplied: s.state.LastApplied,
-		NextIndex:   s.state.NextIndex,  // do deep copy
-		MatchIndex:  s.state.MatchIndex, // do deep copy
-	}
+func (s *Runner) GetState() *entity.State {
+	return s.state.GetState()
 }
 
 func (s *Runner) GetQuorum() int {
@@ -68,16 +53,15 @@ func (s *Runner) GetQuorum() int {
 func (s *Runner) SetClusterLeader(leaderId string) {
 	if s.clusterLeader != leaderId {
 		log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
-		// s.mu.Lock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
 		s.clusterLeader = leaderId
-		// s.mu.Unlock()
 	}
 }
 
 func (s *Runner) saveState() {
-	// s.mu.Lock()
-	s.persister.SaveState(&s.state.PersistentState)
-	// s.mu.Unlock()
+	state := s.GetState()
+	s.persister.SaveState(&state.Persistent)
 }
 
 func (s *Runner) resetTimeout() {
@@ -89,42 +73,39 @@ func (s *Runner) Heartbeat() {
 	s.resetTimeout()
 }
 
-func (s *Runner) DeleteLogsFrom(n int) {
-	s.state.PersistentState.DeleteLogFrom(n)
-	s.saveState()
+func (s *Runner) DeleteLogsFrom(index uint32) {
+	defer s.saveState()
+	s.state.DeleteLogsFrom(index)
 }
 
 func (s *Runner) AppendLogs(entries []string) {
-	s.state.PersistentState.AppendLogs(entries)
-	s.saveState()
+	defer s.saveState()
+	s.state.AppendLogs(entries)
 }
 
-func (s *Runner) SetCommitIndex(ind uint32) {
-	s.state.CommitIndex = ind
+func (s *Runner) SetCommitIndex(index uint32) {
+	s.state.SetCommitIndex(index)
 }
 
 func (s *Runner) DowngradeFollower(term uint32, leaderId string) {
+	defer s.saveState()
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	s.resetTimeout()
 	s.SetClusterLeader(leaderId)
-
-	s.state.CurrentTerm = term
-	s.state.VotedFor = ""
-	s.saveState()
-
+	s.state.SetCurrentTerm(term)
+	s.state.SetVotedFor("")
 	s.role.Shift(entity.Follower)
 }
 
 func (s *Runner) IncrementTerm() {
 	if s.role.Is(entity.Candidate) {
-		log.Printf("INCREMENT CANDIDATE TERM: %d\n", s.state.CurrentTerm+1)
+		defer s.saveState()
+		state := s.GetState()
+		newTerm := state.CurrentTerm + 1
+		log.Printf("INCREMENT CANDIDATE TERM: %d\n", newTerm)
 		s.resetTimeout()
-
-		// s.mu.Lock()
-		s.state.CurrentTerm += 1
-		s.state.VotedFor = s.id
-		s.saveState()
-		// s.mu.Unlock()
+		s.state.SetCurrentTerm(newTerm)
+		s.state.SetVotedFor(s.id)
 	}
 }
 
@@ -137,24 +118,26 @@ func (s *Runner) UpgradeCandidate() {
 
 func (s *Runner) UpgradeLeader() {
 	if s.role.Is(entity.Candidate) {
-		log.Printf("UPGRADE TO LEADER TERM: %d\n", s.state.CurrentTerm)
+		state := s.GetState()
+		log.Printf("UPGRADE TO LEADER TERM: %d\n", state.CurrentTerm)
 		s.ticker.Start()
 		s.role.Shift(entity.Leader)
 	}
 }
 
 func (s *Runner) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
-	// s.mu.Lock()
-	// defer s.mu.Unlock()
+	defer s.saveState()
+	state := s.GetState()
 
-	currentLogIndex := s.state.LastLogIndex()
-	currentLogTerm := s.state.LastLogTerm()
+	currentLogIndex := state.LastLogIndex()
+	currentLogTerm := state.LastLogTerm()
+	votedFor := state.VotedFor
 
-	voteAvailable := s.state.VotedFor == "" || s.state.VotedFor == id
+	voteAvailable := votedFor == "" || votedFor == id
 	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
 
 	if voteAvailable && candidateUpToDate {
-		s.state.VotedFor = id
+		s.state.SetVotedFor(id)
 		return true
 	}
 
@@ -162,7 +145,7 @@ func (s *Runner) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 }
 
 func (s *Runner) RequestVoteInput() *rpc.RequestVoteInput {
-	state := s.state
+	state := s.GetState()
 	return &rpc.RequestVoteInput{
 		CandidateId:  s.id,
 		Term:         state.CurrentTerm,
@@ -172,7 +155,7 @@ func (s *Runner) RequestVoteInput() *rpc.RequestVoteInput {
 }
 
 func (s *Runner) AppendEntriesInput() *rpc.AppendEntriesInput {
-	state := s.state
+	state := s.GetState()
 	return &rpc.AppendEntriesInput{
 		LeaderId: s.id,
 		Term:     state.CurrentTerm,
@@ -195,8 +178,6 @@ func (s *Runner) Broadcast(fn func(peer entity.Peer)) {
 
 func (s *Runner) Start(service *runner.Service) {
 	log.Println("START RUNNER SERVER")
-
-	s.role.Signal() <- struct{}{}
 
 	for range s.role.Signal() {
 		switch {
