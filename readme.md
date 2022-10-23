@@ -5,10 +5,14 @@
 DONE:
 - Election
 - Heartbeat
+- Append entries
 
 TODO:
-- Append entries
+- JSON api for sending logs
 - Client redirection
+- FSM bindings (via shell)
+- Log compaction
+- Mutual TLS
 - Cluster membership update
 - define YAML format for config, should contain:
     - Nodes, with uniq name/candidateId, host (ip+port)

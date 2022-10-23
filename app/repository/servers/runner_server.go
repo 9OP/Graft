@@ -23,12 +23,10 @@ type Runner struct {
 }
 
 func NewRunner(id string, peers []entity.Peer, persister *persister.Service, timeout *entity.Timeout, ticker *entity.Ticker) *Runner {
-
 	ps, _ := persister.LoadState()
 	state := entity.NewState(ps)
 	role := entity.NewRole()
-
-	srv := &Runner{
+	return &Runner{
 		id:        id,
 		peers:     peers,
 		state:     state,
@@ -37,8 +35,6 @@ func NewRunner(id string, peers []entity.Peer, persister *persister.Service, tim
 		role:      role,
 		persister: persister,
 	}
-
-	return srv
 }
 
 func (s *Runner) GetState() *entity.State {
@@ -51,10 +47,10 @@ func (s *Runner) GetQuorum() int {
 }
 
 func (s *Runner) SetClusterLeader(leaderId string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.clusterLeader != leaderId {
 		log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
-		s.mu.Lock()
-		defer s.mu.Unlock()
 		s.clusterLeader = leaderId
 	}
 }
@@ -71,6 +67,10 @@ func (s *Runner) resetTimeout() {
 
 func (s *Runner) Heartbeat() {
 	s.resetTimeout()
+}
+
+func (s *Runner) IsLeader() bool {
+	return s.role.Is(entity.Leader)
 }
 
 func (s *Runner) DeleteLogsFrom(index uint32) {
@@ -140,7 +140,6 @@ func (s *Runner) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 		s.state.SetVotedFor(id)
 		return true
 	}
-
 	return false
 }
 
@@ -164,7 +163,6 @@ func (s *Runner) AppendEntriesInput() *rpc.AppendEntriesInput {
 
 func (s *Runner) Broadcast(fn func(peer entity.Peer)) {
 	peers := s.peers
-
 	var wg sync.WaitGroup
 	for _, peer := range peers {
 		wg.Add(1)
