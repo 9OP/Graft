@@ -7,14 +7,14 @@ import (
 )
 
 type Repository interface {
-	GetState() *entity.State
 	Heartbeat()
-	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DowngradeFollower(term uint32, leaderId string)
 	SetClusterLeader(leaderId string)
+	GetState() *entity.State
+	SetCommitIndex(ind uint32)
+	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DeleteLogsFrom(index uint32)
 	AppendLogs(entries []string)
-	SetCommitIndex(ind uint32)
 }
 
 type UseCase interface {

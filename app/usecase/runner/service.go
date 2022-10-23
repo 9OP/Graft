@@ -28,12 +28,14 @@ func (s *Service) RunCandidate(candidate Candidate) {
 
 	go s.startElection(candidate, signal)
 
+	// TODO: refactor, do not use loop label
 run:
 	for {
 		select {
 		case <-s.timeout.C:
 			s.startElection(candidate, signal)
 		case <-signal:
+			s.timeout.Stop()
 			break run
 		}
 	}
@@ -77,6 +79,7 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 func (s *Service) RunLeader(leader Leader) {
 	s.ticker.Start()
 
+	// TODO: investigate if the loop continues when switching back to follower
 	for range s.ticker.C {
 		s.sendHeartbeat(leader)
 	}
