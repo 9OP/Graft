@@ -29,17 +29,24 @@ type Server struct {
 	Signals
 }
 
-func NewRunner(id string, peers []Peer, ps *Persistent) *Server {
+func NewServer(id string, peers []Peer, ps *Persistent) *Server {
 	state := NewState(ps)
 	role := entitynew.Follower
 
-	return &Server{
-		Id:      id,
-		Peers:   peers,
-		role:    role,
-		state:   state,
-		Signals: Signals{},
+	srv := &Server{
+		Id:    id,
+		Peers: peers,
+		role:  role,
+		state: state,
+		Signals: Signals{
+			SaveState:          make(chan struct{}, 1),
+			ShiftRole:          make(chan struct{}, 1),
+			ResetElectionTimer: make(chan struct{}, 1),
+			ResetLeaderTicker:  make(chan struct{}, 1),
+		},
 	}
+	srv.ShiftRole <- struct{}{}
+	return srv
 }
 
 func (s *Server) GetState() *State {
@@ -76,6 +83,7 @@ func (s *Server) resetTimeout() {
 }
 
 func (s *Server) Heartbeat() {
+	// Dispatch application of FSM / commitIndex / lastApplied ?
 	s.resetTimeout()
 }
 
@@ -148,7 +156,7 @@ func (s *Server) UpgradeLeader() {
 		state := s.GetState()
 		log.Printf("UPGRADE TO LEADER TERM: %d\n", state.CurrentTerm)
 		s.SetClusterLeader(s.Id)
-		// s.ticker.Start()
+		s.ResetLeaderTicker <- struct{}{}
 		s.shiftRole(entitynew.Leader)
 	}
 }

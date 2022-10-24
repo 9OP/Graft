@@ -2,48 +2,40 @@ package runner
 
 import (
 	"graft/app/entity"
+	entitynew "graft/app/entity_new"
 	"graft/app/rpc"
 	"sync"
 )
 
 type Service struct {
 	repository Repository
-	// Create one object that hold a timer and a ticker
-	timeout *entity.Timeout
-	ticker  *entity.Ticker
+	timeout    *entitynew.Timeout
+	// // Create one object that hold a timer and a ticker
+	// timeout *entity.Timeout
+	// ticker  *entity.Ticker
 }
 
-func NewService(repo Repository, timeout *entity.Timeout, ticker *entity.Ticker) *Service {
-	return &Service{repository: repo, timeout: timeout, ticker: ticker}
+func NewService(repo Repository, timeout *entitynew.Timeout) *Service {
+	return &Service{repository: repo, timeout: timeout}
 }
 
 func (s *Service) RunFollower(follower Follower) {
-	for range s.timeout.C {
+	for range s.timeout.ElectionTimer.C {
 		follower.UpgradeCandidate()
 		return
 	}
 }
 
 func (s *Service) RunCandidate(candidate Candidate) {
-	signal := make(chan struct{}, 1)
+	go s.startElection(candidate)
 
-	go s.startElection(candidate, signal)
-
-	// TODO: refactor, do not use loop label
-run:
-	for {
-		select {
-		case <-s.timeout.C:
-			s.startElection(candidate, signal)
-		case <-signal:
-			s.timeout.Stop()
-			break run
-		}
+	for range s.timeout.ElectionTimer.C {
+		s.startElection(candidate)
 	}
 
 }
 
-func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
+func (s *Service) startElection(candidate Candidate) {
 	candidate.IncrementTerm()
 
 	state := candidate.GetState()
@@ -73,15 +65,11 @@ func (s *Service) startElection(candidate Candidate, signal chan struct{}) {
 
 	if votesGranted >= quorum {
 		candidate.UpgradeLeader()
-		signal <- struct{}{}
 	}
 }
 
 func (s *Service) RunLeader(leader Leader) {
-	s.ticker.Start()
-
-	// TODO: investigate if the loop continues when switching back to follower
-	for range s.ticker.C {
+	for range s.timeout.LeaderTicker.C {
 		s.sendHeartbeat(leader)
 	}
 }

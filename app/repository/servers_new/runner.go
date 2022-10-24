@@ -2,6 +2,7 @@ package serversnew
 
 import (
 	"graft/app/entity"
+	entitynew "graft/app/entity_new"
 	"graft/app/usecase/persister"
 	"graft/app/usecase/runner"
 	"log"
@@ -9,19 +10,18 @@ import (
 
 type Runner struct {
 	server    *entity.Server
+	timeout   *entitynew.Timeout
 	persister *persister.Service
 }
 
-func NewRunner(srv *entity.Server, ps *persister.Service) *Runner {
-	return &Runner{
-		srv,
-		ps,
-	}
+func NewRunner(srv *entity.Server, tm *entitynew.Timeout, ps *persister.Service) *Runner {
+	return &Runner{srv, tm, ps}
 }
 
 func (r *Runner) Start(service *runner.Service) {
 	log.Println("START RUNNER NEW SERVER")
 	srv := r.server
+	log.Println("service")
 
 	for {
 		select {
@@ -29,7 +29,6 @@ func (r *Runner) Start(service *runner.Service) {
 		case <-srv.ShiftRole:
 			switch {
 			case srv.IsFollower():
-				//
 				go service.RunFollower(srv)
 			case srv.IsCandidate():
 				go service.RunCandidate(srv)
@@ -42,10 +41,10 @@ func (r *Runner) Start(service *runner.Service) {
 			r.persister.SaveState(&state.Persistent)
 
 		case <-srv.ResetElectionTimer:
-			continue
+			r.timeout.ResetElectionTimer()
 
 		case <-srv.ResetLeaderTicker:
-			continue
+			r.timeout.ResetLeaderTicker()
 		}
 
 	}
