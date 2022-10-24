@@ -10,6 +10,7 @@ import (
 	"sync"
 )
 
+// Move to entity/server.go or server_state.go
 type Runner struct {
 	id            string
 	role          *entity.Role

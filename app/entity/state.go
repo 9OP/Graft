@@ -2,6 +2,9 @@ package entity
 
 import "sync"
 
+// Rename logstate or fsmstate
+// Separate Persistent
+
 type Peer struct {
 	Id   string
 	Host string
