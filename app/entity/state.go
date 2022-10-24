@@ -5,14 +5,8 @@ import "sync"
 // Rename logstate or fsmstate
 // Separate Persistent
 
-type Peer struct {
-	Id   string
-	Host string
-	Port string
-}
-
 type Istate struct {
-	persistent  Persistent
+	Persistent
 	commitIndex uint32
 	lastApplied uint32
 	nextIndex   map[string]uint32
@@ -24,53 +18,10 @@ func NewState(ps *Persistent) *Istate {
 	return &Istate{}
 }
 
-type Persistent struct {
-	CurrentTerm uint32       `json:"current_term"`
-	VotedFor    string       `json:"voted_for"`
-	MachineLogs []MachineLog `json:"machine_logs"`
-}
-
-type MachineLog struct {
-	Term  uint32 `json:"term"`
-	Value string `json:"value"`
-}
-
-func (s *Istate) SetVotedFor(id string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.persistent.VotedFor = id
-}
-func (s *Istate) SetCurrentTerm(term uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.persistent.CurrentTerm = term
-}
 func (s *Istate) SetCommitIndex(index uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.commitIndex = index
-}
-func (s *Istate) DeleteLogsFrom(index uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	lastLogIndex := int32(len(s.persistent.MachineLogs))
-	if index < uint32(lastLogIndex) {
-		s.persistent.MachineLogs = s.persistent.MachineLogs[:index]
-	}
-}
-func (s *Istate) AppendLogs(entries []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	size := len(entries) + len(s.persistent.MachineLogs)
-	currentTerm := s.persistent.CurrentTerm
-	logs := make([]MachineLog, size)
-	for _, entry := range entries {
-		logs = append(
-			logs,
-			MachineLog{Term: currentTerm, Value: entry},
-		)
-	}
-	s.persistent.MachineLogs = logs
 }
 
 type State struct {
@@ -85,8 +36,8 @@ func (s *Istate) GetState() *State {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	machineLogs := make([]MachineLog, len(s.persistent.MachineLogs))
-	copy(machineLogs, s.persistent.MachineLogs)
+	machineLogs := make([]MachineLog, len(s.MachineLogs))
+	copy(machineLogs, s.MachineLogs)
 
 	nextIndex := map[string]uint32{}
 	for k, v := range s.nextIndex {
@@ -100,8 +51,8 @@ func (s *Istate) GetState() *State {
 
 	return &State{
 		Persistent: Persistent{
-			CurrentTerm: s.persistent.CurrentTerm,
-			VotedFor:    s.persistent.VotedFor,
+			CurrentTerm: s.CurrentTerm,
+			VotedFor:    s.VotedFor,
 			MachineLogs: machineLogs,
 		},
 		CommitIndex: s.commitIndex,

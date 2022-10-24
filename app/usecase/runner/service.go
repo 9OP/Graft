@@ -8,8 +8,9 @@ import (
 
 type Service struct {
 	repository Repository
-	timeout    *entity.Timeout
-	ticker     *entity.Ticker
+	// Create one object that hold a timer and a ticker
+	timeout *entity.Timeout
+	ticker  *entity.Ticker
 }
 
 func NewService(repo Repository, timeout *entity.Timeout, ticker *entity.Ticker) *Service {

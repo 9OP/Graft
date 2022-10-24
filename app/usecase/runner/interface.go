@@ -5,6 +5,7 @@ import (
 	"graft/app/rpc"
 )
 
+// Rename Rpc
 type Repository interface {
 	AppendEntries(peer entity.Peer, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
 	RequestVote(peer entity.Peer, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
