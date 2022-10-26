@@ -3,6 +3,7 @@ package entity
 import (
 	"log"
 	"math"
+	"sync"
 )
 
 // Write here every function that does not need to send external signal
@@ -11,17 +12,23 @@ import (
 type Node struct {
 	id        string
 	leaderId  string
-	Peers     Peers
+	peers     Peers
 	role      Role
 	*fsmState // ensure that we can call public method of private fsmState
+	// WARNING: might cause issue with concurrent access since pointer and not
+	// value copy (in GrantVote for instance)
 }
 
 func NewNode(id string, peers Peers) *Node {
 	return &Node{
 		id:       id,
-		Peers:    peers,
+		peers:    peers,
 		fsmState: NewFsmState(),
 	}
+}
+
+func (n Node) GetId() string {
+	return n.id
 }
 
 func (n *Node) SetClusterLeader(leaderId string) {
@@ -36,7 +43,7 @@ func (n Node) GetState() FsmState {
 }
 
 func (n Node) GetQuorum() int {
-	totalClusterNodes := len(n.Peers) + 1 // add self
+	totalClusterNodes := len(n.peers) + 1 // add self
 	return int(math.Ceil(float64(totalClusterNodes) / 2.0))
 }
 
@@ -60,11 +67,10 @@ func (n Node) VoteForSelf() {
 	n.SetVotedFor(n.id)
 }
 
-func (n Node) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
-	state := n.GetState()
-	currentLogIndex := state.GetLastLogIndex()
-	currentLogTerm := state.GetLastLogTerm()
-	votedFor := state.VotedFor
+func (n Node) CanGrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
+	currentLogIndex := n.GetLastLogIndex()
+	currentLogTerm := n.GetLastLogTerm()
+	votedFor := n.votedFor
 
 	voteAvailable := votedFor == "" || votedFor == id
 	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
@@ -74,20 +80,33 @@ func (n Node) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	return false
 }
 
-// func (s *Server) RequestVoteInput() *rpc.RequestVoteInput {
-// 	state := s.GetState()
-// 	return &rpc.RequestVoteInput{
-// 		CandidateId:  s.Id,
-// 		Term:         state.CurrentTerm,
-// 		LastLogIndex: state.LastLogIndex(),
-// 		LastLogTerm:  state.LastLogTerm(),
-// 	}
-// }
+func (n Node) Broadcast(fn func(p Peer)) {
+	var wg sync.WaitGroup
+	for _, peer := range n.peers {
+		wg.Add(1)
+		go func(p Peer, w *sync.WaitGroup) {
+			defer w.Done()
+			fn(p)
+		}(peer, &wg)
+	}
+	wg.Wait()
+}
 
-// func (s *Server) AppendEntriesInput() *rpc.AppendEntriesInput {
-// 	state := s.GetState()
-// 	return &rpc.AppendEntriesInput{
-// 		LeaderId: s.Id,
-// 		Term:     state.CurrentTerm,
-// 	}
-// }
+func (n Node) GetRequestVoteInput() RequestVoteInput {
+	return RequestVoteInput{
+		CandidateId:  n.id,
+		Term:         n.currentTerm,
+		LastLogIndex: n.GetLastLogIndex(),
+		LastLogTerm:  n.GetLastLogTerm(),
+	}
+}
+
+func (n Node) GetAppendEntriesInput() AppendEntriesInput {
+	return AppendEntriesInput{
+		LeaderId:     n.id,
+		Term:         n.currentTerm,
+		PrevLogIndex: n.GetLastLogIndex(),
+		PrevLogTerm:  n.GetLastLogTerm(),
+		LeaderCommit: n.commitIndex,
+	}
+}

@@ -56,6 +56,15 @@ func (p *persistent) AppendLogs(entries []string) {
 	}
 	p.machineLogs = logs
 }
+func (p persistent) GetLastLogIndex() uint32 {
+	return uint32(len(p.machineLogs))
+}
+func (p persistent) GetLastLogTerm() uint32 {
+	if lastLogIndex := p.GetLastLogIndex(); lastLogIndex != 0 {
+		return p.machineLogs[lastLogIndex-1].Term
+	}
+	return 0
+}
 
 /*
  * Public entity

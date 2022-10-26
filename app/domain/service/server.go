@@ -68,15 +68,21 @@ type Server struct {
 // 	return srv
 // }
 
+func (s *Server) GetState() entity.FsmState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.GetState()
+}
+
 func (s *Server) Heartbeat() {
 	// Dispatch application of FSM / commitIndex / lastApplied ?
 	s.resetTimeout()
 }
 
-func (s *Server) GetState() entity.FsmState {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetState()
+func (s *Server) Broadcast(fn func(p entity.Peer)) {
+	// Check if it raise execption on concurrency
+	// if yes, define broadcast here instead of node
+	s.node.Broadcast(fn)
 }
 
 func (s *Server) DeleteLogsFrom(index uint32) {
@@ -97,6 +103,18 @@ func (s *Server) SetCommitIndex(index uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.node.SetCommitIndex(index)
+}
+
+// If server can grant vote, it will set votedFor and return success
+func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
+		s.node.SetVotedFor(id)
+		s.saveState()
+		return true
+	}
+	return false
 }
 
 func (s *Server) DowngradeFollower(term uint32, leaderId string) {
@@ -141,41 +159,9 @@ func (s *Server) UpgradeLeader() {
 	defer s.mu.Unlock()
 	if s.node.IsCandidate() {
 		log.Printf("UPGRADE TO LEADER TERM: %d\n", state.CurrentTerm)
-		// s.node.SetClusterLeader(s.node.Id)
+		s.node.SetClusterLeader(s.node.GetId())
 		s.node.SetRole(entity.Leader)
 		s.resetLeaderTicker()
 		s.shiftRole()
 	}
-}
-
-// // func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
-// // 	defer s.saveState()
-// // 	state := s.GetState()
-
-// // 	currentLogIndex := state.LastLogIndex()
-// // 	currentLogTerm := state.LastLogTerm()
-// // 	votedFor := state.VotedFor
-
-// // 	voteAvailable := votedFor == "" || votedFor == id
-// // 	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
-
-// // 	if voteAvailable && candidateUpToDate {
-// // 		s.state.SetVotedFor(id)
-// // 		return true
-// // 	}
-// // 	return false
-// // }
-
-func (s *Server) Broadcast(fn func(peer entity.Peer)) {
-	peers := s.node.Peers
-
-	var wg sync.WaitGroup
-	for _, peer := range peers {
-		wg.Add(1)
-		go func(p entity.Peer, w *sync.WaitGroup) {
-			defer w.Done()
-			fn(p)
-		}(peer, &wg)
-	}
-	wg.Wait()
 }
