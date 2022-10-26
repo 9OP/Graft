@@ -1,14 +1,12 @@
-package runner
+package rpcsender
 
 import (
 	"graft/app/domain/entity"
-	"graft/app/rpc"
 )
 
-// Rename Rpc
-type Repository interface {
-	AppendEntries(peer entity.Peer, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-	RequestVote(peer entity.Peer, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+type repository interface {
+	AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error)
+	RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
 }
 
 type UseCase interface {
@@ -18,7 +16,7 @@ type UseCase interface {
 }
 
 type role interface {
-	GetState() *entity.State
+	GetState() *entity.FsmState
 }
 
 type broadcaster interface {
@@ -39,7 +37,7 @@ type Candidate interface {
 	downgrader
 	broadcaster
 	IncrementTerm()
-	RequestVoteInput() *rpc.RequestVoteInput
+	GetRequestVoteInput() *entity.RequestVoteInput
 	GetQuorum() int
 	UpgradeLeader()
 }
@@ -48,5 +46,5 @@ type Leader interface {
 	role
 	downgrader
 	broadcaster
-	AppendEntriesInput() *rpc.AppendEntriesInput
+	GetAppendEntriesInput() *entity.AppendEntriesInput
 }
