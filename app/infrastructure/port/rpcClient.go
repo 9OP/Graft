@@ -1,14 +1,13 @@
 package port
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	"graft/app/infrastructure/adapter/rpc"
 )
 
-// Repository in use case runner
+// repository in use case runner
 //
-// type Repo interface {
+// type repository interface {
 // 	AppendEntries(peer entity.Peer, input entity.AppendEntriesInput) (entity.AppendEntriesOutput, error)
 // 	RequestVote(peer entity.Peer, input entity.RequestVoteInput) (entity.RequestVoteOutput, error)
 // }
@@ -27,7 +26,7 @@ func NewRpcClientPort(adapter RpcClientAdapter) *rpcClientPort {
 }
 
 func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
-	target := fmt.Sprintf("%s:%s", peer.Host, peer.Port)
+	target := peer.Target()
 	output, err := p.adapter.AppendEntries(target, &rpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
@@ -48,7 +47,7 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 }
 
 func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
-	target := fmt.Sprintf("%s:%s", peer.Host, peer.Port)
+	target := peer.Target()
 	output, err := p.adapter.RequestVote(target, &rpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,

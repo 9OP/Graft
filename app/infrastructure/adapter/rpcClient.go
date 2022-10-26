@@ -10,7 +10,11 @@ import (
 
 // This adapter works the same as a plain database driver
 
-type RpcClient struct{}
+type rpcClient struct{}
+
+func NewRpcClient() *rpcClient {
+	return &rpcClient{}
+}
 
 func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target string, fn func(c rpc.RpcClient) (K, error)) (K, error) {
 	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
@@ -24,7 +28,7 @@ func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target stri
 	return fn(c)
 }
 
-func (r *RpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+func (r *rpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
 	return withClient(
 		target,
 		func(c rpc.RpcClient) (*rpc.AppendEntriesOutput, error) {
@@ -32,7 +36,7 @@ func (r *RpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) 
 		})
 }
 
-func (r *RpcClient) RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+func (r *rpcClient) RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
 	return withClient(
 		target,
 		func(c rpc.RpcClient) (*rpc.RequestVoteOutput, error) {

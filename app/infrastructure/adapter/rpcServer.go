@@ -10,21 +10,33 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Port ?
-type serverApi struct {
+type repository interface {
+	AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
+	RequesVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+}
+
+type rpcApi struct {
 	rpc.UnimplementedRpcServer
+	repo repository
 }
 
-func (s *serverApi) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
-	return nil, nil
+func (s *rpcApi) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+	return s.repo.AppendEntries(ctx, input)
 }
 
-func (s *serverApi) RequesVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
-	return nil, nil
+func (s *rpcApi) RequesVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+	return s.repo.RequesVote(ctx, input)
 }
 
-// Adapter
-func Start(port string, api *serverApi) {
+type rpcServer struct {
+	rpcApi
+}
+
+func NewRpcServer(repo repository) *rpcServer {
+	return &rpcServer{rpcApi{repo: repo}}
+}
+
+func (r *rpcServer) Start(port string) {
 	log.Println("START RECEIVER SERVER")
 
 	addr := fmt.Sprintf("%s:%s", "127.0.0.1", port)
@@ -34,7 +46,7 @@ func Start(port string, api *serverApi) {
 	}
 
 	server := grpc.NewServer()
-	rpc.RegisterRpcServer(server, api)
+	rpc.RegisterRpcServer(server, &r.rpcApi)
 
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: \n\t%v\n", err)
