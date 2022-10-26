@@ -11,10 +11,10 @@ import (
 )
 
 type rpcServer struct {
-	rpcApi adapter.RpcApi
+	rpcApi *adapter.RpcApi
 }
 
-func NewRpcServer(rpcApi adapter.RpcApi) *rpcServer {
+func NewRpcServer(rpcApi *adapter.RpcApi) *rpcServer {
 	return &rpcServer{rpcApi}
 }
 
@@ -28,7 +28,7 @@ func (r *rpcServer) Start(port string) {
 	}
 
 	server := grpc.NewServer()
-	rpc.RegisterRpcServer(server, &r.rpcApi)
+	rpc.RegisterRpcServer(server, r.rpcApi)
 
 	if err := server.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: \n\t%v\n", err)

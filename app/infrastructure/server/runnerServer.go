@@ -24,7 +24,6 @@ func (s *runnerServer) Start(service *rpcsender.Service) {
 
 	for {
 		select {
-
 		case <-srv.ShiftRole:
 			switch {
 			case srv.IsFollower():

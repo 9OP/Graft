@@ -53,6 +53,6 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	}, nil
 }
 
-func (p *rpcServerPort) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+func (p *rpcServerPort) RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
 	return nil, nil
 }

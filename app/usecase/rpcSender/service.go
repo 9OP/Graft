@@ -1,6 +1,7 @@
 package rpcsender
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 	"sync"
 )
@@ -55,6 +56,8 @@ func (s *Service) startElection(candidate Candidate) {
 	}
 
 	candidate.Broadcast(gatherVote)
+
+	fmt.Println(votesGranted, quorum)
 
 	if votesGranted >= quorum {
 		candidate.UpgradeLeader()

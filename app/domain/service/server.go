@@ -32,25 +32,20 @@ type Server struct {
 	mu   sync.RWMutex
 }
 
-// func NewServer(id string, peers []Peer, ps *Persistent) *Server {
-// 	state := NewState(ps)
-// 	role := entitynew.Follower
-
-// 	srv := &Server{
-// 		Id:    id,
-// 		Peers: peers,
-// 		role:  role,
-// 		state: state,
-// 		Signals: Signals{
-// 			SaveState:          make(chan struct{}, 1),
-// 			ShiftRole:          make(chan struct{}, 1),
-// 			ResetElectionTimer: make(chan struct{}, 1),
-// 			ResetLeaderTicker:  make(chan struct{}, 1),
-// 		},
-// 	}
-// 	srv.ShiftRole <- struct{}{}
-// 	return srv
-// }
+func NewServer(id string, peers entity.Peers) *Server {
+	srv := &Server{
+		Signals: Signals{
+			SaveState:          make(chan struct{}, 1),
+			ShiftRole:          make(chan struct{}, 1),
+			ResetElectionTimer: make(chan struct{}, 1),
+			ResetLeaderTicker:  make(chan struct{}, 1),
+		},
+		node: *entity.NewNode(id, peers),
+	}
+	srv.shiftRole()
+	srv.resetTimeout()
+	return srv
+}
 
 func (s *Server) GetState() entity.FsmState {
 	s.mu.RLock()
@@ -69,6 +64,11 @@ func (s *Server) Broadcast(fn func(p entity.Peer)) {
 	s.node.Broadcast(fn)
 }
 
+func (s *Server) SetClusterLeader(leaderId string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.node.SetClusterLeader(leaderId)
+}
 func (s *Server) GetQuorum() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

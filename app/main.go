@@ -2,47 +2,69 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"graft/app/domain/entity"
 	"graft/app/domain/service"
+	"graft/app/infrastructure/adapter"
+	"graft/app/infrastructure/port"
+	"graft/app/infrastructure/server"
+	rpcReceiver "graft/app/usecase/rpcReceiver"
+	rpcSender "graft/app/usecase/rpcSender"
 	"os"
 )
 
 type Args struct {
 	port  string
 	id    string
-	peers []entity.Peer
+	peers entity.Peers
 }
 
 func parseArgs() Args {
 	var id string
 	port := os.Args[1]
-	peers := []entity.Peer{}
+	peersList := []entity.Peer{}
+	peers := entity.Peers{}
 
-	daa, _ := os.ReadFile("peers.json")
-	json.Unmarshal(daa, &peers)
+	data, _ := os.ReadFile("peers.json")
+	json.Unmarshal(data, &peersList)
 
-	// Filter current host from nodes
-	n := 0
-	for _, peer := range peers {
+	for _, peer := range peersList {
 		if peer.Port != port {
-			peers[n] = peer
-			n++
+			peers[peer.Id] = peer
 		} else {
 			id = peer.Id
 		}
 	}
-	peers = peers[:n]
 
 	return Args{port: port, peers: peers, id: id}
 }
 
 func main() {
-	_ = parseArgs()
+	args := parseArgs()
 
 	var ELECTION_TIMEOUT int = 350 // ms
 	var LEADER_TICKER int = 35     // ms
-	_ = entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
+	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
+	srv := service.NewServer(args.id, args.peers)
 
-	_ = service.Server{}
+	persister := adapter.NewJsonPersister(fmt.Sprintf("state_%s.json", args.id))
+	runner := server.NewRunnerServer(srv, timeout, persister)
+
+	// RPC Client port/adapters
+	rpcClient := adapter.NewRpcClient()
+	rpcClientPort := port.NewRpcClientPort(rpcClient)
+
+	// Use cases
+	rpcReceiver := rpcReceiver.NewService(srv)
+	rpcSender := rpcSender.NewService(rpcClientPort, timeout)
+
+	// RPC Server port/adapters
+	rpcServerPort := port.NewRpcServerPort(rpcReceiver)
+	rpcServer := adapter.NewRpcApi(rpcServerPort)
+
+	server := server.NewRpcServer(rpcServer)
+	fmt.Println(server)
+	//go server.Start(args.port)
+	runner.Start(rpcSender)
 
 }

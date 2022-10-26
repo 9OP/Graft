@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"sync"
@@ -20,9 +21,11 @@ type Node struct {
 }
 
 func NewNode(id string, peers Peers) *Node {
+	fmt.Println("peers", peers)
 	return &Node{
 		id:       id,
 		peers:    peers,
+		role:     Follower,
 		fsmState: NewFsmState(),
 	}
 }

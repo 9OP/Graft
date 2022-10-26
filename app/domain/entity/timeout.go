@@ -21,6 +21,8 @@ func getRandomTime(t time.Duration) time.Duration {
 
 func NewTimeout(ed int, hf int) *Timeout {
 	return &Timeout{
+		ElectionTimer:    time.NewTimer(1 * time.Second),
+		LeaderTicker:     time.NewTicker(1 * time.Second),
 		electionDuration: time.Duration(ed),
 		heartbeatFreq:    time.Duration(hf),
 	}
