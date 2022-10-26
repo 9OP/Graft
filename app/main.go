@@ -63,8 +63,8 @@ func main() {
 	rpcServer := adapter.NewRpcApi(rpcServerPort)
 
 	server := server.NewRpcServer(rpcServer)
-	fmt.Println(server)
-	//go server.Start(args.port)
+
+	go server.Start(args.port)
 	runner.Start(rpcSender)
 
 }

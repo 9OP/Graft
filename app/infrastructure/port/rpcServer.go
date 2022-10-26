@@ -54,5 +54,19 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 }
 
 func (p *rpcServerPort) RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
-	return nil, nil
+	output, err := p.adapter.RequestVote(&entity.RequestVoteInput{
+		CandidateId:  input.CandidateId,
+		Term:         input.Term,
+		LastLogIndex: input.LastLogIndex,
+		LastLogTerm:  input.LastLogTerm,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &rpc.RequestVoteOutput{
+		Term:        output.Term,
+		VoteGranted: output.VoteGranted,
+	}, nil
 }

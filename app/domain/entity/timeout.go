@@ -34,7 +34,7 @@ func (t *Timeout) ResetElectionTimer() {
 	t.LeaderTicker.Stop()
 	t.ElectionTimer.Stop()
 	rnd := getRandomTime(t.electionDuration)
-	t.ElectionTimer = time.NewTimer(rnd * time.Millisecond)
+	t.ElectionTimer.Reset(rnd * time.Millisecond)
 }
 
 func (t *Timeout) ResetLeaderTicker() {
@@ -42,5 +42,5 @@ func (t *Timeout) ResetLeaderTicker() {
 	defer t.mu.Unlock()
 	t.ElectionTimer.Stop()
 	t.LeaderTicker.Stop()
-	t.LeaderTicker = time.NewTicker(t.heartbeatFreq * time.Millisecond)
+	t.LeaderTicker.Reset(t.heartbeatFreq * time.Millisecond)
 }
