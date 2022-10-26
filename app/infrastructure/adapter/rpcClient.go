@@ -1,8 +1,8 @@
-package adapter
+package infrastructure
 
 import (
 	"context"
-	"graft/app/adapter/rpc"
+	"graft/app/infrastructure/adapter/rpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

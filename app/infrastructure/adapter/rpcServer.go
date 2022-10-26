@@ -1,9 +1,9 @@
-package adapter
+package infrastructure
 
 import (
 	"context"
 	"fmt"
-	"graft/app/adapter/rpc"
+	"graft/app/infrastructure/adapter/rpc"
 	"log"
 	"net"
 
