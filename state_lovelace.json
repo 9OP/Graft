@@ -1,10 +1,5 @@
 {
-  "current_term": 82,
+  "current_term": 13,
   "voted_for": "lovelace",
-  "machine_logs": [
-    {
-      "term": 0,
-      "value": ""
-    }
-  ]
+  "machine_logs": []
 }

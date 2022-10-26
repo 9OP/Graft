@@ -5,3 +5,5 @@ type Peer struct {
 	Host string
 	Port string
 }
+
+type Peers = map[string]Peer
