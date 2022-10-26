@@ -6,21 +6,6 @@ import (
 	"sync"
 )
 
-// Create server
-// Inject persistent
-// Inject timeout
-
-// inject server as repository
-
-// Domain logic here
-
-// Busines logic in use case
-
-// func test() {
-// 	n := entity.NewNode("", nil)
-// 	n.
-// }
-
 type Signals struct {
 	SaveState          chan struct{}
 	ShiftRole          chan struct{}
@@ -43,7 +28,6 @@ func (s *Signals) shiftRole() {
 
 type Server struct {
 	Signals
-	// Hide all node methods from outside
 	node entity.Node
 	mu   sync.RWMutex
 }
@@ -83,6 +67,37 @@ func (s *Server) Broadcast(fn func(p entity.Peer)) {
 	// Check if it raise execption on concurrency
 	// if yes, define broadcast here instead of node
 	s.node.Broadcast(fn)
+}
+
+func (s *Server) GetQuorum() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.GetQuorum()
+}
+func (s *Server) GetAppendEntriesInput() entity.AppendEntriesInput {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.GetAppendEntriesInput()
+}
+func (s *Server) GetRequestVoteInput() entity.RequestVoteInput {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.GetRequestVoteInput()
+}
+func (s *Server) IsFollower() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.IsFollower()
+}
+func (s *Server) IsCandidate() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.IsCandidate()
+}
+func (s *Server) IsLeader() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.IsLeader()
 }
 
 func (s *Server) DeleteLogsFrom(index uint32) {

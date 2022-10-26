@@ -16,9 +16,8 @@ type UseCase interface {
 }
 
 type role interface {
-	GetState() *entity.FsmState
+	GetState() entity.FsmState
 }
-
 type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
 }
@@ -37,7 +36,7 @@ type Candidate interface {
 	downgrader
 	broadcaster
 	IncrementTerm()
-	GetRequestVoteInput() *entity.RequestVoteInput
+	GetRequestVoteInput() entity.RequestVoteInput
 	GetQuorum() int
 	UpgradeLeader()
 }
@@ -46,5 +45,5 @@ type Leader interface {
 	role
 	downgrader
 	broadcaster
-	GetAppendEntriesInput() *entity.AppendEntriesInput
+	GetAppendEntriesInput() entity.AppendEntriesInput
 }

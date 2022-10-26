@@ -41,7 +41,7 @@ func (s *Service) startElection(candidate Candidate) {
 	var m sync.Mutex
 
 	gatherVote := func(p entity.Peer) {
-		if res, err := s.repo.RequestVote(p, input); err == nil {
+		if res, err := s.repo.RequestVote(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				candidate.DowngradeFollower(res.Term, p.Id)
 				return
@@ -72,7 +72,7 @@ func (s *Service) sendHeartbeat(leader Leader) {
 	input := leader.GetAppendEntriesInput()
 
 	heartbeat := func(p entity.Peer) {
-		if res, err := s.repo.AppendEntries(p, input); err == nil {
+		if res, err := s.repo.AppendEntries(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				leader.DowngradeFollower(res.Term, p.Id)
 				return

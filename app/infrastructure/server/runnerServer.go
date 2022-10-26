@@ -4,7 +4,7 @@ import (
 	"graft/app/domain/entity"
 	domainService "graft/app/domain/service"
 	"graft/app/infrastructure/port"
-	"graft/app_old/usecase/runner"
+	rpcsender "graft/app/usecase/rpcSender"
 	"log"
 )
 
@@ -18,7 +18,7 @@ func NewRunnerServer(server *domainService.Server, timeout *entity.Timeout, pers
 	return &runnerServer{server, timeout, persister}
 }
 
-func (s *runnerServer) Start(service *runner.Service) {
+func (s *runnerServer) Start(service *rpcsender.Service) {
 	log.Println("START RUNNER NEW SERVER")
 	srv := s.server
 
