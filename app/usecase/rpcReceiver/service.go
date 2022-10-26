@@ -1,25 +1,23 @@
 package receiver
 
 import (
-	"context"
-	"graft/app/rpc"
+	"graft/app/domain/entity"
 )
 
-type Service struct {
-	rpc.UnimplementedRpcServer
-	repository Repository
+type service struct {
+	repo Repository
 }
 
-func NewService(repo Repository) *Service {
-	return &Service{repository: repo}
+func NewService(repo Repository) *service {
+	return &service{repo}
 }
 
-func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
-	srv := service.repository
+func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
+	srv := s.repo
 	state := srv.GetState()
-	log := state.GetLog(input.PrevLogIndex)
+	log := state.GetLogByIndex(input.PrevLogIndex)
 
-	output := &rpc.AppendEntriesOutput{
+	output := &entity.AppendEntriesOutput{
 		Term:    state.CurrentTerm,
 		Success: false,
 	}
@@ -43,7 +41,7 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	}
 
 	if input.LeaderCommit > state.CommitIndex {
-		lastLogIndex := state.LastLogIndex()
+		lastLogIndex := state.GetLastLogIndex()
 		if input.LeaderCommit > lastLogIndex {
 			srv.SetCommitIndex(lastLogIndex)
 		} else {
@@ -54,11 +52,11 @@ func (service *Service) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 	return output, nil
 }
 
-func (service *Service) RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
-	srv := service.repository
+func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+	srv := s.repo
 	state := srv.GetState()
 
-	output := &rpc.RequestVoteOutput{
+	output := &entity.RequestVoteOutput{
 		Term:        state.CurrentTerm,
 		VoteGranted: false,
 	}

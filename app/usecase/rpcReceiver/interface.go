@@ -1,23 +1,21 @@
 package receiver
 
 import (
-	"context"
 	"graft/app/domain/entity"
-	"graft/app/rpc"
 )
 
 type Repository interface {
 	Heartbeat()
-	DowngradeFollower(term uint32, leaderId string)
+	GetState() *entity.FsmState
 	SetClusterLeader(leaderId string)
-	GetState() *entity.State
 	SetCommitIndex(ind uint32)
+	DowngradeFollower(term uint32, leaderId string)
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DeleteLogsFrom(index uint32)
 	AppendLogs(entries []string)
 }
 
 type UseCase interface {
-	AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-	RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+	AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error)
+	RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
 }
