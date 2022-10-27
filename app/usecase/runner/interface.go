@@ -1,4 +1,4 @@
-package rpcsender
+package runner
 
 import (
 	"graft/app/domain/entity"
@@ -9,10 +9,13 @@ type repository interface {
 	RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
 }
 
+type persister interface {
+	Load() (*entity.Persistent, error)
+	Save(state *entity.Persistent) error
+}
+
 type UseCase interface {
-	RunFollower(follower Follower)
-	RunCandidate(candadidate Candidate)
-	RunLeader(leader Leader)
+	Run()
 }
 
 type role interface {
@@ -21,17 +24,16 @@ type role interface {
 type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
 }
-
 type downgrader interface {
 	DowngradeFollower(term uint32, leaderId string)
 }
 
-type Follower interface {
+type follower interface {
 	role
 	UpgradeCandidate()
 }
 
-type Candidate interface {
+type candidate interface {
 	role
 	downgrader
 	broadcaster
@@ -41,7 +43,7 @@ type Candidate interface {
 	UpgradeLeader()
 }
 
-type Leader interface {
+type leader interface {
 	role
 	downgrader
 	broadcaster

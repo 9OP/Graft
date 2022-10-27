@@ -1,27 +1,16 @@
-package port
+package secondaryPort
 
 import (
 	"graft/app/domain/entity"
 	"graft/app/infrastructure/adapter/rpc"
+	adapter "graft/app/infrastructure/adapter/secondary"
 )
 
-// repository in use case runner
-//
-// type repository interface {
-// 	AppendEntries(peer entity.Peer, input entity.AppendEntriesInput) (entity.AppendEntriesOutput, error)
-// 	RequestVote(peer entity.Peer, input entity.RequestVoteInput) (entity.RequestVoteOutput, error)
-// }
-
-type RpcClientAdapter interface {
-	AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-	RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
-}
-
 type rpcClientPort struct {
-	adapter RpcClientAdapter
+	adapter adapter.UseCaseGrpcClient
 }
 
-func NewRpcClientPort(adapter RpcClientAdapter) *rpcClientPort {
+func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 	return &rpcClientPort{adapter}
 }
 

@@ -1,39 +1,21 @@
-package port
+package primaryPort
 
 import (
 	"context"
 	"graft/app/domain/entity"
 	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/usecase/receiver"
 )
 
-// repository in adapter rpcServer
-//
-// type repository interface {
-// 	AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-// 	RequesVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
-// }
-
-type rpcServerAdapter interface {
-	AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error)
-	RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
-}
-
 type rpcServerPort struct {
-	adapter rpcServerAdapter
+	adapter receiver.UseCase
 }
 
-func NewRpcServerPort(adapter rpcServerAdapter) *rpcServerPort {
+func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
 	return &rpcServerPort{adapter}
 }
 
 func (p *rpcServerPort) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
-	/*
-		rpc server has its raft rpc handlers listenning for triggering logic on server:
-		1- receive incomming RPC from outside (*rpc...)
-		2- convert input into relevant entity.rpc
-		3- run entity through use case
-		4- reconvert use case response into *rpc...
-	*/
 	output, err := p.adapter.AppendEntries(&entity.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,

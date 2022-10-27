@@ -5,16 +5,15 @@ import (
 )
 
 type service struct {
-	repo Repository
+	repository
 }
 
-func NewService(repo Repository) *service {
-	return &service{repo}
+func NewService(repository repository) *service {
+	return &service{repository}
 }
 
 func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
-	srv := s.repo
-	state := srv.GetState()
+	state := s.GetState()
 	log := state.GetLogByIndex(input.PrevLogIndex)
 
 	output := &entity.AppendEntriesOutput{
@@ -27,25 +26,25 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	}
 
 	if input.Term > state.CurrentTerm {
-		srv.DowngradeFollower(input.Term, input.LeaderId)
+		s.DowngradeFollower(input.Term, input.LeaderId)
 	}
 
-	srv.SetClusterLeader(input.LeaderId)
-	srv.Heartbeat()
+	s.SetClusterLeader(input.LeaderId)
+	s.Heartbeat()
 
 	if log.Term == input.PrevLogTerm {
-		srv.AppendLogs(input.Entries)
+		s.AppendLogs(input.Entries)
 		output.Success = true
 	} else {
-		srv.DeleteLogsFrom(input.PrevLogIndex)
+		s.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
 	if input.LeaderCommit > state.CommitIndex {
 		lastLogIndex := state.GetLastLogIndex()
 		if input.LeaderCommit > lastLogIndex {
-			srv.SetCommitIndex(lastLogIndex)
+			s.SetCommitIndex(lastLogIndex)
 		} else {
-			srv.SetCommitIndex(input.LeaderCommit)
+			s.SetCommitIndex(input.LeaderCommit)
 		}
 	}
 
@@ -53,8 +52,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 }
 
 func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
-	srv := s.repo
-	state := srv.GetState()
+	state := s.GetState()
 
 	output := &entity.RequestVoteOutput{
 		Term:        state.CurrentTerm,
@@ -65,13 +63,13 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 		return output, nil
 	}
 
-	srv.Heartbeat()
+	s.Heartbeat()
 
 	if input.Term > state.CurrentTerm {
-		srv.DowngradeFollower(input.Term, input.CandidateId)
+		s.DowngradeFollower(input.Term, input.CandidateId)
 	}
 
-	if srv.GrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
+	if s.GrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
 		output.VoteGranted = true
 	}
 

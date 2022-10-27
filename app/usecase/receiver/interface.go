@@ -4,7 +4,7 @@ import (
 	"graft/app/domain/entity"
 )
 
-type Repository interface {
+type repository interface {
 	Heartbeat()
 	GetState() entity.FsmState
 	SetClusterLeader(leaderId string)

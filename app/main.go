@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"graft/app/domain/entity"
 	"graft/app/domain/service"
-	"graft/app/infrastructure/adapter"
-	"graft/app/infrastructure/port"
+	primaryAdapter "graft/app/infrastructure/adapter/primary"
+	secondaryAdapter "graft/app/infrastructure/adapter/secondary"
+	primaryPort "graft/app/infrastructure/port/primary"
+	secondaryPort "graft/app/infrastructure/port/secondary"
 	"graft/app/infrastructure/server"
-	rpcReceiver "graft/app/usecase/rpcReceiver"
-	rpcSender "graft/app/usecase/rpcSender"
+	"graft/app/usecase/receiver"
+	"graft/app/usecase/runner"
 	"os"
 )
 
@@ -42,29 +44,35 @@ func parseArgs() Args {
 func main() {
 	args := parseArgs()
 
-	var ELECTION_TIMEOUT int = 350 // ms
-	var LEADER_TICKER int = 35     // ms
+	// Config
+	ELECTION_TIMEOUT := 350 // ms
+	LEADER_TICKER := 35     // ms
+	STATE_LOCATION := fmt.Sprintf("state_%s.json", args.id)
+
+	// State
 	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
 	srv := service.NewServer(args.id, args.peers)
 
-	persister := adapter.NewJsonPersister(fmt.Sprintf("state_%s.json", args.id))
-	runner := server.NewRunnerServer(srv, timeout, persister)
+	// Driven port/adapter
+	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
+	jsonAdapter := secondaryAdapter.NewJsonPersister()
 
-	// RPC Client port/adapters
-	rpcClient := adapter.NewRpcClient()
-	rpcClientPort := port.NewRpcClientPort(rpcClient)
+	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
+	persisterPort := secondaryPort.NewPersisterPort(STATE_LOCATION, jsonAdapter)
 
-	// Use cases
-	rpcReceiver := rpcReceiver.NewService(srv)
-	rpcSender := rpcSender.NewService(rpcClientPort, timeout)
+	// Services
+	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
+	receiverUsecase := receiver.NewService(srv)
 
-	// RPC Server port/adapters
-	rpcServerPort := port.NewRpcServerPort(rpcReceiver)
-	rpcServer := adapter.NewRpcApi(rpcServerPort)
+	// Driving port/adapter
+	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)
+	grpcServerAdapter := primaryAdapter.NewGrpcApi(rpcServerPort)
 
-	server := server.NewRpcServer(rpcServer)
+	// Servers
+	runnerServer := server.NewRunner(runnerUsecase)
+	grpcServer := server.NewRpc(grpcServerAdapter)
 
-	go server.Start(args.port)
-	runner.Start(rpcSender)
-
+	// Start servers
+	go grpcServer.Start(args.port)
+	runnerServer.Start()
 }

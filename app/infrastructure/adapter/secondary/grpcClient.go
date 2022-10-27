@@ -1,4 +1,4 @@
-package adapter
+package secondaryAdapter
 
 import (
 	"context"
@@ -8,12 +8,15 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-// This adapter works the same as a plain database driver
+type UseCaseGrpcClient interface {
+	AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
+	RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+}
 
-type rpcClient struct{}
+type grpcClient struct{}
 
-func NewRpcClient() *rpcClient {
-	return &rpcClient{}
+func NewGrpcClient() *grpcClient {
+	return &grpcClient{}
 }
 
 func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target string, fn func(c rpc.RpcClient) (K, error)) (K, error) {
@@ -28,7 +31,7 @@ func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target stri
 	return fn(c)
 }
 
-func (r *rpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+func (r *grpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
 	return withClient(
 		target,
 		func(c rpc.RpcClient) (*rpc.AppendEntriesOutput, error) {
@@ -36,7 +39,7 @@ func (r *rpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) 
 		})
 }
 
-func (r *rpcClient) RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+func (r *grpcClient) RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
 	return withClient(
 		target,
 		func(c rpc.RpcClient) (*rpc.RequestVoteOutput, error) {
