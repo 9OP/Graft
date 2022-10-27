@@ -122,11 +122,11 @@ func (s *Server) SetCommitIndex(index uint32) {
 
 // If server can grant vote, it will set votedFor and return success
 func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
+	defer s.saveState()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
 		s.node.SetVotedFor(id)
-		s.saveState()
 		return true
 	}
 	return false

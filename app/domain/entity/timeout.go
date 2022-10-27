@@ -7,7 +7,7 @@ import (
 )
 
 type Timeout struct {
-	ElectionTimer    *time.Timer
+	ElectionTimer    *time.Ticker // Should be a timer
 	LeaderTicker     *time.Ticker
 	electionDuration time.Duration
 	heartbeatFreq    time.Duration
@@ -21,7 +21,7 @@ func getRandomTime(t time.Duration) time.Duration {
 
 func NewTimeout(ed int, hf int) *Timeout {
 	return &Timeout{
-		ElectionTimer:    time.NewTimer(1 * time.Second),
+		ElectionTimer:    time.NewTicker(1 * time.Second),
 		LeaderTicker:     time.NewTicker(1 * time.Second),
 		electionDuration: time.Duration(ed),
 		heartbeatFreq:    time.Duration(hf),

@@ -2,6 +2,12 @@
 
 [Raft paper](https://raft.github.io/raft.pdf)
 
+IMPROVEMENT:
+- Clean boundaries in domain entity.service
+- Rename
+- Create graph of deps
+
+
 DONE:
 - Election
 - Heartbeat
