@@ -8,7 +8,7 @@ import (
 
 type Signals struct {
 	SaveState          chan struct{}
-	ShiftRole          chan struct{}
+	ShiftRole          chan entity.Role
 	ResetElectionTimer chan struct{}
 	ResetLeaderTicker  chan struct{}
 	Commit             chan struct{}
@@ -17,14 +17,17 @@ type Signals struct {
 func (s *Signals) saveState() {
 	s.SaveState <- struct{}{}
 }
+func (s *Signals) shiftRole(role entity.Role) {
+	s.ShiftRole <- role
+}
 func (s *Signals) resetTimeout() {
 	s.ResetElectionTimer <- struct{}{}
 }
 func (s *Signals) resetLeaderTicker() {
 	s.ResetLeaderTicker <- struct{}{}
 }
-func (s *Signals) shiftRole() {
-	s.ShiftRole <- struct{}{}
+func (s *Signals) commit() {
+	s.Commit <- struct{}{}
 }
 
 type Server struct {
@@ -37,13 +40,13 @@ func NewServer(id string, peers entity.Peers, persistent entity.Persistent) *Ser
 	srv := &Server{
 		Signals: Signals{
 			SaveState:          make(chan struct{}, 1),
-			ShiftRole:          make(chan struct{}, 1),
+			ShiftRole:          make(chan entity.Role, 1),
 			ResetElectionTimer: make(chan struct{}, 1),
 			ResetLeaderTicker:  make(chan struct{}, 1),
 		},
 		node: *entity.NewNode(id, peers, persistent),
 	}
-	srv.shiftRole()
+	srv.shiftRole(entity.Follower)
 	srv.resetTimeout()
 	return srv
 }
@@ -127,6 +130,7 @@ func (s *Server) SetCommitIndex(index uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.node.SetCommitIndex(index)
+	s.commit()
 }
 
 func (s *Server) GetCommitIndex() uint32 {
@@ -157,7 +161,7 @@ func (s *Server) DowngradeFollower(term uint32, leaderId string) {
 	s.node.SetRole(entity.Follower)
 	s.saveState()
 	s.resetTimeout()
-	s.shiftRole()
+	s.shiftRole(entity.Follower)
 }
 
 func (s *Server) IncrementTerm() {
@@ -179,7 +183,7 @@ func (s *Server) UpgradeCandidate() {
 	if s.node.IsFollower() {
 		log.Println("UPGRADE TO CANDIDATE")
 		s.node.SetRole(entity.Candidate)
-		s.shiftRole()
+		s.shiftRole(entity.Candidate)
 	}
 }
 
@@ -193,7 +197,7 @@ func (s *Server) UpgradeLeader() {
 		s.node.SetClusterLeader(s.node.GetId())
 		s.node.SetRole(entity.Leader)
 		s.resetLeaderTicker()
-		s.shiftRole()
+		s.shiftRole(entity.Leader)
 	}
 }
 
@@ -206,7 +210,17 @@ func (s *Server) CommitCmd(cmd string) {
 	//
 }
 
-func (s *Server) ApplyLog(index uint32) {
-	log := s.GetState().GetLogByIndex(index)
-	s.ExecFsmCmd(log.Value)
+func (s *Server) ApplyLogs(mu *sync.Mutex) {
+	defer mu.Unlock()
+	commitIndex := s.GetCommitIndex()
+	lastApplied := s.GetState().LastApplied
+
+	for commitIndex > lastApplied {
+		// TODO: refactor this, GetState() is super expensive!
+		state := s.GetState()
+		s.IncrementLastApplied()
+		lastApplied = state.LastApplied
+		log := state.GetLogByIndex(lastApplied)
+		s.ExecFsmCmd(log.Value)
+	}
 }

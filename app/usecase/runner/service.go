@@ -2,19 +2,25 @@ package runner
 
 import (
 	"graft/app/domain/entity"
-	srv "graft/app/domain/service"
-	"log"
+	srvc "graft/app/domain/service"
 	"sync"
 )
 
+type synchronise struct {
+	commit    sync.Mutex
+	election  sync.Mutex
+	heartbeat sync.Mutex
+}
+
 type service struct {
-	server     *srv.Server
+	server     *srvc.Server
 	timeout    *entity.Timeout
 	persister  persister
 	repository repository
+	synchronise
 }
 
-func NewService(s *srv.Server, t *entity.Timeout, r repository, p persister) *service {
+func NewService(s *srvc.Server, t *entity.Timeout, r repository, p persister) *service {
 	return &service{
 		repository: r,
 		server:     s,
@@ -26,53 +32,37 @@ func NewService(s *srv.Server, t *entity.Timeout, r repository, p persister) *se
 func (s *service) Run() {
 	srv := s.server
 
-	var commitMu *sync.Mutex
-
 	select {
-	case <-srv.ShiftRole:
-		switch {
-		case srv.IsFollower():
-			go s.runFollower(srv)
-		case srv.IsCandidate():
-			go s.runCandidate(srv)
-		case srv.IsLeader():
-			go s.runLeader(srv)
-		}
+	case role := <-srv.ShiftRole:
+		go s.runAs(role)
 
 	case <-srv.SaveState:
 		state := srv.GetState()
-		s.persister.Save(&state.Persistent)
+		go s.persister.Save(&state.Persistent)
 
 	case <-srv.ResetElectionTimer:
-		s.timeout.ResetElectionTimer()
+		go s.timeout.ResetElectionTimer()
 
 	case <-srv.ResetLeaderTicker:
-		s.timeout.ResetLeaderTicker()
+		go s.timeout.ResetLeaderTicker()
 
 	case <-srv.Commit:
-		log.Println("commit index")
-		commitMu.Lock()
+		s.synchronise.commit.Lock()
+		go srv.ApplyLogs(&s.synchronise.commit)
+	}
 
-		// Move this function to domain because not require repository
-		applyLogs := func(mu *sync.Mutex) {
-			defer mu.Unlock()
-			for srv.GetCommitIndex() > srv.GetState().LastApplied {
-				srv.IncrementLastApplied()
-				lastApplied := srv.GetState().LastApplied
-				srv.ApplyLog(lastApplied)
-			}
-		}
-		go applyLogs(commitMu)
-		/*
-			while srv.commitIndex > srv.lastLogApplied:
-				increment lastLogApplied + 1
-				and
-				apply logs[lastLogApplied]
+}
 
-			WARNING:
-			should not apply the same log multiple times (because 2 <-Commit are received simultaneously)
-		*/
+func (s *service) runAs(role entity.Role) {
+	srv := s.server
 
+	switch role {
+	case entity.Follower:
+		s.runFollower(srv)
+	case entity.Candidate:
+		s.runCandidate(srv)
+	case entity.Leader:
+		s.runLeader(srv)
 	}
 
 }
@@ -85,12 +75,12 @@ func (s *service) runFollower(f follower) {
 }
 
 func (s *service) runCandidate(c candidate) {
-	go s.startElection(c)
-
 	for range s.timeout.ElectionTimer.C {
-		s.startElection(c)
+		if s.startElection(c) {
+			c.UpgradeLeader()
+			return
+		}
 	}
-
 }
 
 func (s *service) runLeader(l leader) {
@@ -99,7 +89,12 @@ func (s *service) runLeader(l leader) {
 	}
 }
 
-func (s *service) startElection(c candidate) {
+// Returns `true` when candidate won the election
+func (s *service) startElection(c candidate) bool {
+	// Prevent starting multiple election
+	s.synchronise.election.Lock()
+	defer s.synchronise.election.Unlock()
+
 	c.IncrementTerm()
 
 	state := c.GetState()
@@ -108,8 +103,7 @@ func (s *service) startElection(c candidate) {
 	votesGranted := 1 // vote for self
 
 	var m sync.Mutex
-
-	gatherVote := func(p entity.Peer) {
+	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				c.DowngradeFollower(res.Term, p.Id)
@@ -122,15 +116,16 @@ func (s *service) startElection(c candidate) {
 			}
 		}
 	}
+	c.Broadcast(gatherVotesRoutine)
 
-	c.Broadcast(gatherVote)
-
-	if votesGranted >= quorum {
-		c.UpgradeLeader()
-	}
+	return votesGranted >= quorum
 }
 
 func (s *service) sendHeartbeat(l leader) {
+	// Prevent starting multiple heartbeat
+	s.synchronise.heartbeat.Lock()
+	defer s.synchronise.heartbeat.Unlock()
+
 	state := l.GetState()
 
 	// TODO synchronise followers with leader logs:
@@ -138,13 +133,14 @@ func (s *service) sendHeartbeat(l leader) {
 	heartbeat := func(p entity.Peer) {
 		// Get the appropriate entries for the Peer, based on its nextIndex
 		entries := []string{}
-		lastLogIndex := state.GetLastLogIndex()
-		followerLogIndex := state.NextIndex[p.Id]
-		for lastLogIndex >= followerLogIndex {
-			entries = append(entries, state.GetLogByIndex(followerLogIndex).Value)
-			followerLogIndex += 1
+		// Move into domain method: GetNewEntriesForPeer(peerId string) []string
+		leaderLastLogIndex := state.GetLastLogIndex()
+		followerLastKnownLogIndex := state.NextIndex[p.Id]
+		// Move into domain method: GetLogsFromIndex(index uint32) []MachineLogs
+		for leaderLastLogIndex >= followerLastKnownLogIndex {
+			entries = append(entries, state.GetLogByIndex(followerLastKnownLogIndex).Value)
+			followerLastKnownLogIndex += 1
 		}
-
 		input := l.GetAppendEntriesInput(entries)
 
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
@@ -154,16 +150,54 @@ func (s *service) sendHeartbeat(l leader) {
 			}
 
 			if !res.Success {
-				//
-				log.Println("failed")
+				// Decrement nextIndex[p.Id] - 1
+				// log.Println("failed")
 			}
 
 			if res.Success {
-				//
-				log.Println("success")
+				// Update nextIndex[p.Id] = leaderLastLogIndex
+				// Update matchIndex[p.Id] = leaderLastLogIndex
+				//log.Println("success")
 			}
 		}
 	}
 
 	l.Broadcast(heartbeat)
+
+	/*
+		If there exists an N such that:
+			- N > commitIndex,
+			- a majority of matchIndex[i] ≥ N
+			- log[N].term == currentTerm:
+		then set commitIndex = N
+	*/
+	// Search for N, then commitIndex = N
+
+	// Refresh state
+	state = l.GetState()
+	// Upper value of N
+	lastLogIndex := state.GetLastLogIndex()
+	// Lower value of N
+	commitIndex := state.CommitIndex
+	// Look for N, starting from latest log
+	quorum := s.server.GetQuorum()
+	for N := lastLogIndex; N > commitIndex; N-- {
+		// Get a majority for which matchIndex >= n
+		count := 0
+		for _, matchIndex := range state.MatchIndex {
+			if matchIndex >= N {
+				count += 1
+			}
+		}
+
+		if count >= quorum {
+			log := state.GetLogByIndex(N)
+			if log.Term == state.CurrentTerm {
+				s.server.SetCommitIndex(N)
+				break
+			}
+		}
+
+	}
+
 }

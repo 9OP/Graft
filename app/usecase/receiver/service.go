@@ -14,17 +14,14 @@ func NewService(repository repository) *service {
 
 func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
 	state := s.GetState()
-	log := state.GetLogByIndex(input.PrevLogIndex)
 
 	output := &entity.AppendEntriesOutput{
 		Term:    state.CurrentTerm,
 		Success: false,
 	}
-
 	if input.Term < state.CurrentTerm {
 		return output, nil
 	}
-
 	if input.Term > state.CurrentTerm {
 		s.DowngradeFollower(input.Term, input.LeaderId)
 	}
@@ -32,7 +29,8 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	s.SetClusterLeader(input.LeaderId)
 	s.Heartbeat()
 
-	if log.Term == input.PrevLogTerm {
+	localPrevLog := state.GetLogByIndex(input.PrevLogIndex)
+	if localPrevLog.Term == input.PrevLogTerm {
 		s.AppendLogs(input.Entries)
 		output.Success = true
 	} else {
@@ -40,12 +38,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	}
 
 	if input.LeaderCommit > state.CommitIndex {
-		lastLogIndex := state.GetLastLogIndex()
-		if input.LeaderCommit > lastLogIndex {
-			s.SetCommitIndex(lastLogIndex)
-		} else {
-			s.SetCommitIndex(input.LeaderCommit)
-		}
+		s.SetCommitIndex(min(state.GetLastLogIndex(), input.LeaderCommit))
 	}
 
 	return output, nil
@@ -58,20 +51,26 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 		Term:        state.CurrentTerm,
 		VoteGranted: false,
 	}
-
 	if input.Term < state.CurrentTerm {
 		return output, nil
 	}
-
-	s.Heartbeat()
-
 	if input.Term > state.CurrentTerm {
 		s.DowngradeFollower(input.Term, input.CandidateId)
 	}
+
+	s.Heartbeat()
 
 	if s.GrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
 		output.VoteGranted = true
 	}
 
 	return output, nil
+}
+
+// Move to utils ?
+func min[K uint | uint8 | uint16 | uint32 | uint64 | int](value_0, value_1 K) K {
+	if value_0 < value_1 {
+		return value_0
+	}
+	return value_1
 }
