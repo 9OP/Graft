@@ -210,8 +210,7 @@ func (s *Server) CommitCmd(cmd string) {
 	//
 }
 
-func (s *Server) ApplyLogs(mu *sync.Mutex) {
-	defer mu.Unlock()
+func (s *Server) ApplyLogs() {
 	commitIndex := s.GetCommitIndex()
 	lastApplied := s.GetState().LastApplied
 

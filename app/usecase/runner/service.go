@@ -30,41 +30,48 @@ func NewService(s *srvc.Server, t *entity.Timeout, r repository, p persister) *s
 }
 
 func (s *service) Run() {
-	srv := s.server
+	events := s.server.Signals
 
 	select {
-	case role := <-srv.ShiftRole:
+	case role := <-events.ShiftRole:
 		go s.runAs(role)
 
-	case <-srv.SaveState:
-		state := srv.GetState()
-		go s.persister.Save(&state.Persistent)
+	case <-events.SaveState:
+		go s.saveState()
 
-	case <-srv.ResetElectionTimer:
+	case <-events.ResetElectionTimer:
 		go s.timeout.ResetElectionTimer()
 
-	case <-srv.ResetLeaderTicker:
+	case <-events.ResetLeaderTicker:
 		go s.timeout.ResetLeaderTicker()
 
-	case <-srv.Commit:
-		s.synchronise.commit.Lock()
-		go srv.ApplyLogs(&s.synchronise.commit)
+	case <-events.Commit:
+		go s.commit()
 	}
 
 }
 
 func (s *service) runAs(role entity.Role) {
-	srv := s.server
-
 	switch role {
 	case entity.Follower:
-		s.runFollower(srv)
+		s.runFollower(s.server)
 	case entity.Candidate:
-		s.runCandidate(srv)
+		s.runCandidate(s.server)
 	case entity.Leader:
-		s.runLeader(srv)
+		s.runLeader(s.server)
 	}
 
+}
+
+func (s *service) commit() {
+	s.synchronise.commit.Lock()
+	defer s.synchronise.commit.Unlock()
+	s.server.ApplyLogs()
+}
+
+func (s *service) saveState() {
+	state := s.server.GetState()
+	s.persister.Save(&state.Persistent)
 }
 
 func (s *service) runFollower(f follower) {
@@ -89,7 +96,6 @@ func (s *service) runLeader(l leader) {
 	}
 }
 
-// Returns `true` when candidate won the election
 func (s *service) startElection(c candidate) bool {
 	// Prevent starting multiple election
 	s.synchronise.election.Lock()
