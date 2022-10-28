@@ -20,13 +20,13 @@ type Node struct {
 	// value copy (in GrantVote for instance)
 }
 
-func NewNode(id string, peers Peers) *Node {
+func NewNode(id string, peers Peers, persistent Persistent) *Node {
 	fmt.Println("peers", peers)
 	return &Node{
 		id:       id,
 		peers:    peers,
 		role:     Follower,
-		fsmState: NewFsmState(),
+		fsmState: NewFsmState(persistent),
 	}
 }
 

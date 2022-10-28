@@ -12,6 +12,7 @@ import (
 	"graft/app/infrastructure/server"
 	"graft/app/usecase/receiver"
 	"graft/app/usecase/runner"
+	"log"
 	"os"
 )
 
@@ -49,26 +50,30 @@ func main() {
 	LEADER_TICKER := 35     // ms
 	STATE_LOCATION := fmt.Sprintf("state_%s.json", args.id)
 
-	// State
-	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
-	srv := service.NewServer(args.id, args.peers)
-
-	// Driven port/adapter
+	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
 	jsonAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
 	persisterPort := secondaryPort.NewPersisterPort(STATE_LOCATION, jsonAdapter)
 
+	// Domain
+	persistent, err := persisterPort.Load()
+	if err != nil {
+		log.Fatalf("Cannot load state: %v", err)
+	}
+	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
+	srv := service.NewServer(args.id, args.peers, *persistent)
+
 	// Services
 	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
 	receiverUsecase := receiver.NewService(srv)
 
-	// Driving port/adapter
+	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)
 	grpcServerAdapter := primaryAdapter.NewGrpcApi(rpcServerPort)
 
-	// Servers
+	// Infrastructure
 	runnerServer := server.NewRunner(runnerUsecase)
 	grpcServer := server.NewRpc(grpcServerAdapter)
 

@@ -33,7 +33,7 @@ type Server struct {
 	mu   sync.RWMutex
 }
 
-func NewServer(id string, peers entity.Peers) *Server {
+func NewServer(id string, peers entity.Peers, persistent entity.Persistent) *Server {
 	srv := &Server{
 		Signals: Signals{
 			SaveState:          make(chan struct{}, 1),
@@ -41,7 +41,7 @@ func NewServer(id string, peers entity.Peers) *Server {
 			ResetElectionTimer: make(chan struct{}, 1),
 			ResetLeaderTicker:  make(chan struct{}, 1),
 		},
-		node: *entity.NewNode(id, peers),
+		node: *entity.NewNode(id, peers, persistent),
 	}
 	srv.shiftRole()
 	srv.resetTimeout()

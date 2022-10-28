@@ -9,8 +9,18 @@ type fsmState struct {
 	matchIndex map[string]uint32
 }
 
-func NewFsmState() *fsmState {
-	return &fsmState{}
+func NewFsmState(pst Persistent) *fsmState {
+	return &fsmState{
+		persistent: persistent{
+			currentTerm: pst.CurrentTerm,
+			votedFor:    pst.VotedFor,
+			machineLogs: pst.MachineLogs,
+		},
+		commitIndex: 0,
+		lastApplied: 0,
+		nextIndex:   map[string]uint32{},
+		matchIndex:  map[string]uint32{},
+	}
 }
 
 // Move into domain/service ?
