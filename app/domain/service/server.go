@@ -11,6 +11,7 @@ type Signals struct {
 	ShiftRole          chan struct{}
 	ResetElectionTimer chan struct{}
 	ResetLeaderTicker  chan struct{}
+	Commit             chan struct{}
 }
 
 func (s *Signals) saveState() {
@@ -53,6 +54,12 @@ func (s *Server) GetState() entity.FsmState {
 	return s.node.GetState()
 }
 
+func (s *Server) IncrementLastApplied() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.node.IncrementLastApplied()
+}
+
 func (s *Server) Heartbeat() {
 	// Dispatch application of FSM / commitIndex / lastApplied ?
 	s.resetTimeout()
@@ -74,10 +81,12 @@ func (s *Server) GetQuorum() int {
 	defer s.mu.RUnlock()
 	return s.node.GetQuorum()
 }
-func (s *Server) GetAppendEntriesInput() entity.AppendEntriesInput {
+func (s *Server) GetAppendEntriesInput(entries []string) entity.AppendEntriesInput {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.node.GetAppendEntriesInput()
+	input := s.node.GetAppendEntriesInput()
+	input.Entries = entries
+	return input
 }
 func (s *Server) GetRequestVoteInput() entity.RequestVoteInput {
 	s.mu.RLock()
@@ -118,6 +127,12 @@ func (s *Server) SetCommitIndex(index uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.node.SetCommitIndex(index)
+}
+
+func (s *Server) GetCommitIndex() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.node.GetState().CommitIndex
 }
 
 // If server can grant vote, it will set votedFor and return success
@@ -174,9 +189,24 @@ func (s *Server) UpgradeLeader() {
 	defer s.mu.Unlock()
 	if s.node.IsCandidate() {
 		log.Printf("UPGRADE TO LEADER TERM: %d\n", state.CurrentTerm)
+		s.node.InitializeLeader(s.node.GetPeers())
 		s.node.SetClusterLeader(s.node.GetId())
 		s.node.SetRole(entity.Leader)
 		s.resetLeaderTicker()
 		s.shiftRole()
 	}
+}
+
+func (s *Server) ExecFsmCmd(cmd string) (interface{}, error) {
+	log.Println("EXECUTE COMMAND: ", cmd)
+	return cmd, nil
+}
+
+func (s *Server) CommitCmd(cmd string) {
+	//
+}
+
+func (s *Server) ApplyLog(index uint32) {
+	log := s.GetState().GetLogByIndex(index)
+	s.ExecFsmCmd(log.Value)
 }

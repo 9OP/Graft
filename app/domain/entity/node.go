@@ -41,6 +41,14 @@ func (n *Node) SetClusterLeader(leaderId string) {
 	}
 }
 
+func (n Node) GetPeers() Peers {
+	copy := make(Peers, len(n.peers))
+	for _, peer := range n.peers {
+		copy[peer.Id] = peer
+	}
+	return copy
+}
+
 func (n Node) GetState() FsmState {
 	return n.fsmState.getStateCopy()
 }

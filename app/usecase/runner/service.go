@@ -3,6 +3,7 @@ package runner
 import (
 	"graft/app/domain/entity"
 	srv "graft/app/domain/service"
+	"log"
 	"sync"
 )
 
@@ -25,6 +26,8 @@ func NewService(s *srv.Server, t *entity.Timeout, r repository, p persister) *se
 func (s *service) Run() {
 	srv := s.server
 
+	var commitMu *sync.Mutex
+
 	select {
 	case <-srv.ShiftRole:
 		switch {
@@ -45,7 +48,33 @@ func (s *service) Run() {
 
 	case <-srv.ResetLeaderTicker:
 		s.timeout.ResetLeaderTicker()
+
+	case <-srv.Commit:
+		log.Println("commit index")
+		commitMu.Lock()
+
+		// Move this function to domain because not require repository
+		applyLogs := func(mu *sync.Mutex) {
+			defer mu.Unlock()
+			for srv.GetCommitIndex() > srv.GetState().LastApplied {
+				srv.IncrementLastApplied()
+				lastApplied := srv.GetState().LastApplied
+				srv.ApplyLog(lastApplied)
+			}
+		}
+		go applyLogs(commitMu)
+		/*
+			while srv.commitIndex > srv.lastLogApplied:
+				increment lastLogApplied + 1
+				and
+				apply logs[lastLogApplied]
+
+			WARNING:
+			should not apply the same log multiple times (because 2 <-Commit are received simultaneously)
+		*/
+
 	}
+
 }
 
 func (s *service) runFollower(f follower) {
@@ -103,13 +132,35 @@ func (s *service) startElection(c candidate) {
 
 func (s *service) sendHeartbeat(l leader) {
 	state := l.GetState()
-	input := l.GetAppendEntriesInput()
+
+	// TODO synchronise followers with leader logs:
 
 	heartbeat := func(p entity.Peer) {
+		// Get the appropriate entries for the Peer, based on its nextIndex
+		entries := []string{}
+		lastLogIndex := state.GetLastLogIndex()
+		followerLogIndex := state.NextIndex[p.Id]
+		for lastLogIndex >= followerLogIndex {
+			entries = append(entries, state.GetLogByIndex(followerLogIndex).Value)
+			followerLogIndex += 1
+		}
+
+		input := l.GetAppendEntriesInput(entries)
+
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term, p.Id)
 				return
+			}
+
+			if !res.Success {
+				//
+				log.Println("failed")
+			}
+
+			if res.Success {
+				//
+				log.Println("success")
 			}
 		}
 	}

@@ -47,5 +47,5 @@ type leader interface {
 	role
 	downgrader
 	broadcaster
-	GetAppendEntriesInput() entity.AppendEntriesInput
+	GetAppendEntriesInput(entries []string) entity.AppendEntriesInput
 }
