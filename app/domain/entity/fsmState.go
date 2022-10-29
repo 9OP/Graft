@@ -1,88 +1,94 @@
 package entity
 
-type fsmState struct {
-	persistent
-	commitIndex uint32
-	lastApplied uint32
-	// leader only
-	nextIndex  map[string]uint32
-	matchIndex map[string]uint32
-}
-
-func NewFsmState(pst Persistent) *fsmState {
-	return &fsmState{
-		persistent: persistent{
-			currentTerm: pst.CurrentTerm,
-			votedFor:    pst.VotedFor,
-			machineLogs: pst.MachineLogs,
-		},
-		commitIndex: 0,
-		lastApplied: 0,
-		nextIndex:   map[string]uint32{},
-		matchIndex:  map[string]uint32{},
-	}
-}
-
-// Move into domain/service ?
-// Move to node ?
-func (s *fsmState) InitializeLeader(peers Peers) {
-	lastLogIndex := s.GetLastLogIndex()
-	nextIndex := make(map[string]uint32)
-	matchIndex := make(map[string]uint32)
-
-	for _, peer := range peers {
-		nextIndex[peer.Id] = lastLogIndex + 1
-		matchIndex[peer.Id] = 0
-	}
-
-	s.nextIndex = nextIndex
-	s.matchIndex = matchIndex
-}
-
-func (s *fsmState) IncrementLastApplied() {
-	s.lastApplied += 1
-}
-func (s *fsmState) DecrementNextIndex(pId string) {
-	s.nextIndex[pId] -= 1
-}
-func (s *fsmState) SetNextIndex(pId string, index uint32) {
-	s.nextIndex[pId] = index
-}
-
-func (s *fsmState) SetMatchIndex(pId string, index uint32) {
-	s.matchIndex[pId] = index
-}
-
-func (s *fsmState) SetCommitIndex(index uint32) {
-	s.commitIndex = index
-}
+import "sync"
 
 type FsmState struct {
-	Persistent
+	*Persistent
 	CommitIndex uint32
 	LastApplied uint32
 	NextIndex   map[string]uint32
 	MatchIndex  map[string]uint32
+	mu          sync.RWMutex
 }
 
-func (s fsmState) getStateCopy() FsmState {
-	persistent := s.getPersistentCopy()
+func NewFsmState(persistent *Persistent) *FsmState {
+	return &FsmState{
+		Persistent:  persistent,
+		CommitIndex: 0,
+		LastApplied: 0,
+		NextIndex:   map[string]uint32{},
+		MatchIndex:  map[string]uint32{},
+	}
+}
 
-	nextIndex := map[string]uint32{}
-	for k, v := range s.nextIndex {
-		nextIndex[k] = v
+func (s *FsmState) GetCopy() *FsmState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	nextIndex := make(map[string]uint32, len(s.NextIndex))
+	for id, index := range s.NextIndex {
+		nextIndex[id] = index
 	}
 
-	matchIndex := map[string]uint32{}
-	for k, v := range s.matchIndex {
-		matchIndex[k] = v
+	matchIndex := make(map[string]uint32, len(s.MatchIndex))
+	for id, index := range s.MatchIndex {
+		matchIndex[id] = index
 	}
 
-	return FsmState{
-		Persistent:  *persistent,
-		CommitIndex: s.commitIndex,
-		LastApplied: s.lastApplied,
+	return &FsmState{
+		Persistent:  s.Persistent.GetCopy(),
+		CommitIndex: s.CommitIndex,
+		LastApplied: s.LastApplied,
 		NextIndex:   nextIndex,
 		MatchIndex:  matchIndex,
 	}
+}
+
+func (s *FsmState) InitializeLeader(peers Peers) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	defaultNextIndex := s.GetLastLogIndex() + 1
+	nextIndex := make(map[string]uint32, len(peers))
+	matchIndex := make(map[string]uint32, len(peers))
+
+	for _, peer := range peers {
+		nextIndex[peer.Id] = defaultNextIndex
+		matchIndex[peer.Id] = 0
+	}
+
+	s.NextIndex = nextIndex
+	s.MatchIndex = matchIndex
+}
+
+func (s *FsmState) IncrementLastApplied() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.LastApplied += 1
+}
+
+func (s *FsmState) DecrementNextIndex(pId string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.NextIndex[pId] -= 1
+}
+
+// Rename SetPeerNextIndex
+func (s *FsmState) SetNextIndex(pId string, index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.NextIndex[pId] = index
+}
+
+// Rename SetPeerMatchIndex
+func (s *FsmState) SetMatchIndex(pId string, index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.MatchIndex[pId] = index
+}
+
+func (s *FsmState) SetCommitIndex(index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.CommitIndex = index
 }

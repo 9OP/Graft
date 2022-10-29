@@ -6,7 +6,7 @@ import (
 
 type repository interface {
 	Heartbeat()
-	GetState() entity.FsmState
+	GetState() *entity.FsmState
 	SetClusterLeader(leaderId string)
 	SetCommitIndex(ind uint32)
 	DowngradeFollower(term uint32)

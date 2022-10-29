@@ -45,8 +45,8 @@ func main() {
 	args := parseArgs()
 
 	// Config
-	ELECTION_TIMEOUT := 2000 // ms
-	LEADER_TICKER := 900     // ms
+	ELECTION_TIMEOUT := 350 // ms
+	LEADER_TICKER := 35     // ms
 	STATE_LOCATION := fmt.Sprintf("state_%s.json", args.id)
 
 	// Driven port/adapter (domain -> infra)
@@ -59,7 +59,7 @@ func main() {
 	// Domain
 	persistent, _ := persisterPort.Load()
 	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
-	srv := service.NewServer(args.id, args.peers, *persistent)
+	srv := service.NewServer(args.id, args.peers, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)

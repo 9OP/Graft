@@ -33,22 +33,20 @@ func NewService(s *srvc.Server, t *entity.Timeout, r repository, p persister) *s
 }
 
 func (s *service) Run() {
-	events := s.server.Signals
-
 	select {
-	case role := <-events.ShiftRole:
+	case role := <-s.server.ShiftRole:
 		go s.runAs(role)
 
-	case <-events.SaveState:
+	case <-s.server.SaveState:
 		go s.saveState()
 
-	case <-events.ResetElectionTimer:
+	case <-s.server.ResetElectionTimer:
 		go s.timeout.ResetElectionTimer()
 
-	case <-events.ResetLeaderTicker:
+	case <-s.server.ResetLeaderTicker:
 		go s.timeout.ResetLeaderTicker()
 
-	case <-events.Commit:
+	case <-s.server.Commit:
 		go s.commit()
 	}
 
@@ -74,7 +72,7 @@ func (s *service) commit() {
 
 func (s *service) saveState() {
 	state := s.server.GetState()
-	s.persister.Save(&state.Persistent)
+	s.persister.Save(state.Persistent)
 }
 
 func (s *service) runFollower(f follower) {
@@ -116,7 +114,7 @@ func (s *service) startElection(c candidate) bool {
 
 	var m sync.Mutex
 	gatherVotesRoutine := func(p entity.Peer) {
-		if res, err := s.repository.RequestVote(p, &input); err == nil {
+		if res, err := s.repository.RequestVote(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
 				c.DowngradeFollower(res.Term)
 				return
@@ -142,7 +140,7 @@ func (s *service) sendHeartbeat(l leader) {
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.GetAppendEntriesInput(p.Id)
 		fmt.Println("input", input)
-		if res, err := s.repository.AppendEntries(p, &input); err == nil {
+		if res, err := s.repository.AppendEntries(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term)
 				return
@@ -150,8 +148,8 @@ func (s *service) sendHeartbeat(l leader) {
 			fmt.Println("success", res.Success)
 			if res.Success {
 				leaderLastLogIndex := state.GetLastLogIndex()
-				l.SetNextIndex(p.Id, leaderLastLogIndex)
-				l.SetMatchIndex(p.Id, leaderLastLogIndex)
+				l.SetNextIndex(p.Id, uint32(leaderLastLogIndex))
+				l.SetMatchIndex(p.Id, uint32(leaderLastLogIndex))
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}

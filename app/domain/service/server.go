@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type Signals struct {
+type signals struct {
 	SaveState          chan struct{}
 	ShiftRole          chan entity.Role
 	ResetElectionTimer chan struct{}
@@ -14,205 +14,132 @@ type Signals struct {
 	Commit             chan struct{}
 }
 
-func (s *Signals) saveState() {
+func newSignals() signals {
+	return signals{
+		SaveState:          make(chan struct{}, 1),
+		ShiftRole:          make(chan entity.Role, 1),
+		ResetElectionTimer: make(chan struct{}, 1),
+		ResetLeaderTicker:  make(chan struct{}, 1),
+		Commit:             make(chan struct{}),
+	}
+}
+
+func (s *signals) saveState() {
 	s.SaveState <- struct{}{}
 }
-func (s *Signals) shiftRole(role entity.Role) {
+func (s *signals) shiftRole(role entity.Role) {
 	s.ShiftRole <- role
 }
-func (s *Signals) resetTimeout() {
+func (s *signals) resetTimeout() {
 	s.ResetElectionTimer <- struct{}{}
 }
-func (s *Signals) resetLeaderTicker() {
+func (s *signals) resetLeaderTicker() {
 	s.ResetLeaderTicker <- struct{}{}
 }
-func (s *Signals) commit() {
+func (s *signals) commit() {
 	s.Commit <- struct{}{}
 }
 
 type Server struct {
-	Signals
-	node entity.Node
-	mu   sync.RWMutex
+	signals
+	entity.Node
 }
 
-func NewServer(id string, peers entity.Peers, persistent entity.Persistent) *Server {
+func NewServer(id string, peers entity.Peers, persistent *entity.Persistent) *Server {
 	srv := &Server{
-		Signals: Signals{
-			SaveState:          make(chan struct{}, 1),
-			ShiftRole:          make(chan entity.Role, 1),
-			ResetElectionTimer: make(chan struct{}, 1),
-			ResetLeaderTicker:  make(chan struct{}, 1),
-		},
-		node: *entity.NewNode(id, peers, persistent),
+		signals: newSignals(),
+		Node:    *entity.NewNode(id, peers, persistent),
 	}
 	srv.shiftRole(entity.Follower)
 	srv.resetTimeout()
 	return srv
 }
 
-func (s *Server) GetState() entity.FsmState {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetState()
-}
-
-func (s *Server) IncrementLastApplied() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.IncrementLastApplied()
+func (s *Server) GetState() *entity.FsmState {
+	// TODO: verify if we need to send a copy instead
+	return s.Node.FsmState
 }
 
 func (s *Server) Heartbeat() {
-	// Dispatch application of FSM / commitIndex / lastApplied ?
 	s.resetTimeout()
 }
 
 func (s *Server) Broadcast(fn func(p entity.Peer)) {
-	// Check if it raise execption on concurrency
-	// if yes, define broadcast here instead of node
-	s.node.Broadcast(fn)
-}
-
-func (s *Server) SetClusterLeader(leaderId string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.SetClusterLeader(leaderId)
-}
-func (s *Server) GetQuorum() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetQuorum()
-}
-
-func (s *Server) GetAppendEntriesInput(pId string) entity.AppendEntriesInput {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetAppendEntriesInput(pId)
-}
-func (s *Server) GetRequestVoteInput() entity.RequestVoteInput {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetRequestVoteInput()
-}
-func (s *Server) IsFollower() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.IsFollower()
-}
-func (s *Server) IsCandidate() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.IsCandidate()
-}
-func (s *Server) IsLeader() bool {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.IsLeader()
+	var wg sync.WaitGroup
+	for _, peer := range s.Node.Peers {
+		wg.Add(1)
+		go func(p entity.Peer, w *sync.WaitGroup) {
+			defer w.Done()
+			fn(p)
+		}(peer, &wg)
+	}
+	wg.Wait()
 }
 
 func (s *Server) DeleteLogsFrom(index uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.DeleteLogsFrom(index)
+	s.Node.DeleteLogsFrom(index)
 	s.saveState()
 }
 
 func (s *Server) AppendLogs(entries []string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.AppendLogs(entries)
+	s.Node.AppendLogs(entries)
 	s.saveState()
 }
 
 func (s *Server) SetCommitIndex(index uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.SetCommitIndex(index)
+	s.Node.SetCommitIndex(index)
 	s.commit()
-}
-
-func (s *Server) GetCommitIndex() uint32 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.node.GetState().CommitIndex
 }
 
 // If server can grant vote, it will set votedFor and return success
 func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool {
 	defer s.saveState()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
-		s.node.SetVotedFor(id)
+	if s.Node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
+		s.Node.SetVotedFor(id)
 		return true
 	}
 	return false
 }
 
+func (s *Server) SetRole(role entity.Role) {
+	s.Node.SetRole(role)
+	s.signals.shiftRole(role)
+}
+
 func (s *Server) DowngradeFollower(term uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
-	s.node.SetCurrentTerm(term)
-	s.node.SetVotedFor("")
-	s.node.SetRole(entity.Follower)
+	s.SetCurrentTerm(term)
+	s.SetVotedFor("")
+	s.SetRole(entity.Follower)
 	s.saveState()
 	s.resetTimeout()
-	s.shiftRole(entity.Follower)
 }
 
 func (s *Server) IncrementTerm() {
-	state := s.GetState()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.node.IsCandidate() {
-		log.Printf("INCREMENT CANDIDATE TERM: %d\n", state.CurrentTerm+1)
-		s.node.SetCurrentTerm(state.CurrentTerm + 1)
-		s.node.VoteForSelf()
+	if s.IsRole(entity.Candidate) {
+		log.Printf("INCREMENT CANDIDATE TERM: %d\n", s.CurrentTerm+1)
+		s.SetCurrentTerm(s.CurrentTerm + 1)
+		s.SetVotedFor(s.Id)
 		s.saveState()
 		s.resetTimeout()
 	}
 }
 
 func (s *Server) UpgradeCandidate() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.node.IsFollower() {
+	if s.IsRole(entity.Follower) {
 		log.Println("UPGRADE TO CANDIDATE")
-		s.node.SetRole(entity.Candidate)
-		s.shiftRole(entity.Candidate)
+		s.SetRole(entity.Candidate)
 	}
 }
 
 func (s *Server) UpgradeLeader() {
-	state := s.GetState()
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.node.IsCandidate() {
-		log.Printf("UPGRADE TO LEADER TERM: %d\n", state.CurrentTerm)
-		s.node.InitializeLeader(s.node.GetPeers())
-		s.node.SetClusterLeader(s.node.GetId())
-		s.node.SetRole(entity.Leader)
+	if s.IsRole(entity.Candidate) {
+		log.Printf("UPGRADE TO LEADER TERM: %d\n", s.CurrentTerm)
+		s.InitializeLeader(s.Peers)
+		s.SetClusterLeader(s.Id)
+		s.SetRole(entity.Leader)
 		s.resetLeaderTicker()
-		s.shiftRole(entity.Leader)
 	}
-}
-
-func (s *Server) SetNextIndex(pId string, index uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.SetNextIndex(pId, index)
-}
-func (s *Server) SetMatchIndex(pId string, index uint32) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.SetMatchIndex(pId, index)
-}
-func (s *Server) DecrementNextIndex(pId string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.node.DecrementNextIndex(pId)
 }
 
 func (s *Server) ExecFsmCmd(cmd string) (interface{}, error) {
@@ -225,8 +152,8 @@ func (s *Server) CommitCmd(cmd string) {
 }
 
 func (s *Server) ApplyLogs() {
-	commitIndex := s.GetCommitIndex()
-	lastApplied := s.GetState().LastApplied
+	commitIndex := s.CommitIndex
+	lastApplied := s.LastApplied
 
 	for commitIndex > lastApplied {
 		// TODO: refactor this, GetState() is super expensive!
