@@ -36,7 +36,11 @@ func (n Node) GetId() string {
 
 func (n *Node) SetClusterLeader(leaderId string) {
 	if n.leaderId != leaderId {
-		log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
+		if leaderId == n.id {
+			log.Println("BECOMMING CLUSTER LEADER")
+		} else {
+			log.Printf("FOLLOWING CLUSTER LEADER: %s\n", leaderId)
+		}
 		n.leaderId = leaderId
 	}
 }

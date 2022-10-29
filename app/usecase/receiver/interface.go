@@ -9,7 +9,7 @@ type repository interface {
 	GetState() entity.FsmState
 	SetClusterLeader(leaderId string)
 	SetCommitIndex(ind uint32)
-	DowngradeFollower(term uint32, leaderId string)
+	DowngradeFollower(term uint32)
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DeleteLogsFrom(index uint32)
 	AppendLogs(entries []string)

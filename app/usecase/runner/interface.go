@@ -25,7 +25,7 @@ type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
 }
 type downgrader interface {
-	DowngradeFollower(term uint32, leaderId string)
+	DowngradeFollower(term uint32)
 }
 
 type follower interface {

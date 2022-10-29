@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	srvc "graft/app/domain/service"
 	"sync"
@@ -119,9 +118,8 @@ func (s *service) startElection(c candidate) bool {
 	var m sync.Mutex
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, &input); err == nil {
-			fmt.Println("req vote", res)
 			if res.Term > state.CurrentTerm {
-				c.DowngradeFollower(res.Term, p.Id)
+				c.DowngradeFollower(res.Term)
 				return
 			}
 			if res.VoteGranted {
@@ -149,7 +147,7 @@ func (s *service) sendHeartbeat(l leader) {
 		input := l.GetAppendEntriesInput(entries)
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
-				l.DowngradeFollower(res.Term, p.Id)
+				l.DowngradeFollower(res.Term)
 				return
 			}
 			// if res.Success {

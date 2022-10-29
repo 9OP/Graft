@@ -1,7 +1,6 @@
 package receiver
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 )
 
@@ -24,8 +23,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 		return output, nil
 	}
 	if input.Term > state.CurrentTerm {
-
-		s.DowngradeFollower(input.Term, input.LeaderId)
+		s.DowngradeFollower(input.Term)
 	}
 
 	s.SetClusterLeader(input.LeaderId)
@@ -33,13 +31,9 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 
 	localPrevLog := state.GetLogByIndex(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm {
-		if len(input.Entries) > 0 {
-			fmt.Println("append logs", input.Entries, len(input.Entries))
-			s.AppendLogs(input.Entries)
-		}
+		s.AppendLogs(input.Entries)
 		output.Success = true
 	} else {
-		fmt.Println("DLETE LOGS", input.PrevLogIndex)
 		s.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
@@ -61,9 +55,7 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 		return output, nil
 	}
 	if input.Term > state.CurrentTerm {
-		// Do not log follow cluster leader in req vote
-		// FollowCluster leader only in appendEntries
-		s.DowngradeFollower(input.Term, input.CandidateId)
+		s.DowngradeFollower(input.Term)
 	}
 
 	if s.GrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {

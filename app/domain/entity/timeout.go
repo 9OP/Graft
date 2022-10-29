@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -35,7 +34,6 @@ func (t *Timeout) ResetElectionTimer() {
 	t.LeaderTicker.Stop()
 	t.ElectionTimer.Stop()
 	rnd := getRandomTime(t.electionDuration)
-	fmt.Println("reset electon timer", rnd*time.Millisecond)
 	t.ElectionTimer.Reset(rnd * time.Millisecond)
 }
 

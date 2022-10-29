@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	"log"
 	"sync"
@@ -152,16 +151,15 @@ func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 	return false
 }
 
-func (s *Server) DowngradeFollower(term uint32, leaderId string) {
+func (s *Server) DowngradeFollower(term uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
-	s.node.SetClusterLeader(leaderId)
 	s.node.SetCurrentTerm(term)
 	s.node.SetVotedFor("")
 	s.node.SetRole(entity.Follower)
 	s.saveState()
-	// s.resetTimeout()
+	s.resetTimeout()
 	s.shiftRole(entity.Follower)
 }
 
@@ -208,7 +206,6 @@ func (s *Server) GetPeerNewEntries(peerId string) []string {
 	leaderLastLogIndex := s.node.GetLastLogIndex()
 	peerLastKnownLogIndex := state.NextIndex[peerId]
 	for leaderLastLogIndex >= peerLastKnownLogIndex {
-		fmt.Println("log", state.GetLogByIndex(peerLastKnownLogIndex))
 		entries = append(entries, state.GetLogByIndex(peerLastKnownLogIndex).Value)
 		peerLastKnownLogIndex += 1
 	}
