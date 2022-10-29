@@ -42,6 +42,16 @@ func (s *fsmState) InitializeLeader(peers Peers) {
 func (s *fsmState) IncrementLastApplied() {
 	s.lastApplied += 1
 }
+func (s *fsmState) DecrementNextIndex(pId string) {
+	s.nextIndex[pId] -= 1
+}
+func (s *fsmState) SetNextIndex(pId string, index uint32) {
+	s.nextIndex[pId] = index
+}
+
+func (s *fsmState) SetMatchIndex(pId string, index uint32) {
+	s.matchIndex[pId] = index
+}
 
 func (s *fsmState) SetCommitIndex(index uint32) {
 	s.commitIndex = index

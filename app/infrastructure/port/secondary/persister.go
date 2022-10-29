@@ -22,7 +22,11 @@ func NewPersisterPort(location string, adapter adapter.UseCaseJsonPersisterAdapt
 func (p *persisterPort) Load() (*entity.Persistent, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.adapter.Load(p.location)
+	pst, err := p.adapter.Load(p.location)
+	if err != nil {
+		return entity.NewPersistent(), err
+	}
+	return pst, err
 }
 
 func (p *persisterPort) Save(state *entity.Persistent) error {

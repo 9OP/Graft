@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 	srvc "graft/app/domain/service"
 	"sync"
@@ -82,6 +83,13 @@ func (s *service) runFollower(f follower) {
 }
 
 func (s *service) runCandidate(c candidate) {
+	// Start election when becomming candidate
+	if s.startElection(c) {
+		c.UpgradeLeader()
+		return
+	}
+
+	// When timeout, restart election
 	for range s.timeout.ElectionTimer.C {
 		if s.startElection(c) {
 			c.UpgradeLeader()
@@ -111,6 +119,7 @@ func (s *service) startElection(c candidate) bool {
 	var m sync.Mutex
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, &input); err == nil {
+			fmt.Println("req vote", res)
 			if res.Term > state.CurrentTerm {
 				c.DowngradeFollower(res.Term, p.Id)
 				return
@@ -134,41 +143,25 @@ func (s *service) sendHeartbeat(l leader) {
 
 	state := l.GetState()
 
-	// TODO synchronise followers with leader logs:
-
-	heartbeat := func(p entity.Peer) {
-		// Get the appropriate entries for the Peer, based on its nextIndex
+	synchroniseLogsRoutine := func(p entity.Peer) {
+		// entries := l.GetPeerNewEntries(p.Id)
 		entries := []string{}
-		// Move into domain method: GetNewEntriesForPeer(peerId string) []string
-		leaderLastLogIndex := state.GetLastLogIndex()
-		followerLastKnownLogIndex := state.NextIndex[p.Id]
-		// Move into domain method: GetLogsFromIndex(index uint32) []MachineLogs
-		for leaderLastLogIndex >= followerLastKnownLogIndex {
-			entries = append(entries, state.GetLogByIndex(followerLastKnownLogIndex).Value)
-			followerLastKnownLogIndex += 1
-		}
 		input := l.GetAppendEntriesInput(entries)
-
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term, p.Id)
 				return
 			}
-
-			if !res.Success {
-				// Decrement nextIndex[p.Id] - 1
-				// log.Println("failed")
-			}
-
-			if res.Success {
-				// Update nextIndex[p.Id] = leaderLastLogIndex
-				// Update matchIndex[p.Id] = leaderLastLogIndex
-				//log.Println("success")
-			}
+			// if res.Success {
+			// 	leaderLastLogIndex := state.GetLastLogIndex()
+			// 	l.SetNextIndex(p.Id, leaderLastLogIndex)
+			// 	l.SetMatchIndex(p.Id, leaderLastLogIndex)
+			// } else {
+			// 	l.DecrementNextIndex(p.Id)
+			// }
 		}
 	}
-
-	l.Broadcast(heartbeat)
+	l.Broadcast(synchroniseLogsRoutine)
 
 	/*
 		If there exists an N such that:
@@ -177,33 +170,30 @@ func (s *service) sendHeartbeat(l leader) {
 			- log[N].term == currentTerm:
 		then set commitIndex = N
 	*/
-	// Search for N, then commitIndex = N
 
-	// Refresh state
-	state = l.GetState()
-	// Upper value of N
-	lastLogIndex := state.GetLastLogIndex()
-	// Lower value of N
-	commitIndex := state.CommitIndex
-	// Look for N, starting from latest log
-	quorum := s.server.GetQuorum()
-	for N := lastLogIndex; N > commitIndex; N-- {
-		// Get a majority for which matchIndex >= n
-		count := 0
-		for _, matchIndex := range state.MatchIndex {
-			if matchIndex >= N {
-				count += 1
-			}
-		}
-
-		if count >= quorum {
-			log := state.GetLogByIndex(N)
-			if log.Term == state.CurrentTerm {
-				s.server.SetCommitIndex(N)
-				break
-			}
-		}
-
-	}
+	// // Refresh state
+	// state = l.GetState()
+	// // Upper value of N
+	// lastLogIndex := state.GetLastLogIndex()
+	// // Lower value of N
+	// commitIndex := state.CommitIndex
+	// // Look for N, starting from latest log
+	// quorum := s.server.GetQuorum()
+	// for N := lastLogIndex; N > commitIndex; N-- {
+	// 	// Get a majority for which matchIndex >= n
+	// 	count := 0
+	// 	for _, matchIndex := range state.MatchIndex {
+	// 		if matchIndex >= N {
+	// 			count += 1
+	// 		}
+	// 	}
+	// 	if count >= quorum {
+	// 		log := state.GetLogByIndex(N)
+	// 		if log.Term == state.CurrentTerm {
+	// 			s.server.SetCommitIndex(N)
+	// 			break
+	// 		}
+	// 	}
+	// }
 
 }

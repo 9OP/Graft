@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 	"log"
 	"sync"
@@ -160,7 +161,7 @@ func (s *Server) DowngradeFollower(term uint32, leaderId string) {
 	s.node.SetVotedFor("")
 	s.node.SetRole(entity.Follower)
 	s.saveState()
-	s.resetTimeout()
+	// s.resetTimeout()
 	s.shiftRole(entity.Follower)
 }
 
@@ -199,6 +200,35 @@ func (s *Server) UpgradeLeader() {
 		s.resetLeaderTicker()
 		s.shiftRole(entity.Leader)
 	}
+}
+
+func (s *Server) GetPeerNewEntries(peerId string) []string {
+	entries := []string{}
+	state := s.GetState()
+	leaderLastLogIndex := s.node.GetLastLogIndex()
+	peerLastKnownLogIndex := state.NextIndex[peerId]
+	for leaderLastLogIndex >= peerLastKnownLogIndex {
+		fmt.Println("log", state.GetLogByIndex(peerLastKnownLogIndex))
+		entries = append(entries, state.GetLogByIndex(peerLastKnownLogIndex).Value)
+		peerLastKnownLogIndex += 1
+	}
+	return entries
+}
+
+func (s *Server) SetNextIndex(pId string, index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.node.SetNextIndex(pId, index)
+}
+func (s *Server) SetMatchIndex(pId string, index uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.node.SetMatchIndex(pId, index)
+}
+func (s *Server) DecrementNextIndex(pId string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.node.DecrementNextIndex(pId)
 }
 
 func (s *Server) ExecFsmCmd(cmd string) (interface{}, error) {

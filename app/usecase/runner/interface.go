@@ -47,5 +47,9 @@ type leader interface {
 	role
 	downgrader
 	broadcaster
+	DecrementNextIndex(pId string)
+	SetNextIndex(pId string, index uint32)
+	SetMatchIndex(pId string, index uint32)
+	GetPeerNewEntries(peerId string) []string
 	GetAppendEntriesInput(entries []string) entity.AppendEntriesInput
 }

@@ -24,7 +24,6 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 		Entries:      input.Entries,
 		LeaderCommit: input.LeaderCommit,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +42,8 @@ func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteI
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
+
+	//fmt.Println("reqvote", peer.Id, output)
 
 	if err != nil {
 		return nil, err

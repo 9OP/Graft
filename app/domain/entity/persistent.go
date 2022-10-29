@@ -14,14 +14,6 @@ type persistent struct {
 	machineLogs []MachineLog
 }
 
-func NewPersistent() *persistent {
-	return &persistent{
-		currentTerm: 0,
-		votedFor:    "",
-		machineLogs: []MachineLog{{Term: 0, Value: "INIT"}},
-	}
-}
-
 func (p *persistent) getPersistentCopy() *Persistent {
 	machineLogs := make([]MachineLog, len(p.machineLogs))
 	copy(machineLogs, p.machineLogs)
@@ -57,7 +49,7 @@ func (p *persistent) AppendLogs(entries []string) {
 	p.machineLogs = logs
 }
 func (p persistent) GetLastLogIndex() uint32 {
-	return uint32(len(p.machineLogs))
+	return uint32(len(p.machineLogs)) - 1
 }
 func (p persistent) GetLastLogTerm() uint32 {
 	if lastLogIndex := p.GetLastLogIndex(); lastLogIndex != 0 {
@@ -73,6 +65,14 @@ type Persistent struct {
 	CurrentTerm uint32       `json:"current_term"`
 	VotedFor    string       `json:"voted_for"`
 	MachineLogs []MachineLog `json:"machine_logs"`
+}
+
+func NewPersistent() *Persistent {
+	return &Persistent{
+		CurrentTerm: 0,
+		VotedFor:    "",
+		MachineLogs: []MachineLog{{Term: 0, Value: "INIT"}},
+	}
 }
 
 func (p Persistent) GetLastLogIndex() uint32 {
