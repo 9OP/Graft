@@ -57,6 +57,26 @@ func (p persistent) GetLastLogTerm() uint32 {
 	}
 	return 0
 }
+func (p persistent) GetLogByIndex(index uint32) MachineLog {
+	if index <= p.GetLastLogIndex() {
+		// Return copy for safety
+		return MachineLog{
+			Term:  p.machineLogs[index].Term,
+			Value: p.machineLogs[index].Value,
+		}
+	}
+	return MachineLog{Term: 0, Value: "LOG_INDEX_OUT_OF_RANGE"}
+}
+
+// Returns the entire logs stash from given index
+func (p persistent) GetLogsFromIndex(index uint32) []MachineLog {
+	logs := make([]MachineLog, len(p.machineLogs))
+	lastLogIndex := p.GetLastLogIndex()
+	for idx := index; idx <= lastLogIndex; idx++ {
+		logs = append(logs, p.GetLogByIndex(idx))
+	}
+	return logs
+}
 
 /*
  * Public entity
@@ -71,12 +91,12 @@ func NewPersistent() *Persistent {
 	return &Persistent{
 		CurrentTerm: 0,
 		VotedFor:    "",
-		MachineLogs: []MachineLog{{Term: 0, Value: "INIT"}},
+		MachineLogs: []MachineLog{{Term: 1, Value: "INIT"}},
 	}
 }
 
 func (p Persistent) GetLastLogIndex() uint32 {
-	return uint32(len(p.MachineLogs))
+	return uint32(len(p.MachineLogs)) - 1
 }
 func (p Persistent) GetLastLogTerm() uint32 {
 	if lastLogIndex := p.GetLastLogIndex(); lastLogIndex != 0 {
@@ -85,12 +105,12 @@ func (p Persistent) GetLastLogTerm() uint32 {
 	return 0
 }
 func (p Persistent) GetLogByIndex(index uint32) MachineLog {
-	if index < p.GetLastLogIndex() {
+	if index <= p.GetLastLogIndex() {
 		// Return copy for safety
 		return MachineLog{
 			Term:  p.MachineLogs[index].Term,
 			Value: p.MachineLogs[index].Value,
 		}
 	}
-	return MachineLog{Term: 0}
+	return MachineLog{Term: 0, Value: "LOG_INDEX_OUT_OF_RANGE"}
 }

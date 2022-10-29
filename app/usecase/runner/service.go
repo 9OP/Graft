@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 	srvc "graft/app/domain/service"
 	"sync"
@@ -20,6 +21,8 @@ type service struct {
 	synchronise
 }
 
+// TODO: Move timeout to this file instead of being in the domain
+// Timeout is applicative logic, not domain logic
 func NewService(s *srvc.Server, t *entity.Timeout, r repository, p persister) *service {
 	return &service{
 		repository: r,
@@ -82,17 +85,15 @@ func (s *service) runFollower(f follower) {
 }
 
 func (s *service) runCandidate(c candidate) {
-	// Start election when becomming candidate
-	if s.startElection(c) {
+	if wonElection := s.startElection(c); wonElection {
 		c.UpgradeLeader()
-		return
-	}
-
-	// When timeout, restart election
-	for range s.timeout.ElectionTimer.C {
-		if s.startElection(c) {
-			c.UpgradeLeader()
-			return
+	} else {
+		// Restart election until: upgrade / downgrade
+		for range s.timeout.ElectionTimer.C {
+			if wonElection := s.startElection(c); wonElection {
+				c.UpgradeLeader()
+				break
+			}
 		}
 	}
 }
@@ -104,12 +105,10 @@ func (s *service) runLeader(l leader) {
 }
 
 func (s *service) startElection(c candidate) bool {
-	// Prevent starting multiple election
 	s.synchronise.election.Lock()
 	defer s.synchronise.election.Unlock()
 
 	c.IncrementTerm()
-
 	state := c.GetState()
 	input := c.GetRequestVoteInput()
 	quorum := c.GetQuorum()
@@ -135,28 +134,27 @@ func (s *service) startElection(c candidate) bool {
 }
 
 func (s *service) sendHeartbeat(l leader) {
-	// Prevent starting multiple heartbeat
 	s.synchronise.heartbeat.Lock()
 	defer s.synchronise.heartbeat.Unlock()
 
 	state := l.GetState()
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
-		// entries := l.GetPeerNewEntries(p.Id)
-		entries := []string{}
-		input := l.GetAppendEntriesInput(entries)
+		input := l.GetAppendEntriesInput(p.Id)
+		fmt.Println("input", input)
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term)
 				return
 			}
-			// if res.Success {
-			// 	leaderLastLogIndex := state.GetLastLogIndex()
-			// 	l.SetNextIndex(p.Id, leaderLastLogIndex)
-			// 	l.SetMatchIndex(p.Id, leaderLastLogIndex)
-			// } else {
-			// 	l.DecrementNextIndex(p.Id)
-			// }
+			fmt.Println("success", res.Success)
+			if res.Success {
+				leaderLastLogIndex := state.GetLastLogIndex()
+				l.SetNextIndex(p.Id, leaderLastLogIndex)
+				l.SetMatchIndex(p.Id, leaderLastLogIndex)
+			} else {
+				l.DecrementNextIndex(p.Id)
+			}
 		}
 	}
 	l.Broadcast(synchroniseLogsRoutine)

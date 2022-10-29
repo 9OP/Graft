@@ -2,6 +2,7 @@ package entity
 
 import (
 	"math/rand"
+	"os"
 	"sync"
 	"time"
 )
@@ -15,7 +16,7 @@ type Timeout struct {
 }
 
 func getRandomTime(t time.Duration) time.Duration {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(time.Now().UnixNano() + int64(os.Getpid()))
 	return time.Duration(rand.Intn(int(t)/2) + int(t)/2)
 }
 

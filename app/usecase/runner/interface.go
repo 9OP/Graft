@@ -50,6 +50,5 @@ type leader interface {
 	DecrementNextIndex(pId string)
 	SetNextIndex(pId string, index uint32)
 	SetMatchIndex(pId string, index uint32)
-	GetPeerNewEntries(peerId string) []string
-	GetAppendEntriesInput(entries []string) entity.AppendEntriesInput
+	GetAppendEntriesInput(pId string) entity.AppendEntriesInput
 }

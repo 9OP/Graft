@@ -1,6 +1,7 @@
 package receiver
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 )
 
@@ -30,6 +31,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	s.Heartbeat()
 
 	localPrevLog := state.GetLogByIndex(input.PrevLogIndex)
+	fmt.Println(localPrevLog, input)
 	if localPrevLog.Term == input.PrevLogTerm {
 		s.AppendLogs(input.Entries)
 		output.Success = true

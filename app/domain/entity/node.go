@@ -116,12 +116,22 @@ func (n Node) GetRequestVoteInput() RequestVoteInput {
 	}
 }
 
-func (n Node) GetAppendEntriesInput() AppendEntriesInput {
+func (n Node) GetAppendEntriesInput(pId string) AppendEntriesInput {
+	prevLogIndex := n.nextIndex[pId]
+	prevLogTerm := n.GetLogByIndex(prevLogIndex).Term
+
+	logs := n.GetLogsFromIndex(prevLogIndex)
+	entries := make([]string, len(logs))
+	for _, log := range logs {
+		entries = append(entries, log.Value)
+	}
+
 	return AppendEntriesInput{
 		LeaderId:     n.id,
 		Term:         n.currentTerm,
-		PrevLogIndex: n.GetLastLogIndex(),
-		PrevLogTerm:  n.GetLastLogTerm(),
+		PrevLogIndex: prevLogIndex,
+		PrevLogTerm:  prevLogTerm,
+		Entries:      entries,
 		LeaderCommit: n.commitIndex,
 	}
 }

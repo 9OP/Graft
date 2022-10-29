@@ -84,12 +84,11 @@ func (s *Server) GetQuorum() int {
 	defer s.mu.RUnlock()
 	return s.node.GetQuorum()
 }
-func (s *Server) GetAppendEntriesInput(entries []string) entity.AppendEntriesInput {
+
+func (s *Server) GetAppendEntriesInput(pId string) entity.AppendEntriesInput {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	input := s.node.GetAppendEntriesInput()
-	input.Entries = entries
-	return input
+	return s.node.GetAppendEntriesInput(pId)
 }
 func (s *Server) GetRequestVoteInput() entity.RequestVoteInput {
 	s.mu.RLock()
@@ -198,18 +197,6 @@ func (s *Server) UpgradeLeader() {
 		s.resetLeaderTicker()
 		s.shiftRole(entity.Leader)
 	}
-}
-
-func (s *Server) GetPeerNewEntries(peerId string) []string {
-	entries := []string{}
-	state := s.GetState()
-	leaderLastLogIndex := s.node.GetLastLogIndex()
-	peerLastKnownLogIndex := state.NextIndex[peerId]
-	for leaderLastLogIndex >= peerLastKnownLogIndex {
-		entries = append(entries, state.GetLogByIndex(peerLastKnownLogIndex).Value)
-		peerLastKnownLogIndex += 1
-	}
-	return entries
 }
 
 func (s *Server) SetNextIndex(pId string, index uint32) {
