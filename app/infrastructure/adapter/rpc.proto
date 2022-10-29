@@ -1,15 +1,20 @@
 syntax = "proto3";
 
-package rpc;
+package p2p_rpc;
 
-option go_package = "./rpc";
+option go_package = "./p2p_rpc";
+
+message logEntry {
+    uint32 term = 1;
+    string value = 2;
+}
 
 message AppendEntriesInput {
     uint32 term = 1;
     string leaderId = 2;
     uint32 prevLogIndex = 3;
     uint32 prevLogTerm = 4;
-    repeated string entries = 5;
+    repeated logEntry entries = 5;
     uint32 leaderCommit = 6;
 }
 

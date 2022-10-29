@@ -77,9 +77,9 @@ func (n *Node) GetAppendEntriesInput(peerId string) *AppendEntriesInput {
 
 	prevLogIndex := stateCopy.NextIndex[peerId]
 	prevLogTerm := stateCopy.GetLogByIndex(prevLogIndex).Term
-	if prevLogTerm == 0 {
-		prevLogTerm = stateCopy.GetLastLogTerm()
-	}
+	// if prevLogTerm == 0 {
+	// 	prevLogTerm = stateCopy.GetLastLogTerm()
+	// }
 
 	logs := stateCopy.GetLogsFromIndex(prevLogIndex)
 	entries := make([]string, len(logs))

@@ -70,7 +70,9 @@ func (s *FsmState) IncrementLastApplied() {
 func (s *FsmState) DecrementNextIndex(pId string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.NextIndex[pId] -= 1
+	if s.NextIndex[pId] > 0 {
+		s.NextIndex[pId] -= 1
+	}
 }
 
 // Rename SetPeerNextIndex
