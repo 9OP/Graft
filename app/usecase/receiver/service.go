@@ -2,6 +2,7 @@ package receiver
 
 import (
 	"graft/app/domain/entity"
+	"graft/app/domain/utils"
 )
 
 type service struct {
@@ -31,15 +32,14 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 
 	localPrevLog := state.GetLogByIndex(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm {
-		// Should append only new entries
-		s.AppendLogs(input.Entries)
+		s.AppendLogs(input.Entries, input.PrevLogIndex)
 		output.Success = true
 	} else {
 		s.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
 	if input.LeaderCommit > state.CommitIndex {
-		s.SetCommitIndex(min(state.GetLastLogIndex(), input.LeaderCommit))
+		s.SetCommitIndex(utils.Min(state.GetLastLogIndex(), input.LeaderCommit))
 	}
 
 	return output, nil
@@ -65,12 +65,4 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 	}
 
 	return output, nil
-}
-
-// Move to utils ?
-func min[K uint | uint8 | uint16 | uint32 | uint64 | int](value_0, value_1 K) K {
-	if value_0 < value_1 {
-		return value_0
-	}
-	return value_1
 }

@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"graft/app/domain/utils"
+	"log"
 	"sync"
 )
 
@@ -49,16 +51,39 @@ func (p *Persistent) SetCurrentTerm(term uint32) {
 func (p *Persistent) DeleteLogsFrom(index uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	lastLogIndex := p.GetLastLogIndex()
-	if index <= lastLogIndex {
-		p.MachineLogs = p.MachineLogs[:index]
+	if index <= p.GetLastLogIndex() {
+		log.Println("DELETE LOGS FROM INDEX", index)
+		// index-1 because index starts at 1
+		p.MachineLogs = p.MachineLogs[:index-1]
 	}
 }
 
-func (p *Persistent) AppendLogs(entries []LogEntry) {
+func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) {
+	// Should append only new entries
+	if len(entries) > 0 {
+		return
+	}
 
-	// TODO: only append new logs
+	/*
+		Prevent appending logs twice
+		Example:
+		logs  -> [log1, log2, log3, log4, log5]
+		term  ->   t1    t1    t2    t4    t4
+		index ->   i1    i2    i3    i4    i5
+
+		arguments -> [log3, log4, log5, log6], i2
+
+		result -> [log1, log2, log3, log4, log5, log6]
+
+		---
+		We should increment prevLogIndex up to lastLogIndex.
+		While incrementing a pointer in the entries slice.
+		and then only copy the remaining "new" logs.
+
+		prevLogIndex is necessay as it gives the offset of the
+		entries argument, relative to p.MachineLogs
+	*/
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -66,14 +91,15 @@ func (p *Persistent) AppendLogs(entries []LogEntry) {
 	logs := make([]LogEntry, len(p.MachineLogs), len(entries)+len(p.MachineLogs))
 	copy(logs, p.MachineLogs)
 
-	// Append new logs
-	for _, entry := range entries {
-		if entry.Term > 0 {
-			logs = append(logs, entry)
-		}
-	}
+	// Find index of newLogs
+	lastLogIndex := p.GetLastLogIndex()
+	newLogsFromIndex := utils.Min(lastLogIndex-prevLogIndex, len(entries))
 
+	// Append new logs
+	logs = append(logs, entries[newLogsFromIndex:]...)
 	p.MachineLogs = logs
+
+	log.Println("APPEND LOGS", len(entries[newLogsFromIndex:]))
 }
 
 // Index starts at 1
