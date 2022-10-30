@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	srvc "graft/app/domain/service"
 	"sync"
@@ -144,8 +143,8 @@ func (s *service) sendHeartbeat(l leader) {
 				l.DowngradeFollower(res.Term)
 				return
 			}
-			fmt.Print("\n", res.Success, input, "\n")
 			if res.Success {
+				// TODO: optim, set index/match only if different from leaderLastLogIndex
 				leaderLastLogIndex := state.GetLastLogIndex()
 				l.SetNextIndex(p.Id, leaderLastLogIndex)
 				l.SetMatchIndex(p.Id, leaderLastLogIndex)

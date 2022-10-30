@@ -75,24 +75,16 @@ func (n *Node) GetAppendEntriesInput(peerId string) *AppendEntriesInput {
 	// thread-safe access
 	stateCopy := n.FsmState.GetCopy()
 
+	// index of log entry immediately preceding new ones
 	prevLogIndex := stateCopy.NextIndex[peerId]
 	prevLogTerm := stateCopy.GetLogByIndex(prevLogIndex).Term
 	if prevLogIndex > stateCopy.GetLastLogIndex() {
 		prevLogTerm = stateCopy.CurrentTerm
 	}
 
-	// // prevLogIndex does not exists in state.machineLogs
-	// // If it does not exists then logTerm is LastLogTerm
-	// // If it exists then it is prevLogTerm (it must be 0 for other peers whose machinelogs is empty)
-	// if prevLogTerm == 0 { // Check if necessary
-	// 	// This condition is wrong,
-	// 	// prevLogTerm must be 0 for peers whose machineLogs is emptu
-	// 	prevLogTerm = stateCopy.GetLastLogTerm()
-	// }
-
-	logs := stateCopy.GetLogsFromIndex(prevLogIndex)
-	entries := make([]LogEntry, len(logs))
-	copy(entries, logs)
+	newLogs := stateCopy.GetLogsFromIndex(prevLogIndex + 1)
+	entries := make([]LogEntry, len(newLogs))
+	copy(entries, newLogs)
 
 	return &AppendEntriesInput{
 		LeaderId:     n.Id,

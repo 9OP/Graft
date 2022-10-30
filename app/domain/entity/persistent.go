@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"log"
 	"sync"
 )
 
@@ -52,14 +51,14 @@ func (p *Persistent) DeleteLogsFrom(index uint32) {
 	defer p.mu.Unlock()
 
 	lastLogIndex := p.GetLastLogIndex()
-	log.Println("before delete", p.MachineLogs, index, lastLogIndex, index <= lastLogIndex)
 	if index <= lastLogIndex {
 		p.MachineLogs = p.MachineLogs[:index]
-		log.Println("after delete", p.MachineLogs, index)
 	}
 }
 
 func (p *Persistent) AppendLogs(entries []LogEntry) {
+
+	// TODO: only append new logs
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
