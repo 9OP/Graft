@@ -1,7 +1,7 @@
 package entity
 
 import (
-	"graft/app/domain/utils"
+	utils "graft/app/domain"
 	"log"
 	"sync"
 )
@@ -93,7 +93,7 @@ func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) {
 
 	// Find index of newLogs
 	lastLogIndex := p.GetLastLogIndex()
-	newLogsFromIndex := utils.Min(lastLogIndex-prevLogIndex, len(entries))
+	newLogsFromIndex := utils.Min(lastLogIndex-prevLogIndex, uint32(len(entries)))
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)

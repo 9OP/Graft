@@ -1,8 +1,8 @@
 package receiver
 
 import (
+	utils "graft/app/domain"
 	"graft/app/domain/entity"
-	"graft/app/domain/utils"
 )
 
 type service struct {
