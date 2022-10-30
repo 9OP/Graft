@@ -82,8 +82,9 @@ func (s *Server) DeleteLogsFrom(index uint32) {
 }
 
 func (s *Server) AppendLogs(entries []entity.LogEntry, prevLogIndex uint32) {
-	s.Node.AppendLogs(entries, prevLogIndex)
-	s.saveState()
+	if s.Node.AppendLogs(entries, prevLogIndex) {
+		s.saveState()
+	}
 }
 
 func (s *Server) SetCommitIndex(index uint32) {

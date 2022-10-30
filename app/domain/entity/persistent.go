@@ -58,10 +58,10 @@ func (p *Persistent) DeleteLogsFrom(index uint32) {
 	}
 }
 
-func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) {
+func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) bool {
 	// Should append only new entries
-	if len(entries) > 0 {
-		return
+	if len(entries) == 0 {
+		return false
 	}
 
 	/*
@@ -100,6 +100,7 @@ func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) {
 	p.MachineLogs = logs
 
 	log.Println("APPEND LOGS", len(entries[newLogsFromIndex:]))
+	return len(entries[newLogsFromIndex:]) > 0
 }
 
 // Index starts at 1

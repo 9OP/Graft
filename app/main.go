@@ -46,7 +46,7 @@ func main() {
 
 	// Config
 	ELECTION_TIMEOUT := 350 // ms
-	LEADER_TICKER := 15     // ms
+	LEADER_TICKER := 35     // ms
 	STATE_LOCATION := fmt.Sprintf("state_%s.json", args.id)
 
 	// Driven port/adapter (domain -> infra)
