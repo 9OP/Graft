@@ -142,26 +142,3 @@ func (s *Server) UpgradeLeader() {
 		s.resetLeaderTicker()
 	}
 }
-
-func (s *Server) ExecFsmCmd(cmd string) (interface{}, error) {
-	log.Println("EXECUTE COMMAND: ", cmd)
-	return cmd, nil
-}
-
-func (s *Server) CommitCmd(cmd string) {
-	//
-}
-
-func (s *Server) ApplyLogs() {
-	commitIndex := s.CommitIndex
-	lastApplied := s.LastApplied
-
-	for commitIndex > lastApplied {
-		// TODO: refactor this, GetState() is super expensive!
-		state := s.GetState()
-		s.IncrementLastApplied()
-		lastApplied = state.LastApplied
-		log := state.GetLogByIndex(lastApplied)
-		s.ExecFsmCmd(log.Value)
-	}
-}

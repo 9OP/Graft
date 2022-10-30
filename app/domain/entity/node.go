@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"log"
 	"math"
 	"sync"
 )
@@ -105,4 +106,53 @@ func (n *Node) GetRequestVoteInput() *RequestVoteInput {
 		LastLogIndex: stateCopy.GetLastLogIndex(),
 		LastLogTerm:  stateCopy.GetLastLogTerm(),
 	}
+}
+
+func (n *Node) ComputeNewCommitIndex() uint32 {
+	/*
+		Compute new commitIndex N such that:
+			- N > commitIndex,
+			- a majority of matchIndex[i] ≥ N
+			- log[N].term == currentTerm:
+
+	*/
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	lastLogIndex := n.GetLastLogIndex() // Upper value of N
+	commitIndex := n.CommitIndex        // Lower value of N
+	quorum := n.GetQuorum()
+
+	for N := lastLogIndex; N > commitIndex; N-- {
+		// Get a majority for which matchIndex >= n
+		count := 1 // count self
+		for _, matchIndex := range n.MatchIndex {
+			if matchIndex >= N {
+				count += 1
+			}
+		}
+
+		if count >= quorum {
+			log := n.GetLogByIndex(N)
+			if log.Term == n.CurrentTerm {
+				return N
+			}
+		}
+	}
+	return commitIndex
+}
+
+func (n *Node) ApplyLogs() {
+	n.mu.RLock()
+	defer n.mu.RUnlock()
+
+	for n.CommitIndex > n.LastApplied {
+		n.IncrementLastApplied()
+		log := n.GetLogByIndex(n.LastApplied)
+		n.executeFsmEntry(log.Value)
+	}
+}
+
+func (n *Node) executeFsmEntry(entry string) {
+	log.Println("EXECUTE: ", entry)
 }

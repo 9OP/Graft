@@ -155,37 +155,6 @@ func (s *service) sendHeartbeat(l leader) {
 	}
 	l.Broadcast(synchroniseLogsRoutine)
 
-	/*
-		If there exists an N such that:
-			- N > commitIndex,
-			- a majority of matchIndex[i] ≥ N
-			- log[N].term == currentTerm:
-		then set commitIndex = N
-	*/
-
-	// // Refresh state
-	// state = l.GetState()
-	// // Upper value of N
-	// lastLogIndex := state.GetLastLogIndex()
-	// // Lower value of N
-	// commitIndex := state.CommitIndex
-	// // Look for N, starting from latest log
-	// quorum := s.server.GetQuorum()
-	// for N := lastLogIndex; N > commitIndex; N-- {
-	// 	// Get a majority for which matchIndex >= n
-	// 	count := 0
-	// 	for _, matchIndex := range state.MatchIndex {
-	// 		if matchIndex >= N {
-	// 			count += 1
-	// 		}
-	// 	}
-	// 	if count >= quorum {
-	// 		log := state.GetLogByIndex(N)
-	// 		if log.Term == state.CurrentTerm {
-	// 			s.server.SetCommitIndex(N)
-	// 			break
-	// 		}
-	// 	}
-	// }
-
+	newCommitIndex := l.ComputeNewCommitIndex()
+	l.SetCommitIndex(newCommitIndex)
 }

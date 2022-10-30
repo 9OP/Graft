@@ -50,5 +50,7 @@ type leader interface {
 	DecrementNextIndex(pId string)
 	SetNextIndex(pId string, index uint32)
 	SetMatchIndex(pId string, index uint32)
+	ComputeNewCommitIndex() uint32
+	SetCommitIndex(commitIndex uint32)
 	GetAppendEntriesInput(pId string) *entity.AppendEntriesInput
 }
