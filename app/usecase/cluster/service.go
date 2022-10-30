@@ -31,7 +31,7 @@ func (s *service) NewCmd(cmd string) (interface{}, error) {
 
 	*/
 
-	s.server.AppendLogs([]string{cmd})
+	// s.server.AppendLogs([]string{cmd})
 
 	return nil, nil
 

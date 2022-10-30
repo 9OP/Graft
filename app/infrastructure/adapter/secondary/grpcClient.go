@@ -2,15 +2,15 @@ package secondaryAdapter
 
 import (
 	"context"
-	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/infrastructure/adapter/p2pRpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 type UseCaseGrpcClient interface {
-	AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-	RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
+	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 }
 
 type grpcClient struct{}
@@ -19,7 +19,7 @@ func NewGrpcClient() *grpcClient {
 	return &grpcClient{}
 }
 
-func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target string, fn func(c rpc.RpcClient) (K, error)) (K, error) {
+func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
 	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
 
 	conn, err := grpc.Dial(target, creds)
@@ -27,22 +27,22 @@ func withClient[K *rpc.AppendEntriesOutput | *rpc.RequestVoteOutput](target stri
 		return nil, err
 	}
 	defer conn.Close()
-	c := rpc.NewRpcClient(conn)
+	c := p2pRpc.NewRpcClient(conn)
 	return fn(c)
 }
 
-func (r *grpcClient) AppendEntries(target string, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+func (r *grpcClient) AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
 	return withClient(
 		target,
-		func(c rpc.RpcClient) (*rpc.AppendEntriesOutput, error) {
+		func(c p2pRpc.RpcClient) (*p2pRpc.AppendEntriesOutput, error) {
 			return c.AppendEntries(context.Background(), input)
 		})
 }
 
-func (r *grpcClient) RequestVote(target string, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+func (r *grpcClient) RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
 	return withClient(
 		target,
-		func(c rpc.RpcClient) (*rpc.RequestVoteOutput, error) {
+		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
 			return c.RequestVote(context.Background(), input)
 		})
 }

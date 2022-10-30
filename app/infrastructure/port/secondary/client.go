@@ -2,7 +2,7 @@ package secondaryPort
 
 import (
 	"graft/app/domain/entity"
-	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/infrastructure/adapter/p2pRpc"
 	adapter "graft/app/infrastructure/adapter/secondary"
 )
 
@@ -16,12 +16,16 @@ func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 
 func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
 	target := peer.Target()
-	output, err := p.adapter.AppendEntries(target, &rpc.AppendEntriesInput{
+	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
+	for _, log := range input.Entries {
+		entries = append(entries, &p2pRpc.LogEntry{Term: log.Term, Value: log.Value})
+	}
+	output, err := p.adapter.AppendEntries(target, &p2pRpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
 		PrevLogTerm:  input.PrevLogTerm,
-		Entries:      input.Entries,
+		Entries:      entries,
 		LeaderCommit: input.LeaderCommit,
 	})
 	if err != nil {
@@ -36,14 +40,12 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 
 func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
 	target := peer.Target()
-	output, err := p.adapter.RequestVote(target, &rpc.RequestVoteInput{
+	output, err := p.adapter.RequestVote(target, &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
-
-	//fmt.Println("reqvote", peer.Id, output)
 
 	if err != nil {
 		return nil, err

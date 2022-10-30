@@ -31,6 +31,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 
 	localPrevLog := state.GetLogByIndex(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm {
+		// Should append only new entries
 		s.AppendLogs(input.Entries)
 		output.Success = true
 	} else {

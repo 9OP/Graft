@@ -77,15 +77,22 @@ func (n *Node) GetAppendEntriesInput(peerId string) *AppendEntriesInput {
 
 	prevLogIndex := stateCopy.NextIndex[peerId]
 	prevLogTerm := stateCopy.GetLogByIndex(prevLogIndex).Term
-	// if prevLogTerm == 0 {
+	if prevLogIndex > stateCopy.GetLastLogIndex() {
+		prevLogTerm = stateCopy.CurrentTerm
+	}
+
+	// // prevLogIndex does not exists in state.machineLogs
+	// // If it does not exists then logTerm is LastLogTerm
+	// // If it exists then it is prevLogTerm (it must be 0 for other peers whose machinelogs is empty)
+	// if prevLogTerm == 0 { // Check if necessary
+	// 	// This condition is wrong,
+	// 	// prevLogTerm must be 0 for peers whose machineLogs is emptu
 	// 	prevLogTerm = stateCopy.GetLastLogTerm()
 	// }
 
 	logs := stateCopy.GetLogsFromIndex(prevLogIndex)
-	entries := make([]string, len(logs))
-	for _, log := range logs {
-		entries = append(entries, log.Value)
-	}
+	entries := make([]LogEntry, len(logs))
+	copy(entries, logs)
 
 	return &AppendEntriesInput{
 		LeaderId:     n.Id,

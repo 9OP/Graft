@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/infrastructure/adapter/p2pRpc"
 	"log"
 	"net"
 
@@ -10,10 +10,10 @@ import (
 )
 
 type rpcServer struct {
-	apis []rpc.RpcServer
+	apis []p2pRpc.RpcServer
 }
 
-func NewRpc(apis ...rpc.RpcServer) *rpcServer {
+func NewRpc(apis ...p2pRpc.RpcServer) *rpcServer {
 	return &rpcServer{apis}
 }
 
@@ -38,10 +38,10 @@ func serveOrFail(server *grpc.Server, lis net.Listener) {
 	}
 }
 
-func createGrpcServer(apis ...rpc.RpcServer) *grpc.Server {
+func createGrpcServer(apis ...p2pRpc.RpcServer) *grpc.Server {
 	server := grpc.NewServer()
 	for _, api := range apis {
-		rpc.RegisterRpcServer(server, api)
+		p2pRpc.RegisterRpcServer(server, api)
 	}
 	return server
 }

@@ -139,17 +139,16 @@ func (s *service) sendHeartbeat(l leader) {
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.GetAppendEntriesInput(p.Id)
-		fmt.Println("input", input, "for", p.Id)
 		if res, err := s.repository.AppendEntries(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term)
 				return
 			}
-			fmt.Println("success", res.Success)
+			fmt.Print("\n", res.Success, input, "\n")
 			if res.Success {
 				leaderLastLogIndex := state.GetLastLogIndex()
-				l.SetNextIndex(p.Id, uint32(leaderLastLogIndex))
-				l.SetMatchIndex(p.Id, uint32(leaderLastLogIndex))
+				l.SetNextIndex(p.Id, leaderLastLogIndex)
+				l.SetMatchIndex(p.Id, leaderLastLogIndex)
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}

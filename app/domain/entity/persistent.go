@@ -1,24 +1,22 @@
 package entity
 
-import "sync"
+import (
+	"log"
+	"sync"
+)
 
 type Persistent struct {
-	CurrentTerm uint32       `json:"current_term"`
-	VotedFor    string       `json:"voted_for"`
-	MachineLogs []MachineLog `json:"machine_logs"`
+	CurrentTerm uint32     `json:"current_term"`
+	VotedFor    string     `json:"voted_for"`
+	MachineLogs []LogEntry `json:"machine_logs"`
 	mu          sync.RWMutex
-}
-
-type MachineLog struct {
-	Term  uint32 `json:"term"`
-	Value string `json:"value"`
 }
 
 func NewPersistent() *Persistent {
 	return &Persistent{
 		CurrentTerm: 0,
 		VotedFor:    "",
-		MachineLogs: []MachineLog{},
+		MachineLogs: []LogEntry{},
 	}
 }
 
@@ -26,7 +24,7 @@ func (p *Persistent) GetCopy() *Persistent {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	machineLogs := make([]MachineLog, len(p.MachineLogs))
+	machineLogs := make([]LogEntry, len(p.MachineLogs))
 	copy(machineLogs, p.MachineLogs)
 
 	return &Persistent{
@@ -54,28 +52,37 @@ func (p *Persistent) DeleteLogsFrom(index uint32) {
 	defer p.mu.Unlock()
 
 	lastLogIndex := p.GetLastLogIndex()
-	if index <= uint32(lastLogIndex) {
+	log.Println("before delete", p.MachineLogs, index, lastLogIndex, index <= lastLogIndex)
+	if index <= lastLogIndex {
 		p.MachineLogs = p.MachineLogs[:index]
+		log.Println("after delete", p.MachineLogs, index)
 	}
 }
 
-func (p *Persistent) AppendLogs(entries []string) {
+func (p *Persistent) AppendLogs(entries []LogEntry) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	logs := make([]MachineLog, 0, len(entries)+len(p.MachineLogs))
+	// Copy existings logs
+	logs := make([]LogEntry, len(p.MachineLogs), len(entries)+len(p.MachineLogs))
+	copy(logs, p.MachineLogs)
+
+	// Append new logs
 	for _, entry := range entries {
-		logs = append(logs, MachineLog{Term: p.CurrentTerm, Value: entry})
+		if entry.Term > 0 {
+			logs = append(logs, entry)
+		}
 	}
+
 	p.MachineLogs = logs
 }
 
 // Index starts at 1
-func (p *Persistent) GetLogByIndex(index uint32) MachineLog {
+func (p *Persistent) GetLogByIndex(index uint32) LogEntry {
 	if index <= p.GetLastLogIndex() && index >= 1 {
 		return p.MachineLogs[index-1]
 	}
-	return MachineLog{Term: 0}
+	return LogEntry{Term: 0}
 }
 
 // Returns index of last log
@@ -85,7 +92,7 @@ func (p *Persistent) GetLastLogIndex() uint32 {
 }
 
 // Returns lastLogIndex and lastLog
-func (p *Persistent) GetLastLog() (uint32, MachineLog) {
+func (p *Persistent) GetLastLog() (uint32, LogEntry) {
 	lastLogIndex := p.GetLastLogIndex()
 	lastLog := p.GetLogByIndex(lastLogIndex)
 	return lastLogIndex, lastLog
@@ -97,8 +104,8 @@ func (p *Persistent) GetLastLogTerm() uint32 {
 }
 
 // Returns the entire logs stash from given index
-func (p *Persistent) GetLogsFromIndex(index uint32) []MachineLog {
-	logs := make([]MachineLog, 0, len(p.MachineLogs))
+func (p *Persistent) GetLogsFromIndex(index uint32) []LogEntry {
+	logs := make([]LogEntry, 0, len(p.MachineLogs))
 	lastLogIndex := p.GetLastLogIndex()
 	for idx := index; idx <= lastLogIndex; idx++ {
 		logs = append(logs, p.GetLogByIndex(idx))

@@ -81,7 +81,7 @@ func (s *Server) DeleteLogsFrom(index uint32) {
 	s.saveState()
 }
 
-func (s *Server) AppendLogs(entries []string) {
+func (s *Server) AppendLogs(entries []entity.LogEntry) {
 	s.Node.AppendLogs(entries)
 	s.saveState()
 }

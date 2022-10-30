@@ -12,7 +12,7 @@ type repository interface {
 	DowngradeFollower(term uint32)
 	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
 	DeleteLogsFrom(index uint32)
-	AppendLogs(entries []string)
+	AppendLogs(entries []entity.LogEntry)
 }
 
 type UseCase interface {

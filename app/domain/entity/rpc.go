@@ -1,8 +1,13 @@
 package entity
 
+type LogEntry struct {
+	Term  uint32
+	Value string
+}
+
 type AppendEntriesInput struct {
 	LeaderId     string
-	Entries      []string
+	Entries      []LogEntry
 	Term         uint32
 	PrevLogIndex uint32
 	PrevLogTerm  uint32

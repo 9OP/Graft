@@ -2,16 +2,16 @@ package primaryAdapter
 
 import (
 	"context"
-	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/infrastructure/adapter/p2pRpc"
 )
 
 type repository interface {
-	AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error)
-	RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error)
+	AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
+	RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 }
 
 type grpcApi struct {
-	rpc.UnimplementedRpcServer
+	p2pRpc.UnimplementedRpcServer
 	repository
 }
 
@@ -19,10 +19,10 @@ func NewGrpcApi(repository repository) *grpcApi {
 	return &grpcApi{repository: repository}
 }
 
-func (s *grpcApi) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+func (s *grpcApi) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
 	return s.repository.AppendEntries(ctx, input)
 }
 
-func (s *grpcApi) RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+func (s *grpcApi) RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
 	return s.repository.RequestVote(ctx, input)
 }

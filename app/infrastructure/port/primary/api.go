@@ -3,7 +3,7 @@ package primaryPort
 import (
 	"context"
 	"graft/app/domain/entity"
-	"graft/app/infrastructure/adapter/rpc"
+	"graft/app/infrastructure/adapter/p2pRpc"
 	"graft/app/usecase/receiver"
 )
 
@@ -15,13 +15,17 @@ func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
 	return &rpcServerPort{adapter}
 }
 
-func (p *rpcServerPort) AppendEntries(ctx context.Context, input *rpc.AppendEntriesInput) (*rpc.AppendEntriesOutput, error) {
+func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
+	entries := make([]entity.LogEntry, 0, len(input.Entries))
+	for _, log := range input.Entries {
+		entries = append(entries, entity.LogEntry{Term: log.Term, Value: log.Value})
+	}
 	output, err := p.adapter.AppendEntries(&entity.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
 		PrevLogTerm:  input.PrevLogTerm,
-		Entries:      input.Entries,
+		Entries:      entries,
 		LeaderCommit: input.LeaderCommit,
 	})
 
@@ -29,13 +33,13 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *rpc.AppendEntr
 		return nil, err
 	}
 
-	return &rpc.AppendEntriesOutput{
+	return &p2pRpc.AppendEntriesOutput{
 		Term:    output.Term,
 		Success: output.Success,
 	}, nil
 }
 
-func (p *rpcServerPort) RequestVote(ctx context.Context, input *rpc.RequestVoteInput) (*rpc.RequestVoteOutput, error) {
+func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
 	output, err := p.adapter.RequestVote(&entity.RequestVoteInput{
 		CandidateId:  input.CandidateId,
 		Term:         input.Term,
@@ -47,7 +51,7 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *rpc.RequestVoteI
 		return nil, err
 	}
 
-	return &rpc.RequestVoteOutput{
+	return &p2pRpc.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
 	}, nil
