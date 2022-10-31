@@ -61,10 +61,16 @@ func (s *FsmState) InitializeLeader(peers Peers) {
 	s.MatchIndex = matchIndex
 }
 
-func (s *FsmState) IncrementLastApplied() {
+// func (s *FsmState) IncrementLastApplied() {
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
+// 	s.LastApplied += 1
+// }
+
+func (s *FsmState) SetLastApplied(lastApplied uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.LastApplied += 1
+	s.LastApplied = lastApplied
 }
 
 func (s *FsmState) DecrementNextIndex(pId string) {

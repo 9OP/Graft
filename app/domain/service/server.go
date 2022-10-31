@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"graft/app/domain/entity"
 	"log"
 	"sync"
@@ -88,7 +89,9 @@ func (s *Server) AppendLogs(entries []entity.LogEntry, prevLogIndex uint32) {
 }
 
 func (s *Server) SetCommitIndex(index uint32) {
+	fmt.Println("set commit index", index)
 	if s.Node.SetCommitIndex(index) {
+		fmt.Println("commit")
 		s.commit()
 	}
 }

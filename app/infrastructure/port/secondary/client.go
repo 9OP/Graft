@@ -1,7 +1,6 @@
 package secondaryPort
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	"graft/app/infrastructure/adapter/p2pRpc"
 	adapter "graft/app/infrastructure/adapter/secondary"
@@ -29,7 +28,7 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 		Entries:      entries,
 		LeaderCommit: input.LeaderCommit,
 	})
-	fmt.Println("err", err)
+
 	if err != nil {
 		return nil, err
 	}

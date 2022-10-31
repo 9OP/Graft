@@ -1,8 +1,8 @@
 package receiver
 
 import (
+	utils "graft/app/domain"
 	"graft/app/domain/entity"
-	"time"
 )
 
 type service struct {
@@ -39,11 +39,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	}
 
 	if input.LeaderCommit > state.CommitIndex {
-		//s.SetCommitIndex(utils.Min(state.GetLastLogIndex(), input.LeaderCommit))
-		// Create long wait, block leader
-		// fmt.Println("start sleeping 3s")
-		time.Sleep(3 * time.Second)
-		// fmt.Println("end sleeping")
+		s.SetCommitIndex(utils.Min(state.GetLastLogIndex(), input.LeaderCommit))
 	}
 
 	return output, nil

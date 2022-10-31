@@ -138,6 +138,7 @@ func (s *service) sendHeartbeat(l leader) {
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.GetAppendEntriesInput(p.Id)
+
 		if res, err := s.repository.AppendEntries(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
 				l.DowngradeFollower(res.Term)

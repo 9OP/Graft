@@ -23,14 +23,13 @@ func NewGrpcClient() *grpcClient {
 func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
 	// Dial options
 	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
-	block := grpc.WithBlock()
 
-	// Cancel dialing
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	// Dial context to prevent blocking while dialing
-	conn, err := grpc.DialContext(ctx, target, creds, block)
+	// With Dialing timeout
+	// block := grpc.WithBlock()
+	// ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	// defer cancel()
+	// conn, err := grpc.DialContext(ctx, target, creds, block)
+	conn, err := grpc.Dial(target, creds)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +40,7 @@ func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](targe
 }
 
 func (r *grpcClient) AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
@@ -52,7 +51,7 @@ func (r *grpcClient) AppendEntries(target string, input *p2pRpc.AppendEntriesInp
 }
 
 func (r *grpcClient) RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(

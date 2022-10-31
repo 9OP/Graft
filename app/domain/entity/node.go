@@ -143,20 +143,30 @@ func (n *Node) ComputeNewCommitIndex() uint32 {
 }
 
 func (n *Node) ApplyLogs() {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
+	// thread-safe access
+	stateCopy := n.FsmState.GetCopy()
 
-	log.Println("APPLY LOGS")
+	commitIndex := stateCopy.CommitIndex
+	lastApplied := stateCopy.LastApplied
 
-	for n.CommitIndex > n.LastApplied {
-		n.IncrementLastApplied()
-		log := n.GetLogByIndex(n.LastApplied)
+	for commitIndex > lastApplied {
+		lastApplied += 1 // increment local
+		log := stateCopy.GetLogByIndex(lastApplied)
 		n.executeFsmEntry(log)
 	}
+
+	// Commit last applied
+	n.SetLastApplied(commitIndex)
 }
 
 func (n *Node) executeFsmEntry(entry LogEntry) {
 	result := entry.Value
-	entry.C <- result
+
+	// Channel entry.C might be nil when
+	// executing on follower
+	if entry.C != nil {
+		entry.C <- result
+	}
+
 	log.Println("EXECUTE: ", result)
 }
