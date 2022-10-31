@@ -1,7 +1,7 @@
 package cluster
 
 import (
-	"errors"
+	"graft/app/domain/entity"
 	"time"
 )
 
@@ -15,16 +15,20 @@ func NewService(repository repository) *service {
 
 func (s *service) ExecuteCommand(command string) (interface{}, error) {
 	if !s.repository.IsLeader() {
-		return nil, errors.New("NOT_LEADER")
+		leader := s.repository.GetLeader()
+		return nil, entity.NewNotLeaderError(leader)
 	}
 
-	timeout := time.NewTimer(2 * time.Second)
 	applied := s.repository.Execute(command)
 
 	select {
-	case <-timeout.C:
-		return nil, errors.New("TIMEOUT")
+	case <-time.After(2 * time.Second):
+		return nil, entity.NewTimeoutError()
 	case result := <-applied:
 		return result, nil
 	}
+}
+
+func (s *service) ExecuteQuery(query string) (interface{}, error) {
+	return nil, nil
 }

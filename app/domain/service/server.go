@@ -61,6 +61,10 @@ func (s *Server) GetState() *entity.FsmState {
 	return s.Node.FsmState.GetCopy()
 }
 
+func (s *Server) GetLeader() entity.Peer {
+	return s.Peers[s.LeaderId]
+}
+
 func (s *Server) Heartbeat() {
 	s.resetTimeout()
 }
@@ -99,6 +103,7 @@ func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 	defer s.saveState()
 	if s.Node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
 		s.Node.SetVotedFor(id)
+		log.Info("VOTE FOR ", id)
 		return true
 	}
 	return false
@@ -120,14 +125,14 @@ func (s *Server) DowngradeFollower(term uint32) {
 
 func (s *Server) IncrementTerm() {
 	if s.IsRole(entity.Candidate) {
-		log.Infof("INCREMENT CANDIDATE TERM: %d\n", s.CurrentTerm+1)
+		log.Infof("INCREMENT CANDIDATE TERM %d\n", s.CurrentTerm+1)
 		s.SetCurrentTerm(s.CurrentTerm + 1)
 		s.SetVotedFor(s.Id)
 		s.saveState()
 		s.resetTimeout()
 		return
 	}
-	log.Warn("CANNOT INCREMENT TERM FOR", s.Role)
+	log.Warn("CANNOT INCREMENT TERM FOR ", s.Role)
 }
 
 func (s *Server) UpgradeCandidate() {
@@ -136,19 +141,19 @@ func (s *Server) UpgradeCandidate() {
 		s.SetRole(entity.Candidate)
 		return
 	}
-	log.Warn("CANNOT UPGRADE CANDIDATE FOR", s.Role)
+	log.Warn("CANNOT UPGRADE CANDIDATE FOR ", s.Role)
 }
 
 func (s *Server) UpgradeLeader() {
 	if s.IsRole(entity.Candidate) {
-		log.Infof("UPGRADE TO LEADER TERM: %d\n", s.CurrentTerm)
+		log.Infof("UPGRADE TO LEADER TERM %d\n", s.CurrentTerm)
 		s.InitializeLeader(s.Peers)
 		s.SetClusterLeader(s.Id)
 		s.SetRole(entity.Leader)
 		s.resetLeaderTicker()
 		return
 	}
-	log.Warn("CANNOT UPGRADE LEADER FOR", s.Role)
+	log.Warn("CANNOT UPGRADE LEADER FOR ", s.Role)
 }
 
 func (s *Server) Execute(entry string) chan interface{} {

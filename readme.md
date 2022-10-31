@@ -11,10 +11,10 @@ IMPROVEMENT:
 DONE:
 - Election
 - Heartbeat
-- Append entries
+- Synchronise logs
+- JSON api for sending logs
 
 TODO:
-- JSON api for sending logs
 - Client redirection
 - FSM bindings (via shell)
 - Log compaction
