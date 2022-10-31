@@ -5,6 +5,8 @@ import (
 	"graft/app/domain/entity"
 	"graft/app/infrastructure/adapter/p2pRpc"
 	"graft/app/usecase/receiver"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type rpcServerPort struct {
@@ -30,6 +32,7 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 	})
 
 	if err != nil {
+		log.Errorf("RPC RESP APPEND_ENTRIES %s\n", input.LeaderId)
 		return nil, err
 	}
 
@@ -48,6 +51,7 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 	})
 
 	if err != nil {
+		log.Errorf("RPC RESP REQUEST_VOTE %s\n", input.CandidateId)
 		return nil, err
 	}
 

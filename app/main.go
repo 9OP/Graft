@@ -14,6 +14,8 @@ import (
 	"graft/app/usecase/receiver"
 	"graft/app/usecase/runner"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Args struct {
@@ -42,6 +44,20 @@ func parseArgs() Args {
 	}
 
 	return Args{port: port, apiPort: apiPort, peers: peers, id: id}
+}
+
+func init() {
+	// Configure logrus
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors:     true,
+		DisableColors:   false,
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02T15:04:05.000-07:00",
+	})
+
+	log.Info("INIT")
 }
 
 func main() {

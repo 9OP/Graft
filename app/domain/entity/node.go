@@ -1,9 +1,10 @@
 package entity
 
 import (
-	"log"
 	"math"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Node struct {
@@ -168,5 +169,5 @@ func (n *Node) executeFsmEntry(entry LogEntry) {
 		entry.C <- result
 	}
 
-	log.Println("EXECUTE: ", result)
+	log.Info("EXECUTE: ", result)
 }

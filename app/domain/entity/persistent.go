@@ -2,8 +2,9 @@ package entity
 
 import (
 	utils "graft/app/domain"
-	"log"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type Persistent struct {
@@ -52,7 +53,7 @@ func (p *Persistent) DeleteLogsFrom(index uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if index <= p.GetLastLogIndex() {
-		log.Println("DELETE LOGS FROM INDEX", index)
+		log.Info("DELETE LOGS FROM INDEX", index)
 		// index-1 because index starts at 1
 		p.MachineLogs = p.MachineLogs[:index-1]
 	}
@@ -99,7 +100,7 @@ func (p *Persistent) AppendLogs(entries []LogEntry, prevLogIndex uint32) bool {
 	logs = append(logs, entries[newLogsFromIndex:]...)
 	p.MachineLogs = logs
 
-	log.Println("APPEND LOGS", len(entries[newLogsFromIndex:]))
+	log.Info("APPEND LOGS", len(entries[newLogsFromIndex:]))
 	return len(entries[newLogsFromIndex:]) > 0
 }
 

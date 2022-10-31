@@ -4,6 +4,8 @@ import (
 	"graft/app/domain/entity"
 	adapter "graft/app/infrastructure/adapter/secondary"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type persisterPort struct {
@@ -24,6 +26,7 @@ func (p *persisterPort) Load() (*entity.Persistent, error) {
 	defer p.mu.Unlock()
 	pst, err := p.adapter.Load(p.location)
 	if err != nil {
+		log.Warn("CANNOT LOAD PERSISTENT, USING DEFAULT")
 		return entity.NewPersistent(), err
 	}
 	return pst, err

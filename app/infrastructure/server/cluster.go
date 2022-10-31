@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"graft/app/usecase/cluster"
-	"log"
 	"net/http"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type clusterServer struct {
@@ -32,6 +33,7 @@ func (s *clusterServer) executeCommand() http.Handler {
 
 		data, err := s.repository.ExecuteCommand(input.Command)
 		if err != nil {
+			log.Error("EXECUTE COMMNAND", err.Error())
 			Badrequest(w, err.Error())
 			return
 		}

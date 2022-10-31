@@ -1,10 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
-	"log"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type signals struct {
@@ -58,7 +58,7 @@ func NewServer(id string, peers entity.Peers, persistent *entity.Persistent) *Se
 
 func (s *Server) GetState() *entity.FsmState {
 	// TODO: verify if we need to send a copy instead
-	return s.Node.FsmState
+	return s.Node.FsmState.GetCopy()
 }
 
 func (s *Server) Heartbeat() {
@@ -89,9 +89,7 @@ func (s *Server) AppendLogs(entries []entity.LogEntry, prevLogIndex uint32) {
 }
 
 func (s *Server) SetCommitIndex(index uint32) {
-	fmt.Println("set commit index", index)
 	if s.Node.SetCommitIndex(index) {
-		fmt.Println("commit")
 		s.commit()
 	}
 }
@@ -112,7 +110,7 @@ func (s *Server) SetRole(role entity.Role) {
 }
 
 func (s *Server) DowngradeFollower(term uint32) {
-	log.Printf("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
+	log.Infof("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	s.SetCurrentTerm(term)
 	s.SetVotedFor("")
 	s.SetRole(entity.Follower)
@@ -122,29 +120,35 @@ func (s *Server) DowngradeFollower(term uint32) {
 
 func (s *Server) IncrementTerm() {
 	if s.IsRole(entity.Candidate) {
-		log.Printf("INCREMENT CANDIDATE TERM: %d\n", s.CurrentTerm+1)
+		log.Infof("INCREMENT CANDIDATE TERM: %d\n", s.CurrentTerm+1)
 		s.SetCurrentTerm(s.CurrentTerm + 1)
 		s.SetVotedFor(s.Id)
 		s.saveState()
 		s.resetTimeout()
+		return
 	}
+	log.Warn("CANNOT INCREMENT TERM FOR", s.Role)
 }
 
 func (s *Server) UpgradeCandidate() {
 	if s.IsRole(entity.Follower) {
-		log.Println("UPGRADE TO CANDIDATE")
+		log.Info("UPGRADE TO CANDIDATE")
 		s.SetRole(entity.Candidate)
+		return
 	}
+	log.Warn("CANNOT UPGRADE CANDIDATE FOR", s.Role)
 }
 
 func (s *Server) UpgradeLeader() {
 	if s.IsRole(entity.Candidate) {
-		log.Printf("UPGRADE TO LEADER TERM: %d\n", s.CurrentTerm)
+		log.Infof("UPGRADE TO LEADER TERM: %d\n", s.CurrentTerm)
 		s.InitializeLeader(s.Peers)
 		s.SetClusterLeader(s.Id)
 		s.SetRole(entity.Leader)
 		s.resetLeaderTicker()
+		return
 	}
+	log.Warn("CANNOT UPGRADE LEADER FOR", s.Role)
 }
 
 func (s *Server) Execute(entry string) chan interface{} {

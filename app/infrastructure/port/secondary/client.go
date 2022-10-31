@@ -30,6 +30,7 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 	})
 
 	if err != nil {
+		// log.Errorf("RPC REQ APPEND_ENTRIES %s\n", target)
 		return nil, err
 	}
 
@@ -49,6 +50,7 @@ func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteI
 	})
 
 	if err != nil {
+		//log.Errorf("RPC REQ REQUEST_VOTE %s\n", target)
 		return nil, err
 	}
 
