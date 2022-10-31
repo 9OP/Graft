@@ -1,7 +1,9 @@
 package entity
 
 import (
+	"bytes"
 	"math"
+	"os/exec"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -165,5 +167,18 @@ func (n *Node) ApplyLogs() {
 
 func (n *Node) Exec(entry string) interface{} {
 	log.Info("EXECUTE: ", entry)
-	return entry
+
+	cmd := exec.Command(entry)
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+
+	err := cmd.Run()
+
+	if err != nil {
+		return errb.Bytes()
+	}
+	// fmt.Println(outb, outb.Bytes(), outb.String())
+	return outb.Bytes()
+	//return entry
 }

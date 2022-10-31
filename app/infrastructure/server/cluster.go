@@ -37,7 +37,7 @@ func render(w http.ResponseWriter, data interface{}) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Type", "application/text")
 	w.WriteHeader(http.StatusOK)
 	w.Write(bytes)
 }
