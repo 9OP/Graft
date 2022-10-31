@@ -45,7 +45,7 @@ type Server struct {
 	entity.Node
 }
 
-func NewServer(id string, peers entity.Peers, persistent *entity.Persistent, applied chan interface{}) *Server {
+func NewServer(id string, peers entity.Peers, persistent *entity.Persistent) *Server {
 	srv := &Server{
 		signals: newSignals(),
 		Node:    *entity.NewNode(id, peers, persistent),
@@ -141,4 +141,12 @@ func (s *Server) UpgradeLeader() {
 		s.SetRole(entity.Leader)
 		s.resetLeaderTicker()
 	}
+}
+
+func (s *Server) Execute(entry string) chan interface{} {
+	state := s.GetState()
+	result := make(chan interface{}, 1)
+	newLog := entity.LogEntry{Value: entry, Term: state.CurrentTerm, C: result}
+	s.AppendLogs([]entity.LogEntry{newLog}, state.GetLastLogIndex())
+	return result
 }

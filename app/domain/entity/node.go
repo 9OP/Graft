@@ -154,6 +154,7 @@ func (n *Node) ApplyLogs() {
 }
 
 func (n *Node) executeFsmEntry(entry LogEntry) {
-	log.Println("EXECUTE: ", entry.Value)
-	// send result in appliedChannel with entry id
+	result := entry.Value
+	entry.C <- result
+	log.Println("EXECUTE: ", result)
 }

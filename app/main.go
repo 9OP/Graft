@@ -61,14 +61,13 @@ func main() {
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	appliedChan := make(chan interface{}, 1)
 	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
-	srv := service.NewServer(args.id, args.peers, persistent, appliedChan)
+	srv := service.NewServer(args.id, args.peers, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
 	receiverUsecase := receiver.NewService(srv)
-	clusterUsecase := cluster.NewService(srv, appliedChan)
+	clusterUsecase := cluster.NewService(srv)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)
