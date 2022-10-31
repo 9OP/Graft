@@ -149,10 +149,11 @@ func (n *Node) ApplyLogs() {
 	for n.CommitIndex > n.LastApplied {
 		n.IncrementLastApplied()
 		log := n.GetLogByIndex(n.LastApplied)
-		n.executeFsmEntry(log.Value)
+		n.executeFsmEntry(log)
 	}
 }
 
-func (n *Node) executeFsmEntry(entry string) {
-	log.Println("EXECUTE: ", entry)
+func (n *Node) executeFsmEntry(entry LogEntry) {
+	log.Println("EXECUTE: ", entry.Value)
+	// send result in appliedChannel with entry id
 }

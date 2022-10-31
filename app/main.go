@@ -10,20 +10,23 @@ import (
 	primaryPort "graft/app/infrastructure/port/primary"
 	secondaryPort "graft/app/infrastructure/port/secondary"
 	"graft/app/infrastructure/server"
+	"graft/app/usecase/cluster"
 	"graft/app/usecase/receiver"
 	"graft/app/usecase/runner"
 	"os"
 )
 
 type Args struct {
-	port  string
-	id    string
-	peers entity.Peers
+	port    string
+	apiPort string
+	id      string
+	peers   entity.Peers
 }
 
 func parseArgs() Args {
 	var id string
 	port := os.Args[1]
+	apiPort := os.Args[2]
 	peersList := []entity.Peer{}
 	peers := entity.Peers{}
 
@@ -38,7 +41,7 @@ func parseArgs() Args {
 		}
 	}
 
-	return Args{port: port, peers: peers, id: id}
+	return Args{port: port, apiPort: apiPort, peers: peers, id: id}
 }
 
 func main() {
@@ -58,12 +61,14 @@ func main() {
 
 	// Domain
 	persistent, _ := persisterPort.Load()
+	appliedChan := make(chan interface{}, 1)
 	timeout := entity.NewTimeout(ELECTION_TIMEOUT, LEADER_TICKER)
-	srv := service.NewServer(args.id, args.peers, persistent)
+	srv := service.NewServer(args.id, args.peers, persistent, appliedChan)
 
 	// Services
 	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
 	receiverUsecase := receiver.NewService(srv)
+	clusterUsecase := cluster.NewService(srv, appliedChan)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)
@@ -72,8 +77,10 @@ func main() {
 	// Infrastructure
 	runnerServer := server.NewRunner(runnerUsecase)
 	grpcServer := server.NewRpc(grpcServerAdapter)
+	clusterServer := server.NewClusterServer(clusterUsecase)
 
 	// Start servers
 	go grpcServer.Start(args.port)
+	go clusterServer.Start(args.apiPort)
 	runnerServer.Start()
 }

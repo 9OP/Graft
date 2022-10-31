@@ -45,7 +45,7 @@ type Server struct {
 	entity.Node
 }
 
-func NewServer(id string, peers entity.Peers, persistent *entity.Persistent) *Server {
+func NewServer(id string, peers entity.Peers, persistent *entity.Persistent, applied chan interface{}) *Server {
 	srv := &Server{
 		signals: newSignals(),
 		Node:    *entity.NewNode(id, peers, persistent),

@@ -29,6 +29,9 @@ func (s *service) ExecuteCommand(command string) (interface{}, error) {
 	timeout := time.NewTimer(2 * time.Second)
 
 	newLog := entity.LogEntry{Value: command, Term: state.CurrentTerm}
+	// "github.com/google/uuid"
+	//  id := uuid.New().String() // use id to track applied command
+	//  newLog := entity.LogEntry{Value: command, Term: state.CurrentTerm, Uuid: id}
 	s.server.AppendLogs([]entity.LogEntry{newLog}, state.GetLastLogIndex())
 
 	select {
@@ -36,5 +39,7 @@ func (s *service) ExecuteCommand(command string) (interface{}, error) {
 		return nil, errors.New("TIMEOUT")
 	case result := <-s.applied:
 		return result, nil
+		// case resUuid, result := <-s.applied:
+		// if resUuid == id { return result, nil}
 	}
 }

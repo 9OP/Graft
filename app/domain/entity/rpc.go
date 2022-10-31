@@ -1,8 +1,8 @@
 package entity
 
 type LogEntry struct {
-	Term  uint32
-	Value string
+	Term  uint32 `json:"term"`
+	Value string `json:"value"`
 }
 
 type AppendEntriesInput struct {
