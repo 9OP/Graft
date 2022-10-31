@@ -153,21 +153,17 @@ func (n *Node) ApplyLogs() {
 	for commitIndex > lastApplied {
 		lastApplied += 1 // increment local
 		log := stateCopy.GetLogByIndex(lastApplied)
-		n.executeFsmEntry(log)
+		res := n.Exec(log.Value)
+		if log.C != nil {
+			log.C <- res
+		}
 	}
 
 	// Commit last applied
 	n.SetLastApplied(commitIndex)
 }
 
-func (n *Node) executeFsmEntry(entry LogEntry) {
-	result := entry.Value
-
-	// Channel entry.C might be nil when
-	// executing on follower
-	if entry.C != nil {
-		entry.C <- result
-	}
-
-	log.Info("EXECUTE: ", result)
+func (n *Node) Exec(entry string) interface{} {
+	log.Info("EXECUTE: ", entry)
+	return entry
 }

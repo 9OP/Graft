@@ -19,7 +19,7 @@ func (s *service) ExecuteCommand(command string) (interface{}, error) {
 		return nil, entity.NewNotLeaderError(leader)
 	}
 
-	applied := s.repository.Execute(command)
+	applied := s.repository.ExecuteCommand(command)
 
 	select {
 	case <-time.After(2 * time.Second):
@@ -29,6 +29,18 @@ func (s *service) ExecuteCommand(command string) (interface{}, error) {
 	}
 }
 
-func (s *service) ExecuteQuery(query string) (interface{}, error) {
-	return nil, nil
+func (s *service) ExecuteQuery(query string, weakConsistency bool) (interface{}, error) {
+	if !s.repository.IsLeader() && !weakConsistency {
+		leader := s.repository.GetLeader()
+		return nil, entity.NewNotLeaderError(leader)
+	}
+
+	applied := s.repository.ExecuteQuery(query)
+
+	select {
+	case <-time.After(2 * time.Second):
+		return nil, entity.NewTimeoutError()
+	case result := <-applied:
+		return result, nil
+	}
 }

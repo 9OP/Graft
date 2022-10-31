@@ -31,8 +31,23 @@ func getBytes(key interface{}) ([]byte, error) {
 
 }
 
+func render(w http.ResponseWriter, data interface{}) {
+	bytes, err := getBytes(data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write(bytes)
+}
+
 func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
 	command := r.URL.Query().Get("entry")
+	if len(command) == 0 {
+		http.Error(w, "missing <entry> query param", http.StatusBadRequest)
+		return
+	}
 
 	data, err := s.repository.ExecuteCommand(command)
 
@@ -48,34 +63,26 @@ func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bytes, err := getBytes(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNoContent)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	render(w, data)
 }
 
 func (s *clusterServer) executeQuery(w http.ResponseWriter, r *http.Request) {
-	command := r.URL.Query().Get("entry")
+	query := r.URL.Query().Get("entry")
+	if len(query) == 0 {
+		http.Error(w, "missing <entry> query param", http.StatusBadRequest)
+		return
+	}
 
-	data, err := s.repository.ExecuteQuery(command)
+	weakConsistency := r.URL.Query().Has("weak")
+
+	data, err := s.repository.ExecuteQuery(query, weakConsistency)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	bytes, err := getBytes(data)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	render(w, data)
 }
 
 func (s *clusterServer) index(w http.ResponseWriter, r *http.Request) {

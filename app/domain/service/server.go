@@ -156,10 +156,16 @@ func (s *Server) UpgradeLeader() {
 	log.Warn("CANNOT UPGRADE LEADER FOR ", s.Role)
 }
 
-func (s *Server) Execute(entry string) chan interface{} {
+func (s *Server) ExecuteCommand(command string) chan interface{} {
 	state := s.GetState()
 	result := make(chan interface{}, 1)
-	newLog := entity.LogEntry{Value: entry, Term: state.CurrentTerm, C: result}
+	newLog := entity.LogEntry{Value: command, Term: state.CurrentTerm, C: result}
 	s.AppendLogs([]entity.LogEntry{newLog}, state.GetLastLogIndex())
+	return result
+}
+
+func (s *Server) ExecuteQuery(query string) chan interface{} {
+	result := make(chan interface{}, 1)
+	go (func() { result <- s.Exec(query) })()
 	return result
 }
