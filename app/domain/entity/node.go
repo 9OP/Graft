@@ -146,6 +146,8 @@ func (n *Node) ApplyLogs() {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
+	log.Println("APPLY LOGS")
+
 	for n.CommitIndex > n.LastApplied {
 		n.IncrementLastApplied()
 		log := n.GetLogByIndex(n.LastApplied)

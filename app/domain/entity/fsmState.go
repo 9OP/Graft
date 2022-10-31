@@ -89,8 +89,11 @@ func (s *FsmState) SetMatchIndex(pId string, index uint32) {
 	s.MatchIndex[pId] = index
 }
 
-func (s *FsmState) SetCommitIndex(index uint32) {
+// Return true when commit index was updated
+func (s *FsmState) SetCommitIndex(index uint32) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	update := !(s.CommitIndex == index)
 	s.CommitIndex = index
+	return update
 }

@@ -88,8 +88,9 @@ func (s *Server) AppendLogs(entries []entity.LogEntry, prevLogIndex uint32) {
 }
 
 func (s *Server) SetCommitIndex(index uint32) {
-	s.Node.SetCommitIndex(index)
-	s.commit()
+	if s.Node.SetCommitIndex(index) {
+		s.commit()
+	}
 }
 
 // If server can grant vote, it will set votedFor and return success

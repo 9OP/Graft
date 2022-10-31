@@ -3,6 +3,7 @@ package secondaryAdapter
 import (
 	"context"
 	"graft/app/infrastructure/adapter/p2pRpc"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -20,29 +21,43 @@ func NewGrpcClient() *grpcClient {
 }
 
 func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
+	// Dial options
 	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
+	block := grpc.WithBlock()
 
-	conn, err := grpc.Dial(target, creds)
+	// Cancel dialing
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// Dial context to prevent blocking while dialing
+	conn, err := grpc.DialContext(ctx, target, creds, block)
 	if err != nil {
 		return nil, err
 	}
+
 	defer conn.Close()
 	c := p2pRpc.NewRpcClient(conn)
 	return fn(c)
 }
 
 func (r *grpcClient) AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
 	return withClient(
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.AppendEntriesOutput, error) {
-			return c.AppendEntries(context.Background(), input)
+			return c.AppendEntries(ctx, input)
 		})
 }
 
 func (r *grpcClient) RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
 	return withClient(
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
-			return c.RequestVote(context.Background(), input)
+			return c.RequestVote(ctx, input)
 		})
 }
