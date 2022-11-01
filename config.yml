@@ -1,0 +1,20 @@
+---
+timeouts:
+  election: 350 # ms
+  heartbeat: 35 # ms
+peers:
+  turing:
+    host: 127.0.0.1
+    ports:
+      p2p: 8880
+      api: 8080
+  ritchie:
+    host: 127.0.0.1
+    ports:
+      p2p: 8881
+      api: 8081
+  lovelace:
+    host: 127.0.0.1
+    ports:
+      p2p: 8882
+      api: 8082
