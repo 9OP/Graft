@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"graft/app/domain/entity"
 	"graft/app/domain/service"
 	primaryAdapter "graft/app/infrastructure/adapter/primary"
@@ -9,31 +8,51 @@ import (
 	primaryPort "graft/app/infrastructure/port/primary"
 	secondaryPort "graft/app/infrastructure/port/secondary"
 	"graft/app/infrastructure/server"
-	"graft/app/infrastructure/utils"
+
 	"graft/app/usecase/cluster"
 	"graft/app/usecase/receiver"
 	"graft/app/usecase/runner"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func init() {
 	log.Info("INIT")
-	utils.ConfigureLogger()
+	configureLogger()
 }
 
-func boot(config utils.Config) {
+func configureLogger() {
+	log.SetLevel(log.DebugLevel)
+	log.SetOutput(os.Stdout)
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors:     true,
+		DisableColors:   false,
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02T15:04:05.000-07:00",
+	})
+}
+
+func Start(
+	id string,
+	peers entity.Peers,
+	persistentLocation string,
+	electionTimeout int,
+	heartbeatTimeout int,
+	rpcPort string,
+	apiPort string,
+) {
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
-	jsonAdapter := secondaryAdapter.NewJsonPersister()
+	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
-	persisterPort := secondaryPort.NewPersisterPort(STATE_LOCATION, jsonAdapter)
+	persisterPort := secondaryPort.NewPersisterPort(persistentLocation, jsonPersisterAdapter)
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	timeout := entity.NewTimeout(config.Timeouts.Election, config.Timeouts.Heartbeat)
-	srv := service.NewServer(args.id, config.Peers, persistent)
+	timeout := entity.NewTimeout(electionTimeout, heartbeatTimeout)
+	srv := service.NewServer(id, peers, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
@@ -49,17 +68,8 @@ func boot(config utils.Config) {
 	grpcServer := server.NewRpc(grpcServerAdapter)
 	clusterServer := server.NewClusterServer(clusterUsecase)
 
-	// Start servers
-	go grpcServer.Start(args.port)
-	go clusterServer.Start(args.apiPort)
+	// Start servers: p2p rpc, API and runner
+	go grpcServer.Start(rpcPort)
+	go clusterServer.Start(apiPort)
 	runnerServer.Start()
-}
-
-func main() {
-	config, err := utils.GetConfig("config.yml")
-	if err != nil {
-		log.Fatalf("Cannot load config \n\t%s", err)
-	}
-
-	fmt.Println(config)
 }

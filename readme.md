@@ -3,9 +3,26 @@
 [Raft paper](https://raft.github.io/raft.pdf)
 
 IMPROVEMENT:
+- Rename the use case and the servers
+- Use cobra for CLI
+- rename app/ pkg/
+- Make FSM state immutable, create new state through pure function and
+attach it to server when state update is required
+
 - Clean boundaries in domain entity.service
-- Rename
 - Create graph of deps
+
+/*
+./graft ritchie --log-level INFO --
+
+features:
+- start node
+- speficy log-level
+- issue command/query
+- trigger log compaction
+- update membership
+- (shutdown/bootup remotely)
+*/
 
 
 DONE:
@@ -13,9 +30,11 @@ DONE:
 - Heartbeat
 - Synchronise logs
 - JSON api for sending logs
+- Client redirection
 
 TODO:
-- Client redirection
+- Prevote
+- New p2p api for weak consistency execution
 - FSM bindings (via shell)
 - Log compaction
 - Mutual TLS
