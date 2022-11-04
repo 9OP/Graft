@@ -17,11 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func init() {
-	log.Info("INIT")
-	configureLogger()
-}
-
 func configureLogger() {
 	log.SetLevel(log.DebugLevel)
 	log.SetOutput(os.Stdout)
@@ -67,6 +62,10 @@ func Start(
 	runnerServer := server.NewRunner(runnerUsecase)
 	grpcServer := server.NewRpc(grpcServerAdapter)
 	clusterServer := server.NewClusterServer(clusterUsecase)
+
+	// Start logger
+	configureLogger()
+	log.Info("START")
 
 	// Start servers: p2p rpc, API and runner
 	go grpcServer.Start(rpcPort)

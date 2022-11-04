@@ -69,6 +69,7 @@ var (
 	level      = DEBUG
 	configPath string
 	config     *configuration
+	peers      entity.Peers
 )
 
 var startCmd = &cobra.Command{
@@ -83,15 +84,31 @@ var startCmd = &cobra.Command{
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
 		}
+
 		id := args[0]
 		c, err := loadConfiguration(configPath)
-		config = c
 		if err != nil {
 			return err
 		}
+
+		config = c
 		if _, ok := config.Peers[id]; ok {
+			// Validate peers format
+			validPeers := entity.Peers{}
+			for peerId, peer := range config.Peers {
+				validPeer, err := entity.NewPeer(peerId, peer.Host, peer.Ports.P2p, peer.Ports.Api)
+				if err != nil {
+					return err
+				}
+				if peerId == id {
+					continue
+				}
+				validPeers[peerId] = *validPeer
+			}
+			peers = validPeers
 			return nil
 		}
+
 		peers := make([]string, 0, len(config.Peers))
 		for k := range config.Peers {
 			peers = append(peers, k)
@@ -101,12 +118,6 @@ var startCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
 		persistentLocation := fmt.Sprintf("persistent_%s.json", id)
-
-		// Validate peers - should validate outside of pkg ?
-		peers := entity.Peers{}
-		for i, p := range config.Peers {
-			peers[i] = *entity.NewPeer(i, p.Host, p.Ports.P2p, p.Ports.Api)
-		}
 
 		pkg.Start(
 			id,
