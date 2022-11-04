@@ -44,6 +44,10 @@ func (p *Peers) RemovePeer(peerId string) {
 	delete(*p, peerId)
 }
 
-func (p Peer) Target() string {
+func (p Peer) TargetP2p() string {
 	return fmt.Sprintf("%s:%s", p.Host, p.Ports.P2p)
+}
+
+func (p Peer) TargetApi() string {
+	return fmt.Sprintf("%s:%s", p.Host, p.Ports.Api)
 }

@@ -15,7 +15,7 @@ func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 }
 
 func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
-	target := peer.Target()
+	target := peer.TargetP2p()
 	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
 		entries = append(entries, &p2pRpc.LogEntry{Term: log.Term, Value: log.Value})
@@ -41,7 +41,7 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 }
 
 func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
-	target := peer.Target()
+	target := peer.TargetP2p()
 	output, err := p.adapter.RequestVote(target, &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,

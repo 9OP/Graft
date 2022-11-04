@@ -129,9 +129,9 @@ func (n *Node) ComputeNewCommitIndex() uint32 {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
+	quorum := n.GetQuorum()
 	lastLogIndex := n.GetLastLogIndex() // Upper value of N
 	commitIndex := n.CommitIndex        // Lower value of N
-	quorum := n.GetQuorum()
 
 	for N := lastLogIndex; N > commitIndex; N-- {
 		// Get a majority for which matchIndex >= n

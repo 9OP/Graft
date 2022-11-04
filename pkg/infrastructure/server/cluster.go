@@ -54,7 +54,7 @@ func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch e := err.(type) {
 		case *entity.NotLeaderError:
-			http.Redirect(w, r, e.Leader.Target(), http.StatusTemporaryRedirect)
+			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
 		case *entity.TimeoutError:
 			http.Error(w, err.Error(), http.StatusGatewayTimeout)
 		default:

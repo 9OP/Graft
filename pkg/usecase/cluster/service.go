@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"fmt"
 	"graft/pkg/domain/entity"
 	"time"
 )
@@ -17,7 +16,6 @@ func NewService(repository repository) *service {
 func (s *service) ExecuteCommand(command string) (interface{}, error) {
 	if !s.repository.IsLeader() {
 		leader := s.repository.GetLeader()
-		fmt.Println(leader)
 		return nil, entity.NewNotLeaderError(leader)
 	}
 

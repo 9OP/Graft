@@ -61,13 +61,13 @@ peers: # Define all cluster peers
 
 ```
 TODO:
+- Refactor FSM state => immutable, return copy, Getters/Withers
+- Client redirection
 - Mutual TLS
 - API (command/query) TLS
-- Client redirection
 - FSM execution bindings
 - Document graph of deps / hexagonal architecture
 - Rename the use case and the servers
-- Refactor FSM state => immutable, return copy, Getters/Withers
 - (done) Log level sanitization
 ```
 
