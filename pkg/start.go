@@ -12,21 +12,7 @@ import (
 	"graft/pkg/usecase/cluster"
 	"graft/pkg/usecase/receiver"
 	"graft/pkg/usecase/runner"
-	"os"
-
-	log "github.com/sirupsen/logrus"
 )
-
-func configureLogger() {
-	log.SetLevel(log.DebugLevel)
-	log.SetOutput(os.Stdout)
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors:     true,
-		DisableColors:   false,
-		FullTimestamp:   true,
-		TimestampFormat: "2006-01-02T15:04:05.000-07:00",
-	})
-}
 
 func Start(
 	id string,
@@ -36,7 +22,11 @@ func Start(
 	heartbeatTimeout int,
 	rpcPort string,
 	apiPort string,
+	logLevel string,
+
 ) {
+	configureLogger(logLevel)
+
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
@@ -62,10 +52,6 @@ func Start(
 	runnerServer := server.NewRunner(runnerUsecase)
 	grpcServer := server.NewRpc(grpcServerAdapter)
 	clusterServer := server.NewClusterServer(clusterUsecase)
-
-	// Start logger
-	configureLogger()
-	log.Info("START")
 
 	// Start servers: p2p rpc, API and runner
 	go grpcServer.Start(rpcPort)

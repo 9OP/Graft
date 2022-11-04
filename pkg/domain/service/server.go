@@ -103,7 +103,7 @@ func (s *Server) GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) b
 	defer s.saveState()
 	if s.Node.CanGrantVote(id, lastLogIndex, lastLogTerm) {
 		s.Node.SetVotedFor(id)
-		log.Info("VOTE FOR ", id)
+		log.Debug("VOTE FOR ", id)
 		return true
 	}
 	return false
@@ -125,7 +125,7 @@ func (s *Server) DowngradeFollower(term uint32) {
 
 func (s *Server) IncrementTerm() {
 	if s.IsRole(entity.Candidate) {
-		log.Infof("INCREMENT CANDIDATE TERM %d\n", s.CurrentTerm+1)
+		log.Debug("INCREMENT CANDIDATE TERM %d\n", s.CurrentTerm+1)
 		s.SetCurrentTerm(s.CurrentTerm + 1)
 		s.SetVotedFor(s.Id)
 		s.saveState()

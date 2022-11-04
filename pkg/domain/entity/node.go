@@ -42,7 +42,14 @@ func (n *Node) IsRole(role Role) bool {
 func (n *Node) SetClusterLeader(leaderId string) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	n.LeaderId = leaderId
+	if n.LeaderId != leaderId {
+		n.LeaderId = leaderId
+		if leaderId == n.Id {
+			log.Info("LEADER")
+		} else {
+			log.Infof("FOLLOW %s", leaderId)
+		}
+	}
 }
 
 func (n *Node) GetQuorum() int {
@@ -166,7 +173,7 @@ func (n *Node) ApplyLogs() {
 }
 
 func (n *Node) Exec(entry string) interface{} {
-	log.Info("EXECUTE: ", entry)
+	log.Debug("EXECUTE: ", entry)
 
 	cmd := exec.Command(entry)
 	var outb, errb bytes.Buffer
@@ -178,7 +185,6 @@ func (n *Node) Exec(entry string) interface{} {
 	if err != nil {
 		return errb.Bytes()
 	}
-	// fmt.Println(outb, outb.Bytes(), outb.String())
+
 	return outb.Bytes()
-	//return entry
 }

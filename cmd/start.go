@@ -66,7 +66,7 @@ func (l *logLevel) Type() string {
 }
 
 var (
-	level      = DEBUG
+	level      = INFO
 	configPath string
 	config     *configuration
 	peers      entity.Peers
@@ -127,6 +127,7 @@ var startCmd = &cobra.Command{
 			config.Timeouts.Heartbeat,
 			config.Peers[id].Ports.P2p,
 			config.Peers[id].Ports.Api,
+			level.String(),
 		)
 	},
 }
