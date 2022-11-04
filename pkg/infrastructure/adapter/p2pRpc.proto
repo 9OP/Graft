@@ -38,4 +38,5 @@ message RequestVoteOutput {
 service Rpc {
     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
+    rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
 }
