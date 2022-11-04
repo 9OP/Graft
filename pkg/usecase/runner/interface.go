@@ -10,8 +10,8 @@ type repository interface {
 }
 
 type persister interface {
-	Load() (*entity.Persistent, error)
-	Save(state *entity.Persistent) error
+	Load() (*entity.PersistentState, error)
+	Save(state *entity.PersistentState) error
 }
 
 type UseCase interface {
@@ -19,11 +19,11 @@ type UseCase interface {
 }
 
 type role interface {
-	GetState() *entity.FsmState
+	GetState() entity.NodeState
 }
 type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
-	GetQuorum() int
+	Quorum() int
 }
 type downgrader interface {
 	DowngradeFollower(term uint32)
@@ -38,8 +38,8 @@ type candidate interface {
 	role
 	downgrader
 	broadcaster
-	IncrementTerm()
-	GetRequestVoteInput() *entity.RequestVoteInput
+	IncrementCandidateTerm()
+	RequestVoteInput() entity.RequestVoteInput
 	UpgradeLeader()
 }
 
@@ -47,10 +47,9 @@ type leader interface {
 	role
 	downgrader
 	broadcaster
-	DecrementNextIndex(pId string)
-	SetNextIndex(pId string, index uint32)
-	SetMatchIndex(pId string, index uint32)
+	DecrementNextIndex(peerId string)
+	SetNextMatchIndex(peerId string, index uint32)
 	ComputeNewCommitIndex() uint32
 	SetCommitIndex(commitIndex uint32)
-	GetAppendEntriesInput(pId string) *entity.AppendEntriesInput
+	AppendEntriesInput(peerId string) entity.AppendEntriesInput
 }

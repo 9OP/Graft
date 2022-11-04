@@ -15,7 +15,7 @@ func NewService(repository repository) *service {
 
 func (s *service) ExecuteCommand(command string) (interface{}, error) {
 	if !s.repository.IsLeader() {
-		leader := s.repository.GetLeader()
+		leader := s.repository.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
 
@@ -31,7 +31,7 @@ func (s *service) ExecuteCommand(command string) (interface{}, error) {
 
 func (s *service) ExecuteQuery(query string, weakConsistency bool) (interface{}, error) {
 	if !s.repository.IsLeader() && !weakConsistency {
-		leader := s.repository.GetLeader()
+		leader := s.repository.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
 

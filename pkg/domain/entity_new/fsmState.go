@@ -1,7 +1,9 @@
 package entitynew
 
+import utils "graft/pkg/domain"
+
 type FsmState struct {
-	Persistent
+	PersistentState
 	commitIndex uint32
 	lastApplied uint32
 	nextIndex   map[string]uint32
@@ -11,13 +13,13 @@ type FsmState struct {
 // Maps peerId to log index
 type peerIndex map[string]uint32
 
-func NewFsmState(persistent Persistent) FsmState {
+func NewFsmState(persistent PersistentState) FsmState {
 	return FsmState{
-		Persistent:  persistent,
-		commitIndex: 0,
-		lastApplied: 0,
-		nextIndex:   peerIndex{},
-		matchIndex:  peerIndex{},
+		PersistentState: persistent,
+		commitIndex:     0,
+		lastApplied:     0,
+		nextIndex:       peerIndex{},
+		matchIndex:      peerIndex{},
 	}
 }
 
@@ -30,11 +32,7 @@ func (f FsmState) LastApplied() uint32 {
 }
 
 func (f FsmState) NextIndex() peerIndex {
-	nextIndex := make(peerIndex, len(f.nextIndex))
-	for peerId, index := range f.nextIndex {
-		nextIndex[peerId] = index
-	}
-	return nextIndex
+	return utils.CopyMap(f.nextIndex)
 }
 
 func (f FsmState) NextIndexForPeer(peerId string) uint32 {
@@ -43,11 +41,7 @@ func (f FsmState) NextIndexForPeer(peerId string) uint32 {
 }
 
 func (f FsmState) MatchIndex() peerIndex {
-	matchIndex := make(peerIndex, len(f.matchIndex))
-	for peerId, index := range f.matchIndex {
-		matchIndex[peerId] = index
-	}
-	return matchIndex
+	return utils.CopyMap(f.matchIndex)
 }
 
 func (f FsmState) WithCommitIndex(index uint32) FsmState {

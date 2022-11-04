@@ -37,12 +37,12 @@ func Start(
 	// Domain
 	persistent, _ := persisterPort.Load()
 	timeout := entity.NewTimeout(electionTimeout, heartbeatTimeout)
-	srv := service.NewServer(id, peers, persistent)
+	node := service.NewClusterNode(id, peers, *persistent)
 
 	// Services
-	runnerUsecase := runner.NewService(srv, timeout, rpcClientPort, persisterPort)
-	receiverUsecase := receiver.NewService(srv)
-	clusterUsecase := cluster.NewService(srv)
+	runnerUsecase := runner.NewService(&node, timeout, rpcClientPort, persisterPort)
+	receiverUsecase := receiver.NewService(&node)
+	clusterUsecase := cluster.NewService(&node)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)

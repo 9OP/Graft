@@ -21,18 +21,19 @@ func NewPersisterPort(location string, adapter adapter.UseCaseJsonPersisterAdapt
 	}
 }
 
-func (p *persisterPort) Load() (*entity.Persistent, error) {
+func (p *persisterPort) Load() (*entity.PersistentState, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	pst, err := p.adapter.Load(p.location)
 	if err != nil {
-		log.Warn("CANNOT LOAD PERSISTENT, USING DEFAULT")
-		return entity.NewPersistent(), err
+		log.Warn("CANNOT LOAD PERSISTENT STATE, USING DEFAULT")
+		state := entity.NewPersistentState()
+		return &state, err
 	}
 	return pst, err
 }
 
-func (p *persisterPort) Save(state *entity.Persistent) error {
+func (p *persisterPort) Save(state *entity.PersistentState) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.adapter.Save(state, p.location)

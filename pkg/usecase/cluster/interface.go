@@ -6,7 +6,7 @@ type repository interface {
 	ExecuteCommand(command string) chan interface{}
 	ExecuteQuery(query string) chan interface{}
 	IsLeader() bool
-	GetLeader() entity.Peer
+	Leader() entity.Peer
 }
 
 type UseCase interface {

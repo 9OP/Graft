@@ -6,13 +6,13 @@ import (
 
 type repository interface {
 	Heartbeat()
-	GetState() *entity.FsmState
+	GetState() entity.NodeState
 	SetClusterLeader(leaderId string)
 	SetCommitIndex(ind uint32)
 	DowngradeFollower(term uint32)
-	GrantVote(id string, lastLogIndex uint32, lastLogTerm uint32) bool
+	GrantVote(peerId string)
 	DeleteLogsFrom(index uint32)
-	AppendLogs(entries []entity.LogEntry, prevLogIndex uint32)
+	AppendLogs(prevLogIndex uint32, entries ...entity.LogEntry)
 }
 
 type UseCase interface {

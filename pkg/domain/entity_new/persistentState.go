@@ -8,38 +8,38 @@ import (
 
 // https://github.com/golang/go/wiki/SliceTricks
 
-type Persistent struct {
+type PersistentState struct {
 	currentTerm uint32
 	votedFor    string
 	machineLogs []entity.LogEntry
 }
 
-func NewPersistent() Persistent {
-	return Persistent{
+func NewPersistentState() PersistentState {
+	return PersistentState{
 		currentTerm: 0,
 		votedFor:    "",
 		machineLogs: []entity.LogEntry{},
 	}
 }
 
-func (p Persistent) CurrentTerm() uint32 {
+func (p PersistentState) CurrentTerm() uint32 {
 	return p.currentTerm
 }
 
-func (p Persistent) VotedFor() string {
+func (p PersistentState) VotedFor() string {
 	return p.votedFor
 }
 
-func (p Persistent) LastLogIndex() uint32 {
+func (p PersistentState) LastLogIndex() uint32 {
 	return uint32(len(p.machineLogs))
 }
 
-func (p Persistent) LastLog() entity.LogEntry {
+func (p PersistentState) LastLog() entity.LogEntry {
 	lastLog, _ := p.MachineLog(p.LastLogIndex())
 	return lastLog
 }
 
-func (p Persistent) MachineLog(index uint32) (entity.LogEntry, error) {
+func (p PersistentState) MachineLog(index uint32) (entity.LogEntry, error) {
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
 		log := p.machineLogs[index-1]
@@ -48,7 +48,7 @@ func (p Persistent) MachineLog(index uint32) (entity.LogEntry, error) {
 	return entity.LogEntry{}, errors.New("index out of range")
 }
 
-func (p Persistent) MachineLogsFrom(index uint32) []entity.LogEntry {
+func (p PersistentState) MachineLogsFrom(index uint32) []entity.LogEntry {
 	lastLogIndex := p.LastLogIndex()
 	logs := make([]entity.LogEntry, 0, lastLogIndex)
 	if index <= lastLogIndex {
@@ -57,17 +57,17 @@ func (p Persistent) MachineLogsFrom(index uint32) []entity.LogEntry {
 	return logs
 }
 
-func (p Persistent) WithCurrentTerm(term uint32) Persistent {
+func (p PersistentState) WithCurrentTerm(term uint32) PersistentState {
 	p.currentTerm = term
 	return p
 }
 
-func (p Persistent) WithVotedFor(vote string) Persistent {
+func (p PersistentState) WithVotedFor(vote string) PersistentState {
 	p.votedFor = vote
 	return p
 }
 
-func (p Persistent) WithDeleteLogsFrom(index uint32) Persistent {
+func (p PersistentState) WithDeleteLogsFrom(index uint32) PersistentState {
 	// Delete logs from given index (include deletion)
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
@@ -80,7 +80,7 @@ func (p Persistent) WithDeleteLogsFrom(index uint32) Persistent {
 	return p
 }
 
-func (p Persistent) WithAppendLogs(entries []entity.LogEntry, prevLogIndex uint32) Persistent {
+func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...entity.LogEntry) PersistentState {
 	// Should append only new entries
 	if len(entries) == 0 {
 		return p

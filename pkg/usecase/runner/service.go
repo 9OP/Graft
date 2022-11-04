@@ -2,7 +2,7 @@ package runner
 
 import (
 	"graft/pkg/domain/entity"
-	srvc "graft/pkg/domain/service"
+	domain "graft/pkg/domain/service"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -15,39 +15,39 @@ type synchronise struct {
 }
 
 type service struct {
-	server     *srvc.Server
-	timeout    *entity.Timeout
-	persister  persister
-	repository repository
+	clusterNode *domain.ClusterNode
+	timeout     *entity.Timeout
+	persister   persister
+	repository  repository
 	synchronise
 }
 
 // TODO: Move timeout to this file instead of being in the domain
 // Timeout is applicative logic, not domain logic
-func NewService(s *srvc.Server, t *entity.Timeout, r repository, p persister) *service {
+func NewService(clusterNode *domain.ClusterNode, timeout *entity.Timeout, repository repository, persister persister) *service {
 	return &service{
-		repository: r,
-		server:     s,
-		persister:  p,
-		timeout:    t,
+		repository:  repository,
+		timeout:     timeout,
+		clusterNode: clusterNode,
+		persister:   persister,
 	}
 }
 
 func (s *service) Run() {
 	select {
-	case role := <-s.server.ShiftRole:
+	case role := <-s.clusterNode.ShiftRole:
 		go s.runAs(role)
 
-	case <-s.server.SaveState:
+	case <-s.clusterNode.SaveState:
 		go s.saveState()
 
-	case <-s.server.ResetElectionTimer:
+	case <-s.clusterNode.ResetElectionTimer:
 		go s.timeout.ResetElectionTimer()
 
-	case <-s.server.ResetLeaderTicker:
+	case <-s.clusterNode.ResetLeaderTicker:
 		go s.timeout.ResetLeaderTicker()
 
-	case <-s.server.Commit:
+	case <-s.clusterNode.Commit:
 		go s.commit()
 	}
 
@@ -56,11 +56,11 @@ func (s *service) Run() {
 func (s *service) runAs(role entity.Role) {
 	switch role {
 	case entity.Follower:
-		s.runFollower(s.server)
+		s.runFollower(s.clusterNode)
 	case entity.Candidate:
-		s.runCandidate(s.server)
+		s.runCandidate(s.clusterNode)
 	case entity.Leader:
-		s.runLeader(s.server)
+		s.runLeader(s.clusterNode)
 	}
 
 }
@@ -68,12 +68,12 @@ func (s *service) runAs(role entity.Role) {
 func (s *service) commit() {
 	s.synchronise.commit.Lock()
 	defer s.synchronise.commit.Unlock()
-	s.server.ApplyLogs()
+	s.clusterNode.ApplyLogs()
 }
 
 func (s *service) saveState() {
-	state := s.server.GetState()
-	s.persister.Save(state.Persistent)
+	state := s.clusterNode.GetState()
+	s.persister.Save(&state.PersistentState)
 }
 
 func (s *service) runFollower(f follower) {
@@ -91,7 +91,7 @@ func (s *service) runCandidate(c candidate) {
 		for range s.timeout.ElectionTimer.C {
 			if wonElection := s.startElection(c); wonElection {
 				c.UpgradeLeader()
-				break
+				return
 			}
 		}
 	}
@@ -100,9 +100,9 @@ func (s *service) runCandidate(c candidate) {
 func (s *service) runLeader(l leader) {
 	for range s.timeout.LeaderTicker.C {
 		if !s.sendHeartbeat(l) {
-			// Step down
 			log.Debug("LEADER STEP DOWN")
-			l.DowngradeFollower(l.GetState().CurrentTerm)
+			term := l.GetState().CurrentTerm()
+			l.DowngradeFollower(term)
 			return
 		}
 	}
@@ -112,16 +112,16 @@ func (s *service) startElection(c candidate) bool {
 	s.synchronise.election.Lock()
 	defer s.synchronise.election.Unlock()
 
-	c.IncrementTerm()
+	c.IncrementCandidateTerm()
 	state := c.GetState()
-	input := c.GetRequestVoteInput()
-	quorum := c.GetQuorum()
+	input := c.RequestVoteInput()
+	quorum := c.Quorum()
 	votesGranted := 1 // vote for self
 	var m sync.Mutex
 
 	gatherVotesRoutine := func(p entity.Peer) {
-		if res, err := s.repository.RequestVote(p, input); err == nil {
-			if res.Term > state.CurrentTerm {
+		if res, err := s.repository.RequestVote(p, &input); err == nil {
+			if res.Term > state.CurrentTerm() {
 				c.DowngradeFollower(res.Term)
 				return
 			}
@@ -142,23 +142,28 @@ func (s *service) sendHeartbeat(l leader) bool {
 	defer s.synchronise.heartbeat.Unlock()
 
 	state := l.GetState()
-	quorum := l.GetQuorum()
+	quorum := l.Quorum()
 	peersAlive := 1 // self
 	var m sync.Mutex
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
-		input := l.GetAppendEntriesInput(p.Id)
+		input := l.AppendEntriesInput(p.Id)
 
-		if res, err := s.repository.AppendEntries(p, input); err == nil {
-			if res.Term > state.CurrentTerm {
+		if res, err := s.repository.AppendEntries(p, &input); err == nil {
+			if res.Term > state.CurrentTerm() {
 				l.DowngradeFollower(res.Term)
 				return
 			}
 			if res.Success {
-				// TODO: optim, set index/match only if different from leaderLastLogIndex
-				leaderLastLogIndex := state.GetLastLogIndex()
-				l.SetNextIndex(p.Id, leaderLastLogIndex)
-				l.SetMatchIndex(p.Id, leaderLastLogIndex)
+				leaderLastLogIndex := state.LastLogIndex()
+				peerNextIndex := state.NextIndexForPeer(p.Id)
+				peerMatchIndex := state.MatchIndexForPeer(p.Id)
+				shouldUpdate :=
+					peerNextIndex != leaderLastLogIndex ||
+						peerMatchIndex != leaderLastLogIndex
+				if shouldUpdate {
+					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
+				}
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}

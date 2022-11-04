@@ -1,11 +1,12 @@
 package entitynew
 
 import (
+	utils "graft/pkg/domain"
 	"graft/pkg/domain/entity"
 	"math"
 )
 
-type Node struct {
+type NodeState struct {
 	id       string
 	leaderId string
 	peers    entity.Peers
@@ -13,8 +14,8 @@ type Node struct {
 	FsmState
 }
 
-func NewNode(id string, peers entity.Peers, persistent Persistent) Node {
-	return Node{
+func NewNodeState(id string, peers entity.Peers, persistent PersistentState) NodeState {
+	return NodeState{
 		id:       id,
 		peers:    peers,
 		role:     entity.Follower,
@@ -22,19 +23,29 @@ func NewNode(id string, peers entity.Peers, persistent Persistent) Node {
 	}
 }
 
-func (n Node) Id() string {
+func (n NodeState) Id() string {
 	return n.id
 }
 
-func (n Node) LeaderId() string {
+func (n NodeState) LeaderId() string {
 	return n.leaderId
 }
 
-func (n Node) Role() entity.Role {
+func (n NodeState) Leader() entity.Peer {
+	leaderId := n.leaderId
+	leader := n.peers[leaderId]
+	return leader
+}
+
+func (n NodeState) Role() entity.Role {
 	return n.role
 }
 
-func (n Node) WithInitializeLeader() Node {
+func (n NodeState) Peers() entity.Peers {
+	return utils.CopyMap(n.peers)
+}
+
+func (n NodeState) WithInitializeLeader() NodeState {
 	defaultNextIndex := n.LastLogIndex()
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
@@ -47,26 +58,40 @@ func (n Node) WithInitializeLeader() Node {
 	return n
 }
 
-func (n Node) WithRole(role entity.Role) Node {
+func (n NodeState) WithCurrentTerm(term uint32) NodeState {
+	n.FsmState.PersistentState.currentTerm = term
+	return n
+}
+func (n NodeState) WithVotedFor(vote string) NodeState {
+	n.FsmState.PersistentState.votedFor = vote
+	return n
+}
+
+func (n NodeState) WithRole(role entity.Role) NodeState {
 	n.role = role
 	return n
 }
 
-func (n Node) WithClusterLeader(leaderId string) Node {
+func (n NodeState) WithClusterLeader(leaderId string) NodeState {
 	n.leaderId = leaderId
 	return n
 }
 
-func (n Node) Quorum() int {
+func (n NodeState) Quorum() int {
 	totalPeers := len(n.peers) + 1
 	return int(math.Ceil(float64(totalPeers) / 2.0))
 }
 
-func (n Node) IsLeader() bool {
+func (n NodeState) IsLeader() bool {
 	return n.Id() == n.LeaderId()
 }
 
-func (n Node) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
+func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
+	// Unknown peer id
+	if _, ok := n.peers[peerId]; !ok {
+		return false
+	}
+
 	currentLogIndex := n.LastLogIndex()
 	currentLogTerm := n.LastLog().Term
 	votedFor := n.VotedFor()
@@ -80,7 +105,7 @@ func (n Node) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint3
 	return false
 }
 
-func (n Node) AppendEntriesInput(peerId string) entity.AppendEntriesInput {
+func (n NodeState) AppendEntriesInput(peerId string) entity.AppendEntriesInput {
 	// index of log entry immediately preceding new ones
 	prevLogIndex := n.NextIndexForPeer(peerId)
 	prevLog, err := n.MachineLog(prevLogIndex)
@@ -102,7 +127,7 @@ func (n Node) AppendEntriesInput(peerId string) entity.AppendEntriesInput {
 	}
 }
 
-func (n Node) RequestVoteInput() entity.RequestVoteInput {
+func (n NodeState) RequestVoteInput() entity.RequestVoteInput {
 	return entity.RequestVoteInput{
 		CandidateId:  n.Id(),
 		Term:         n.CurrentTerm(),
@@ -111,7 +136,7 @@ func (n Node) RequestVoteInput() entity.RequestVoteInput {
 	}
 }
 
-func (n Node) ComputeNewCommitIndex() uint32 {
+func (n NodeState) ComputeNewCommitIndex() uint32 {
 	/*
 		Compute new commitIndex N such that:
 			- N > commitIndex,
@@ -142,36 +167,3 @@ func (n Node) ComputeNewCommitIndex() uint32 {
 
 	return commitIndex
 }
-
-// Move to service
-func (n Node) ApplyLogs() {
-	commitIndex := n.CommitIndex()
-	for lastApplied := n.LastApplied(); commitIndex > lastApplied; {
-		n.WithIncrementLastApplied()
-		if _, err := n.MachineLog(lastApplied); err == nil {
-			// res := n.Exec(log.Value)
-			// if log.C != nil {
-			// 	log.C <- res
-			// }
-		}
-		// pointer switch
-	}
-}
-
-// Move to service
-// func (n *Node) Exec(entry string) interface{} {
-// 	log.Debug("EXECUTE: ", entry)
-
-// 	cmd := exec.Command(entry)
-// 	var outb, errb bytes.Buffer
-// 	cmd.Stdout = &outb
-// 	cmd.Stderr = &errb
-
-// 	err := cmd.Run()
-
-// 	if err != nil {
-// 		return errb.Bytes()
-// 	}
-
-// 	return outb.Bytes()
-// }
