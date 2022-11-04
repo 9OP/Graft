@@ -5,7 +5,7 @@
 IMPROVEMENT:
 - Rename the use case and the servers
 - Use cobra for CLI
-- rename app/ pkg/
+- rename pkg/ pkg/
 - Make FSM state immutable, create new state through pure function and
 attach it to server when state update is required
 

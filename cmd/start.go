@@ -2,75 +2,126 @@ package cmd
 
 import (
 	"fmt"
+	"graft/pkg"
+	"graft/pkg/domain/entity"
+	"os"
 
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v3"
 )
 
-/*
-Options for start:
-- ARG: which id of the cluster to start
-- FLAG config path
-- FLAG log level
+type configuration struct {
+	Timeouts struct {
+		Election  int `yaml:"election"`
+		Heartbeat int `yaml:"heartbeat"`
+	}
+	Peers map[string]struct {
+		Host  string `yaml:"host"`
+		Ports struct {
+			P2p string `yaml:"p2p"`
+			Api string `yaml:"api"`
+		} `yaml:"ports"`
+	} `yaml:"peers"`
+}
 
-*/
+func loadConfiguration(path string) (*configuration, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
 
-var configPath string
-var logLevel string
+	var cfg configuration
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+type logLevel string
+
+const (
+	DEBUG logLevel = "DEBUG"
+	INFO  logLevel = "INFO"
+	ERROR logLevel = "ERROR"
+)
+
+func (l *logLevel) String() string {
+	return string(*l)
+}
+func (l *logLevel) Set(v string) error {
+	switch v {
+	case "DEBUG", "INFO", "ERROR":
+		*l = logLevel(v)
+		return nil
+	default:
+		return fmt.Errorf("must be one of 'DEBUG', 'INFO', or 'ERROR'")
+	}
+}
+func (l *logLevel) Type() string {
+	return "logLevel"
+}
+
+var (
+	level      = DEBUG
+	configPath string
+	config     *configuration
+)
 
 var startCmd = &cobra.Command{
-	Use:   "start [peer-id]",
+	Use:   "start [peer]",
 	Short: "Start a cluster node",
-	Args:  cobra.ExactArgs(1),
-	// Should error when id is not in the config
-	// By default will look for {pwd}/graft-config.yaml
-	//
-	// Args: func(cmd *cobra.Command, args []string) error {
-	// 	// Optionally run one of the validators provided by cobra
-	// 	if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
-	// 		return err
-	// 	}
-	// 	// Run the custom validation logic
-	// 	if myapp.IsValidColor(args[0]) {
-	// 	  return nil
-	// 	}
-	// 	return fmt.Errorf("invalid color specified: %s", args[0])
-	//   },
+	Args: func(cmd *cobra.Command, args []string) error {
+		// Custom args validator
+		// ensures that passed `peer` is declared
+		// in the configuration file.
+
+		configPath, _ := cmd.Flags().GetString("config")
+		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			return err
+		}
+		id := args[0]
+		c, err := loadConfiguration(configPath)
+		config = c
+		if err != nil {
+			return err
+		}
+		if _, ok := config.Peers[id]; ok {
+			return nil
+		}
+		peers := make([]string, 0, len(config.Peers))
+		for k := range config.Peers {
+			peers = append(peers, k)
+		}
+		return fmt.Errorf(" invalid peer: %s\n\tauthorised peers: %s", id, peers)
+	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// res := stringer.Reverse(args[0])
-		// fmt.Println(res)
-		fmt.Println("start cluster node")
-		confFlag, _ := cmd.Flags().GetString("config")
-		fmt.Println(confFlag)
+		id := args[0]
+		persistentLocation := fmt.Sprintf("persistent_%s.json", id)
+
+		// Validate peers - should validate outside of pkg ?
+		peers := entity.Peers{}
+		for i, p := range config.Peers {
+			peers[i] = *entity.NewPeer(i, p.Host, p.Ports.P2p, p.Ports.Api)
+		}
+
+		pkg.Start(
+			id,
+			peers,
+			persistentLocation,
+			config.Timeouts.Election,
+			config.Timeouts.Heartbeat,
+			config.Peers[id].Ports.P2p,
+			config.Peers[id].Ports.Api,
+		)
 	},
 }
 
 func init() {
-	// For log level see:
-	// https://stackoverflow.com/questions/50824554/permitted-flag-values-for-cobra
-	startCmd.Flags().StringVarP(&configPath, "config", "c", "graft-config.yaml", "Configuration file path")
+	startCmd.Flags().VarP(&level, "loglevel", "l", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
+	startCmd.Flags().StringVarP(&configPath, "config", "c", "graft-config.yml", "Configuration file path")
 	rootCmd.AddCommand(startCmd)
 }
-
-// var onlyDigits bool
-// var inspectCmd = &cobra.Command{
-//     Use:   "inspect",
-//     Aliases: []string{"insp"},
-//     Short:  "Inspects a string",
-//     Args:  cobra.ExactArgs(1),
-//     Run: func(cmd *cobra.Command, args []string) {
-
-//         i := args[0]
-//         res, kind := stringer.Inspect(i, onlyDigits)
-
-//         pluralS := "s"
-//         if res == 1 {
-//             pluralS = ""
-//         }
-//         fmt.Printf("'%s' has %d %s%s.\n", i, res, kind, pluralS)
-//     },
-// }
-
-// func init() {
-//     inspectCmd.Flags().BoolVarP(&onlyDigits, "digits", "d", false, "Count only digits")
-//     rootCmd.AddCommand(inspectCmd)
-// }
