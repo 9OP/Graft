@@ -2,12 +2,12 @@
 timeouts:
   election: 350 # ms
   heartbeat: 35 # ms
-peers:
-  turing:
+peers: # Define all cluster peers
+  turing: # Peer id
     host: 127.0.0.1
     ports:
-      p2p: 8880
-      api: 8080
+      p2p: 8880 # Peer to peer port
+      api: 8080 # Public cluster API
   ritchie:
     host: 127.0.0.1
     ports:
