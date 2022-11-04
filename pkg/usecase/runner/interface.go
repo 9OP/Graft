@@ -23,6 +23,7 @@ type role interface {
 }
 type broadcaster interface {
 	Broadcast(fn func(peer entity.Peer))
+	GetQuorum() int
 }
 type downgrader interface {
 	DowngradeFollower(term uint32)
@@ -39,7 +40,6 @@ type candidate interface {
 	broadcaster
 	IncrementTerm()
 	GetRequestVoteInput() *entity.RequestVoteInput
-	GetQuorum() int
 	UpgradeLeader()
 }
 

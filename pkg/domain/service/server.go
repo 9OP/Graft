@@ -125,7 +125,7 @@ func (s *Server) DowngradeFollower(term uint32) {
 
 func (s *Server) IncrementTerm() {
 	if s.IsRole(entity.Candidate) {
-		log.Debug("INCREMENT CANDIDATE TERM %d\n", s.CurrentTerm+1)
+		log.Debugf("INCREMENT CANDIDATE TERM %d\n", s.CurrentTerm+1)
 		s.SetCurrentTerm(s.CurrentTerm + 1)
 		s.SetVotedFor(s.Id)
 		s.saveState()

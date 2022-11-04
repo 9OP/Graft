@@ -133,7 +133,7 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	startCmd.Flags().VarP(&level, "loglevel", "l", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
+	startCmd.Flags().VarP(&level, "log-level", "l", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
 	startCmd.Flags().StringVarP(&configPath, "config", "c", "graft-config.yml", "Configuration file path")
 	rootCmd.AddCommand(startCmd)
 }

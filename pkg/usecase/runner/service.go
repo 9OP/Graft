@@ -4,6 +4,8 @@ import (
 	"graft/pkg/domain/entity"
 	srvc "graft/pkg/domain/service"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type synchronise struct {
@@ -97,7 +99,12 @@ func (s *service) runCandidate(c candidate) {
 
 func (s *service) runLeader(l leader) {
 	for range s.timeout.LeaderTicker.C {
-		s.sendHeartbeat(l)
+		if !s.sendHeartbeat(l) {
+			// Step down
+			log.Debug("LEADER STEP DOWN")
+			l.DowngradeFollower(l.GetState().CurrentTerm)
+			return
+		}
 	}
 }
 
@@ -110,8 +117,8 @@ func (s *service) startElection(c candidate) bool {
 	input := c.GetRequestVoteInput()
 	quorum := c.GetQuorum()
 	votesGranted := 1 // vote for self
-
 	var m sync.Mutex
+
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, input); err == nil {
 			if res.Term > state.CurrentTerm {
@@ -130,11 +137,14 @@ func (s *service) startElection(c candidate) bool {
 	return votesGranted >= quorum
 }
 
-func (s *service) sendHeartbeat(l leader) {
+func (s *service) sendHeartbeat(l leader) bool {
 	s.synchronise.heartbeat.Lock()
 	defer s.synchronise.heartbeat.Unlock()
 
 	state := l.GetState()
+	quorum := l.GetQuorum()
+	peersAlive := 1 // self
+	var m sync.Mutex
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.GetAppendEntriesInput(p.Id)
@@ -152,10 +162,14 @@ func (s *service) sendHeartbeat(l leader) {
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}
+			m.Lock()
+			defer m.Unlock()
+			peersAlive += 1
 		}
 	}
 	l.Broadcast(synchroniseLogsRoutine)
 
 	newCommitIndex := l.ComputeNewCommitIndex()
 	l.SetCommitIndex(newCommitIndex)
+	return peersAlive >= quorum
 }

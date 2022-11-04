@@ -65,10 +65,10 @@ TODO:
 - API (command/query) TLS
 - Client redirection
 - FSM execution bindings
-- Log level sanitization
 - Document graph of deps / hexagonal architecture
 - Rename the use case and the servers
 - Refactor FSM state => immutable, return copy, Getters/Withers
+- (done) Log level sanitization
 ```
 
 ### Raft implementation status
@@ -77,10 +77,11 @@ TODO:
 DONE:
 - Leader election
 - Log replication
+- Automatic step down leader
 
 TODO:
 - Log compaction
 - Membership change
 - Leadership transfer execution
-- Automatic step down leader
+
 ```
