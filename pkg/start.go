@@ -40,9 +40,9 @@ func Start(
 	node := service.NewClusterNode(id, peers, *persistent)
 
 	// Services
-	runnerUsecase := runner.NewService(&node, timeout, rpcClientPort, persisterPort)
-	receiverUsecase := receiver.NewService(&node)
-	clusterUsecase := cluster.NewService(&node)
+	runnerUsecase := runner.NewService(node, timeout, rpcClientPort, persisterPort)
+	receiverUsecase := receiver.NewService(node)
+	clusterUsecase := cluster.NewService(node)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(receiverUsecase)

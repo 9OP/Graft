@@ -9,6 +9,7 @@ import (
 )
 
 type synchronise struct {
+	save      sync.Mutex
 	commit    sync.Mutex
 	election  sync.Mutex
 	heartbeat sync.Mutex
@@ -19,11 +20,9 @@ type service struct {
 	timeout     *entity.Timeout
 	persister   persister
 	repository  repository
-	synchronise
+	sync        synchronise
 }
 
-// TODO: Move timeout to this file instead of being in the domain
-// Timeout is applicative logic, not domain logic
 func NewService(clusterNode *domain.ClusterNode, timeout *entity.Timeout, repository repository, persister persister) *service {
 	return &service{
 		repository:  repository,
@@ -66,14 +65,19 @@ func (s *service) runAs(role entity.Role) {
 }
 
 func (s *service) commit() {
-	s.synchronise.commit.Lock()
-	defer s.synchronise.commit.Unlock()
+	s.sync.commit.Lock()
+	defer s.sync.commit.Unlock()
 	s.clusterNode.ApplyLogs()
 }
 
 func (s *service) saveState() {
-	state := s.clusterNode.GetState()
-	s.persister.Save(&state.PersistentState)
+	s.sync.save.Lock()
+	defer s.sync.save.Unlock()
+	s.persister.Save(
+		s.clusterNode.CurrentTerm(),
+		s.clusterNode.VotedFor(),
+		s.clusterNode.MachineLogs(),
+	)
 }
 
 func (s *service) runFollower(f follower) {
@@ -109,8 +113,8 @@ func (s *service) runLeader(l leader) {
 }
 
 func (s *service) startElection(c candidate) bool {
-	s.synchronise.election.Lock()
-	defer s.synchronise.election.Unlock()
+	s.sync.election.Lock()
+	defer s.sync.election.Unlock()
 
 	c.IncrementCandidateTerm()
 	state := c.GetState()
@@ -138,8 +142,8 @@ func (s *service) startElection(c candidate) bool {
 }
 
 func (s *service) sendHeartbeat(l leader) bool {
-	s.synchronise.heartbeat.Lock()
-	defer s.synchronise.heartbeat.Unlock()
+	s.sync.heartbeat.Lock()
+	defer s.sync.heartbeat.Unlock()
 
 	state := l.GetState()
 	quorum := l.Quorum()

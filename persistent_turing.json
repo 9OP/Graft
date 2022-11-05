@@ -1,18 +1,5 @@
 {
-  "current_term": 228,
-  "voted_for": "turing",
-  "machine_logs": [
-    {
-      "term": 221,
-      "value": "pwd"
-    },
-    {
-      "term": 221,
-      "value": "pwd"
-    },
-    {
-      "term": 228,
-      "value": "pwd"
-    }
-  ]
+  "current_term": 31,
+  "voted_for": "lovelace",
+  "machine_logs": []
 }

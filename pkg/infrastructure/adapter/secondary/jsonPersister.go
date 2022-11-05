@@ -7,8 +7,8 @@ import (
 )
 
 type UseCaseJsonPersisterAdapter interface {
-	Load(location string) (*entity.PersistentState, error)
-	Save(state *entity.PersistentState, location string) error
+	Load(location string) (*persistent, error)
+	Save(location string, currentTerm uint32, votedFor string, machineLogs []entity.LogEntry) error
 }
 
 type jsonPersister struct{}
@@ -17,18 +17,29 @@ func NewJsonPersister() *jsonPersister {
 	return &jsonPersister{}
 }
 
-func (p jsonPersister) Load(location string) (*entity.PersistentState, error) {
+type persistent struct {
+	CurrentTerm uint32            `json:"current_term"`
+	VotedFor    string            `json:"voted_for"`
+	MachineLogs []entity.LogEntry `json:"machine_logs"`
+}
+
+func (p jsonPersister) Load(location string) (*persistent, error) {
 	data, err := os.ReadFile(location)
 	if err != nil {
 		return nil, err
 	}
-	state := &entity.PersistentState{}
+	state := &persistent{}
 	err = json.Unmarshal(data, state)
 	return state, err
 }
 
-func (p jsonPersister) Save(state *entity.PersistentState, location string) error {
-	data, err := json.MarshalIndent(state, "", "  ")
+func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string, machineLogs []entity.LogEntry) error {
+	state := persistent{
+		CurrentTerm: currentTerm,
+		VotedFor:    votedFor,
+		MachineLogs: machineLogs,
+	}
+	data, err := json.MarshalIndent(&state, "", "  ")
 	if err != nil {
 		return err
 	}

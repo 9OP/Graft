@@ -11,7 +11,7 @@ type repository interface {
 
 type persister interface {
 	Load() (*entity.PersistentState, error)
-	Save(state *entity.PersistentState) error
+	Save(currentTerm uint32, votedFor string, machineLogs []entity.LogEntry) error
 }
 
 type UseCase interface {

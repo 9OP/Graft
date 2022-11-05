@@ -13,12 +13,16 @@ type PersistentState struct {
 	machineLogs []LogEntry
 }
 
-func NewPersistentState() PersistentState {
+func NewPersistentState(currentTerm uint32, votedFor string, machineLogs []LogEntry) PersistentState {
 	return PersistentState{
-		currentTerm: 0,
-		votedFor:    "",
-		machineLogs: []LogEntry{},
+		currentTerm: currentTerm,
+		votedFor:    votedFor,
+		machineLogs: machineLogs,
 	}
+}
+
+func NewDefaultPersistentState() PersistentState {
+	return NewPersistentState(0, "", []LogEntry{})
 }
 
 func (p PersistentState) CurrentTerm() uint32 {
@@ -45,6 +49,17 @@ func (p PersistentState) MachineLog(index uint32) (LogEntry, error) {
 		return LogEntry{Term: log.Term, Value: log.Value}, nil
 	}
 	return LogEntry{}, errors.New("index out of range")
+}
+
+func (p PersistentState) MachineLogs() []LogEntry {
+	len := p.LastLogIndex()
+	machineLogs := make([]LogEntry, len)
+	for i := uint32(1); i <= len; i += 1 {
+		if log, err := p.MachineLog(i); err == nil {
+			machineLogs[i-1] = log
+		}
+	}
+	return machineLogs
 }
 
 func (p PersistentState) MachineLogsFrom(index uint32) []LogEntry {
