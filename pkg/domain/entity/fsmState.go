@@ -3,23 +3,23 @@ package entity
 import utils "graft/pkg/domain"
 
 type FsmState struct {
-	PersistentState
 	commitIndex uint32
 	lastApplied uint32
 	nextIndex   map[string]uint32
 	matchIndex  map[string]uint32
+	*PersistentState
 }
 
 // Maps peerId to log index
 type peerIndex map[string]uint32
 
-func NewFsmState(persistent PersistentState) FsmState {
+func NewFsmState(persistent *PersistentState) FsmState {
 	return FsmState{
-		PersistentState: persistent,
 		commitIndex:     0,
 		lastApplied:     0,
 		nextIndex:       peerIndex{},
 		matchIndex:      peerIndex{},
+		PersistentState: persistent,
 	}
 }
 

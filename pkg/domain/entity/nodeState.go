@@ -10,15 +10,16 @@ type NodeState struct {
 	leaderId string
 	peers    Peers
 	role     Role
-	FsmState
+	*FsmState
 }
 
-func NewNodeState(id string, peers Peers, persistent PersistentState) NodeState {
+func NewNodeState(id string, peers Peers, persistent *PersistentState) NodeState {
+	fsmState := NewFsmState(persistent)
 	return NodeState{
 		id:       id,
 		peers:    peers,
 		role:     Follower,
-		FsmState: NewFsmState(persistent),
+		FsmState: &fsmState,
 	}
 }
 

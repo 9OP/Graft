@@ -37,7 +37,7 @@ func Start(
 	// Domain
 	persistent, _ := persisterPort.Load()
 	timeout := entity.NewTimeout(electionTimeout, heartbeatTimeout)
-	node := service.NewClusterNode(id, peers, *persistent)
+	node := service.NewClusterNode(id, peers, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(node, timeout, rpcClientPort, persisterPort)

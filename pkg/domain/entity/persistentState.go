@@ -65,7 +65,7 @@ func (p PersistentState) MachineLogs() []LogEntry {
 func (p PersistentState) MachineLogsFrom(index uint32) []LogEntry {
 	lastLogIndex := p.LastLogIndex()
 	logs := make([]LogEntry, 0, lastLogIndex)
-	if index <= lastLogIndex {
+	if index <= lastLogIndex && index >= 1 {
 		copy(logs, p.machineLogs[index-1:])
 	}
 	return logs

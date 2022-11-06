@@ -25,7 +25,7 @@ type ClusterNode struct {
 	*entity.NodeState
 }
 
-func NewClusterNode(id string, peers entity.Peers, persistent entity.PersistentState) *ClusterNode {
+func NewClusterNode(id string, peers entity.Peers, persistent *entity.PersistentState) *ClusterNode {
 	nodeState := entity.NewNodeState(id, peers, persistent)
 	signals := newSignals()
 	return &ClusterNode{
@@ -44,13 +44,16 @@ func (c *ClusterNode) SwapState(state interface{}) {
 
 	switch newState := state.(type) {
 	case *entity.PersistentState:
-		addr = (*unsafe.Pointer)(unsafe.Pointer(&c.NodeState.FsmState.PersistentState))
+		oldState := &c.NodeState.FsmState.PersistentState
+		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = unsafe.Pointer(newState)
 	case *entity.FsmState:
-		addr = (*unsafe.Pointer)(unsafe.Pointer(&c.NodeState.FsmState))
+		oldState := &c.NodeState.FsmState
+		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = unsafe.Pointer(newState)
 	case *entity.NodeState:
-		addr = (*unsafe.Pointer)(unsafe.Pointer(&c.NodeState))
+		oldState := &c.NodeState
+		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = (unsafe.Pointer)(unsafe.Pointer(newState))
 	default:
 		return
@@ -156,7 +159,7 @@ func (c *ClusterNode) UpgradeCandidate() {
 }
 
 func (c *ClusterNode) UpgradeLeader() {
-	if c.Role() == entity.Leader {
+	if c.Role() == entity.Candidate {
 		log.Infof("UPGRADE TO LEADER TERM %d\n", c.CurrentTerm())
 		newState := c.
 			WithInitializeLeader().
@@ -172,7 +175,7 @@ func (c *ClusterNode) UpgradeLeader() {
 
 func (c *ClusterNode) ApplyLogs() {
 	commitIndex := c.CommitIndex()
-	state := c.FsmState
+	state := *c.FsmState
 
 	for lastApplied := state.LastApplied(); commitIndex > lastApplied; {
 		state = state.WithIncrementLastApplied()

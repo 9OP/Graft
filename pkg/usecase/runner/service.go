@@ -23,7 +23,12 @@ type service struct {
 	sync        synchronise
 }
 
-func NewService(clusterNode *domain.ClusterNode, timeout *entity.Timeout, repository repository, persister persister) *service {
+func NewService(
+	clusterNode *domain.ClusterNode,
+	timeout *entity.Timeout,
+	repository repository,
+	persister persister,
+) *service {
 	return &service{
 		repository:  repository,
 		timeout:     timeout,
@@ -159,15 +164,15 @@ func (s *service) sendHeartbeat(l leader) bool {
 				return
 			}
 			if res.Success {
-				leaderLastLogIndex := state.LastLogIndex()
-				peerNextIndex := state.NextIndexForPeer(p.Id)
-				peerMatchIndex := state.MatchIndexForPeer(p.Id)
-				shouldUpdate :=
-					peerNextIndex != leaderLastLogIndex ||
-						peerMatchIndex != leaderLastLogIndex
-				if shouldUpdate {
-					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
-				}
+				// leaderLastLogIndex := state.LastLogIndex()
+				// peerNextIndex := state.NextIndexForPeer(p.Id)
+				// peerMatchIndex := state.MatchIndexForPeer(p.Id)
+				// shouldUpdate :=
+				// 	peerNextIndex != leaderLastLogIndex ||
+				// 		peerMatchIndex != leaderLastLogIndex
+				// if shouldUpdate {
+				// 	l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
+				// }
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}
