@@ -54,24 +54,10 @@ func (c *ClusterNode) SwapState(state interface{}) {
 	case *entity.NodeState:
 		oldState := &c.NodeState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
-		new = (unsafe.Pointer)(unsafe.Pointer(newState))
+		new = (unsafe.Pointer(newState))
 	default:
 		return
 	}
-
-	// var oldState interface{}
-	// switch state.(type) {
-	// case *entity.PersistentState:
-	// 	oldState := &c.NodeState.FsmState.PersistentState
-	// case *entity.FsmState:
-	// 	oldState := &c.NodeState.FsmState
-	// case *entity.NodeState:
-	// 	oldState = &c.NodeState
-	// default:
-	// 	return
-	// }
-	// var addr *unsafe.Pointer = (*unsafe.Pointer)(unsafe.Pointer(oldState))
-	// var new unsafe.Pointer = (unsafe.Pointer)(unsafe.Pointer(newState))
 
 	atomic.SwapPointer(addr, new)
 }
@@ -105,11 +91,19 @@ func (c *ClusterNode) AppendLogs(prevLogIndex uint32, entries ...entity.LogEntry
 }
 
 func (c *ClusterNode) SetClusterLeader(leaderId string) {
+	if c.Leader().Id == leaderId {
+		return
+	}
+	log.Debug("SET CLUSTER LEADER ", leaderId)
 	newState := c.WithClusterLeader(leaderId)
 	c.SwapState(&newState)
 }
 
 func (c *ClusterNode) SetCommitIndex(index uint32) {
+	if c.CommitIndex() == index {
+		return
+	}
+	log.Debug("SET COMMIT INDEX ", index)
 	newState := c.WithCommitIndex(index)
 	c.SwapState(&newState)
 	c.saveState()

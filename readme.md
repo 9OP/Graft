@@ -61,7 +61,6 @@ peers: # Define all cluster peers
 
 ```
 TODO:
-- Refactor FSM state => immutable, return copy, Getters/Withers
 - Client redirection
 - Mutual TLS
 - API (command/query) TLS
@@ -69,6 +68,7 @@ TODO:
 - Document graph of deps / hexagonal architecture
 - Rename the use case and the servers
 - (done) Log level sanitization
+- (done) Refactor FSM state => immutable, return copy, Getters/Withers
 ```
 
 ### Raft implementation status
@@ -78,6 +78,7 @@ DONE:
 - Leader election
 - Log replication
 - Automatic step down leader
+- Pre vote
 
 TODO:
 - Log compaction

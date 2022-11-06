@@ -12,7 +12,7 @@ type signals struct {
 
 func newSignals() signals {
 	sng := signals{
-		SaveState:          make(chan struct{}, 1), // buffered write => write io /3
+		SaveState:          make(chan struct{}, 1),
 		ShiftRole:          make(chan entity.Role, 1),
 		ResetElectionTimer: make(chan struct{}, 1),
 		ResetLeaderTicker:  make(chan struct{}, 1),
