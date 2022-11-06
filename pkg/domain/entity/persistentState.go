@@ -49,7 +49,7 @@ func (p PersistentState) MachineLog(index uint32) (LogEntry, error) {
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex {
 		log := p.machineLogs[index-1]
-		return LogEntry{Term: log.Term, Value: log.Value}, nil
+		return LogEntry{Term: log.Term, Value: log.Value, C: log.C}, nil
 	}
 	return LogEntry{}, errors.New("index out of range")
 }
