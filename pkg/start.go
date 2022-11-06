@@ -23,7 +23,6 @@ func Start(
 	rpcPort string,
 	apiPort string,
 	logLevel string,
-
 ) {
 	configureLogger(logLevel)
 

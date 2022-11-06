@@ -4,6 +4,7 @@ import (
 	"graft/pkg/domain/entity"
 	domain "graft/pkg/domain/service"
 	"sync"
+	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -125,8 +126,7 @@ func (s *service) startElection(c candidate) bool {
 	state := c.GetState()
 	input := c.RequestVoteInput()
 	quorum := c.Quorum()
-	votesGranted := 1 // vote for self
-	var m sync.Mutex
+	var votesGranted uint32 = 1 // vote for self
 
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, &input); err == nil {
@@ -135,15 +135,13 @@ func (s *service) startElection(c candidate) bool {
 				return
 			}
 			if res.VoteGranted {
-				m.Lock()
-				defer m.Unlock()
-				votesGranted += 1
+				atomic.AddUint32(&votesGranted, 1)
 			}
 		}
 	}
 	c.Broadcast(gatherVotesRoutine)
 
-	return votesGranted >= quorum
+	return int(votesGranted) >= quorum
 }
 
 func (s *service) sendHeartbeat(l leader) bool {
@@ -152,8 +150,7 @@ func (s *service) sendHeartbeat(l leader) bool {
 
 	state := l.GetState()
 	quorum := l.Quorum()
-	peersAlive := 1 // self
-	var m sync.Mutex
+	var peersAlive uint32 = 1 // self
 
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.AppendEntriesInput(p.Id)
@@ -176,14 +173,12 @@ func (s *service) sendHeartbeat(l leader) bool {
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}
-			m.Lock()
-			defer m.Unlock()
-			peersAlive += 1
+			atomic.AddUint32(&peersAlive, 1)
 		}
 	}
 	l.Broadcast(synchroniseLogsRoutine)
 
 	newCommitIndex := l.ComputeNewCommitIndex()
 	l.SetCommitIndex(newCommitIndex)
-	return peersAlive >= quorum
+	return int(peersAlive) >= quorum
 }

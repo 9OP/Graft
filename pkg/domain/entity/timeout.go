@@ -3,7 +3,6 @@ package entity
 import (
 	"math/rand"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -12,7 +11,6 @@ type Timeout struct {
 	LeaderTicker     *time.Ticker
 	electionDuration time.Duration
 	heartbeatFreq    time.Duration
-	mu               sync.Mutex
 }
 
 func getRandomTime(t time.Duration) time.Duration {
@@ -30,8 +28,6 @@ func NewTimeout(ed int, hf int) *Timeout {
 }
 
 func (t *Timeout) ResetElectionTimer() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	t.LeaderTicker.Stop()
 	t.ElectionTimer.Stop()
 	rnd := getRandomTime(t.electionDuration)
@@ -39,8 +35,6 @@ func (t *Timeout) ResetElectionTimer() {
 }
 
 func (t *Timeout) ResetLeaderTicker() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	t.ElectionTimer.Stop()
 	t.LeaderTicker.Stop()
 	t.LeaderTicker.Reset(t.heartbeatFreq * time.Millisecond)
