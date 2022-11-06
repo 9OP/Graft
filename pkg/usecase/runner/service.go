@@ -126,8 +126,26 @@ func (s *service) startElection(c candidate) bool {
 	state := c.GetState()
 	input := c.RequestVoteInput()
 	quorum := c.Quorum()
-	var votesGranted uint32 = 1 // vote for self
 
+	var prevotesGranted uint32 = 1 // vote for self
+	preVoteRoutine := func(p entity.Peer) {
+		if res, err := s.repository.PreVote(p, &input); err == nil {
+			if res.Term > state.CurrentTerm() {
+				c.DowngradeFollower(res.Term)
+				return
+			}
+			if res.VoteGranted {
+				atomic.AddUint32(&prevotesGranted, 1)
+			}
+		}
+	}
+	c.Broadcast(preVoteRoutine)
+
+	if int(prevotesGranted) < quorum {
+		return false
+	}
+
+	var votesGranted uint32 = 1 // vote for self
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repository.RequestVote(p, &input); err == nil {
 			if res.Term > state.CurrentTerm() {

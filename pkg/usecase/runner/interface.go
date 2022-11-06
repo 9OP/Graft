@@ -7,6 +7,7 @@ import (
 type repository interface {
 	AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error)
 	RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
+	PreVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
 }
 
 type persister interface {

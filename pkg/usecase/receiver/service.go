@@ -67,3 +67,22 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 
 	return output, nil
 }
+
+func (s *service) PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+	state := s.GetState()
+
+	output := &entity.RequestVoteOutput{
+		Term:        state.CurrentTerm(),
+		VoteGranted: false,
+	}
+
+	if input.Term < state.CurrentTerm() {
+		return output, nil
+	}
+
+	if state.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
+		output.VoteGranted = true
+	}
+
+	return output, nil
+}

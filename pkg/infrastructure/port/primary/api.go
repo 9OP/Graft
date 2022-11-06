@@ -60,3 +60,22 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 		VoteGranted: output.VoteGranted,
 	}, nil
 }
+
+func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+	output, err := p.adapter.PreVote(&entity.RequestVoteInput{
+		CandidateId:  input.CandidateId,
+		Term:         input.Term,
+		LastLogIndex: input.LastLogIndex,
+		LastLogTerm:  input.LastLogTerm,
+	})
+
+	if err != nil {
+		log.Errorf("RPC RESP PRE_VOTE %s\n", input.CandidateId)
+		return nil, err
+	}
+
+	return &p2pRpc.RequestVoteOutput{
+		Term:        output.Term,
+		VoteGranted: output.VoteGranted,
+	}, nil
+}

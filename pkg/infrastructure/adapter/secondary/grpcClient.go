@@ -12,6 +12,7 @@ import (
 type UseCaseGrpcClient interface {
 	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
 	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 }
 
 type grpcClient struct{}
@@ -58,5 +59,16 @@ func (r *grpcClient) RequestVote(target string, input *p2pRpc.RequestVoteInput) 
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
 			return c.RequestVote(ctx, input)
+		})
+}
+
+func (r *grpcClient) PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
+			return c.PreVote(ctx, input)
 		})
 }

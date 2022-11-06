@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type RpcClient interface {
 	AppendEntries(ctx context.Context, in *AppendEntriesInput, opts ...grpc.CallOption) (*AppendEntriesOutput, error)
 	RequestVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
+	PreVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
 }
 
 type rpcClient struct {
@@ -52,12 +53,22 @@ func (c *rpcClient) RequestVote(ctx context.Context, in *RequestVoteInput, opts 
 	return out, nil
 }
 
+func (c *rpcClient) PreVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error) {
+	out := new(RequestVoteOutput)
+	err := c.cc.Invoke(ctx, "/p2pRpc.Rpc/PreVote", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RpcServer is the server API for Rpc service.
 // All implementations must embed UnimplementedRpcServer
 // for forward compatibility
 type RpcServer interface {
 	AppendEntries(context.Context, *AppendEntriesInput) (*AppendEntriesOutput, error)
 	RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
+	PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
 	mustEmbedUnimplementedRpcServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedRpcServer) AppendEntries(context.Context, *AppendEntriesInput
 }
 func (UnimplementedRpcServer) RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
+}
+func (UnimplementedRpcServer) PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PreVote not implemented")
 }
 func (UnimplementedRpcServer) mustEmbedUnimplementedRpcServer() {}
 
@@ -120,6 +134,24 @@ func _Rpc_RequestVote_Handler(srv interface{}, ctx context.Context, dec func(int
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Rpc_PreVote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestVoteInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RpcServer).PreVote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/p2pRpc.Rpc/PreVote",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RpcServer).PreVote(ctx, req.(*RequestVoteInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Rpc_ServiceDesc is the grpc.ServiceDesc for Rpc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var Rpc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RequestVote",
 			Handler:    _Rpc_RequestVote_Handler,
+		},
+		{
+			MethodName: "PreVote",
+			Handler:    _Rpc_PreVote_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

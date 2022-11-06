@@ -57,3 +57,22 @@ func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteI
 		VoteGranted: output.VoteGranted,
 	}, nil
 }
+
+func (p *rpcClientPort) PreVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+	target := peer.TargetP2p()
+	output, err := p.adapter.PreVote(target, &p2pRpc.RequestVoteInput{
+		Term:         input.Term,
+		CandidateId:  input.CandidateId,
+		LastLogIndex: input.LastLogIndex,
+		LastLogTerm:  input.LastLogTerm,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &entity.RequestVoteOutput{
+		Term:        output.Term,
+		VoteGranted: output.VoteGranted,
+	}, nil
+}
