@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/gob"
 	"fmt"
 	"graft/pkg/domain/entity"
@@ -37,9 +38,10 @@ func render(w http.ResponseWriter, data interface{}) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "application/text")
+	res := base64.StdEncoding.EncodeToString(bytes)
 	w.WriteHeader(http.StatusOK)
-	w.Write(bytes)
+	w.Header().Set("Content-Type", "application/text")
+	w.Write([]byte(res))
 }
 
 func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {

@@ -61,10 +61,11 @@ peers: # Define all cluster peers
 
 ```
 TODO:
-- Client redirection
+- Client command (support for leader redirection)
+- FSM execution bindings
+- API error sanitization
 - Mutual TLS
 - API (command/query) TLS
-- FSM execution bindings
 - Document graph of deps / hexagonal architecture
 - Rename the use case and the servers
 - (done) Log level sanitization
