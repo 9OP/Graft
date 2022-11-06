@@ -43,8 +43,11 @@ func (p PersistentState) LastLog() LogEntry {
 }
 
 func (p PersistentState) MachineLog(index uint32) (LogEntry, error) {
+	if index == 0 {
+		return LogEntry{}, nil
+	}
 	lastLogIndex := p.LastLogIndex()
-	if index <= lastLogIndex && index >= 1 {
+	if index <= lastLogIndex {
 		log := p.machineLogs[index-1]
 		return LogEntry{Term: log.Term, Value: log.Value}, nil
 	}
@@ -64,11 +67,20 @@ func (p PersistentState) MachineLogs() []LogEntry {
 
 func (p PersistentState) MachineLogsFrom(index uint32) []LogEntry {
 	lastLogIndex := p.LastLogIndex()
-	logs := make([]LogEntry, 0, lastLogIndex)
-	if index <= lastLogIndex && index >= 1 {
-		copy(logs, p.machineLogs[index-1:])
+
+	if index == 0 {
+		logs := make([]LogEntry, lastLogIndex)
+		copy(logs, p.machineLogs)
+		return logs
 	}
-	return logs
+
+	if index <= lastLogIndex {
+		logs := make([]LogEntry, lastLogIndex-index+1)
+		copy(logs, p.machineLogs[index-1:])
+		return logs
+	}
+
+	return []LogEntry{}
 }
 
 func (p PersistentState) WithCurrentTerm(term uint32) PersistentState {
@@ -85,8 +97,8 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) PersistentState {
 	// Delete logs from given index (include deletion)
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
-		logs := make([]LogEntry, 0, lastLogIndex)
 		// index-1 because index starts at 1
+		logs := make([]LogEntry, index-1)
 		copy(logs, p.machineLogs[:index-1])
 		p.machineLogs = logs
 		return p

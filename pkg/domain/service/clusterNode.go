@@ -59,6 +59,20 @@ func (c *ClusterNode) SwapState(state interface{}) {
 		return
 	}
 
+	// var oldState interface{}
+	// switch state.(type) {
+	// case *entity.PersistentState:
+	// 	oldState := &c.NodeState.FsmState.PersistentState
+	// case *entity.FsmState:
+	// 	oldState := &c.NodeState.FsmState
+	// case *entity.NodeState:
+	// 	oldState = &c.NodeState
+	// default:
+	// 	return
+	// }
+	// var addr *unsafe.Pointer = (*unsafe.Pointer)(unsafe.Pointer(oldState))
+	// var new unsafe.Pointer = (unsafe.Pointer)(unsafe.Pointer(newState))
+
 	atomic.SwapPointer(addr, new)
 }
 

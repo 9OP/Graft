@@ -46,16 +46,15 @@ func (s *service) Run() {
 	case <-s.clusterNode.SaveState:
 		go s.saveState()
 
+	case <-s.clusterNode.Commit:
+		go s.commit()
+
 	case <-s.clusterNode.ResetElectionTimer:
 		go s.timeout.ResetElectionTimer()
 
 	case <-s.clusterNode.ResetLeaderTicker:
 		go s.timeout.ResetLeaderTicker()
-
-	case <-s.clusterNode.Commit:
-		go s.commit()
 	}
-
 }
 
 func (s *service) runAs(role entity.Role) {
@@ -144,6 +143,7 @@ func (s *service) startElection(c candidate) bool {
 	if int(prevotesGranted) < quorum {
 		return false
 	}
+	log.Debug("PRE VOTE SUCCEED, START GATHERING VOTES")
 
 	var votesGranted uint32 = 1 // vote for self
 	gatherVotesRoutine := func(p entity.Peer) {
@@ -174,24 +174,24 @@ func (s *service) sendHeartbeat(l leader) bool {
 		input := l.AppendEntriesInput(p.Id)
 
 		if res, err := s.repository.AppendEntries(p, &input); err == nil {
+			atomic.AddUint32(&peersAlive, 1)
 			if res.Term > state.CurrentTerm() {
 				l.DowngradeFollower(res.Term)
 				return
 			}
 			if res.Success {
-				// leaderLastLogIndex := state.LastLogIndex()
-				// peerNextIndex := state.NextIndexForPeer(p.Id)
-				// peerMatchIndex := state.MatchIndexForPeer(p.Id)
-				// shouldUpdate :=
-				// 	peerNextIndex != leaderLastLogIndex ||
-				// 		peerMatchIndex != leaderLastLogIndex
-				// if shouldUpdate {
-				// 	l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
-				// }
+				leaderLastLogIndex := state.LastLogIndex()
+				peerNextIndex := state.NextIndexForPeer(p.Id)
+				peerMatchIndex := state.MatchIndexForPeer(p.Id)
+				shouldUpdate :=
+					peerNextIndex != leaderLastLogIndex ||
+						peerMatchIndex != leaderLastLogIndex
+				if shouldUpdate {
+					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
+				}
 			} else {
 				l.DecrementNextIndex(p.Id)
 			}
-			atomic.AddUint32(&peersAlive, 1)
 		}
 	}
 	l.Broadcast(synchroniseLogsRoutine)

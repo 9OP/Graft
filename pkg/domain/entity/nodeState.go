@@ -46,7 +46,7 @@ func (n NodeState) Peers() Peers {
 }
 
 func (n NodeState) WithInitializeLeader() NodeState {
-	defaultNextIndex := n.LastLogIndex()
+	defaultNextIndex := n.LastLogIndex() + 1
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
 	for _, peer := range n.peers {
@@ -106,24 +106,34 @@ func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm 
 }
 
 func (n NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
-	// index of log entry immediately preceding new ones
-	prevLogIndex := n.NextIndexForPeer(peerId)
-	prevLog, err := n.MachineLog(prevLogIndex)
-	prevLogTerm := prevLog.Term
+	matchIndex := n.MatchIndexForPeer(peerId)
+	nextIndex := n.NextIndexForPeer(peerId)
 
-	if err != nil {
-		prevLogTerm = n.CurrentTerm()
+	var prevLogTerm uint32
+	var prevLogIndex uint32
+	var entries []LogEntry
+
+	// No need to send new entries when peer
+	// Already has matching log for lastLogIndex
+	if matchIndex == n.LastLogIndex() {
+		entries = []LogEntry{}
+		prevLogIndex = n.LastLogIndex()
+		prevLog, _ := n.MachineLog(prevLogIndex)
+		prevLogTerm = prevLog.Term
+	} else {
+		entries = n.MachineLogsFrom(nextIndex)
+		prevLogIndex = nextIndex - 1
+		prevLog, _ := n.MachineLog(prevLogIndex)
+		prevLogTerm = prevLog.Term
 	}
-
-	newEntries := n.MachineLogsFrom(prevLogIndex + 1)
 
 	return AppendEntriesInput{
 		LeaderId:     n.Id(),
 		Term:         n.CurrentTerm(),
+		LeaderCommit: n.CommitIndex(),
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
-		Entries:      newEntries,
-		LeaderCommit: n.CommitIndex(),
+		Entries:      entries,
 	}
 }
 

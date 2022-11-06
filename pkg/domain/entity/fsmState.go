@@ -40,13 +40,13 @@ func (f FsmState) NextIndexForPeer(peerId string) uint32 {
 	return f.nextIndex[peerId]
 }
 
+func (f FsmState) MatchIndex() peerIndex {
+	return utils.CopyMap(f.matchIndex)
+}
+
 func (f FsmState) MatchIndexForPeer(peerId string) uint32 {
 	// Not safe when peerId not in nextIndex
 	return f.matchIndex[peerId]
-}
-
-func (f FsmState) MatchIndex() peerIndex {
-	return utils.CopyMap(f.matchIndex)
 }
 
 func (f FsmState) WithCommitIndex(index uint32) FsmState {
@@ -79,6 +79,11 @@ func (f FsmState) WithMatchIndex(peerId string, index uint32) FsmState {
 }
 
 func (f FsmState) WithDecrementNextIndex(peerId string) FsmState {
+	// Copy of f.nextIndex is expensive
+	// avoid it when next index is already 0
+	if f.nextIndex[peerId] == 0 {
+		return f
+	}
 	nextIndex := f.NextIndex()
 	nextIndex[peerId] -= 1
 	f.nextIndex = nextIndex

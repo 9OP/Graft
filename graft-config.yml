@@ -1,7 +1,7 @@
 ---
 timeouts:
-  election: 350 # ms
-  heartbeat: 35 # ms
+  election: 2000 # ms
+  heartbeat: 900 # ms
 peers: # Define all cluster peers
   turing: # Peer id
     host: 127.0.0.1
