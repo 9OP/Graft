@@ -122,7 +122,11 @@ func (n NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
 		prevLogTerm = prevLog.Term
 	} else {
 		entries = n.MachineLogsFrom(nextIndex)
-		prevLogIndex = nextIndex - 1
+		if nextIndex == 0 {
+			prevLogIndex = 0
+		} else {
+			prevLogIndex = nextIndex - 1
+		}
 		prevLog, _ := n.MachineLog(prevLogIndex)
 		prevLogTerm = prevLog.Term
 	}

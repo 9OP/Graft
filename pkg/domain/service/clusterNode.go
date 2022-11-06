@@ -182,12 +182,16 @@ func (c *ClusterNode) UpgradeLeader() {
 }
 
 func (c *ClusterNode) ApplyLogs() {
-	commitIndex := c.CommitIndex()
 	state := *c.FsmState
+	commitIndex := c.CommitIndex()
+	lastApplied := c.LastApplied()
 
-	for lastApplied := state.LastApplied(); commitIndex > lastApplied; {
+	for lastApplied < commitIndex {
+		// Increment last applied first
+		// because lastApplied = 0 is not a valid logEntry
+		lastApplied += 1
 		state = state.WithIncrementLastApplied()
-		if log, err := state.MachineLog(lastApplied); err == nil {
+		if log, err := c.MachineLog(lastApplied); err == nil {
 			res := eval(log.Value)
 			if log.C != nil {
 				log.C <- res
@@ -198,7 +202,7 @@ func (c *ClusterNode) ApplyLogs() {
 	c.SwapState(&state)
 }
 
-func (c ClusterNode) ExecuteCommand(command string) chan interface{} {
+func (c *ClusterNode) ExecuteCommand(command string) chan interface{} {
 	result := make(chan interface{}, 1)
 	newEntry := entity.LogEntry{
 		Value: command,
@@ -216,16 +220,7 @@ func (c ClusterNode) ExecuteQuery(query string) chan interface{} {
 }
 
 func eval(entry string) interface{} {
-	// log.Debug("EXECUTE: ", entry)
-	// cmd := exec.Command(entry)
-	// var outb, errb bytes.Buffer
-	// cmd.Stdout = &outb
-	// cmd.Stderr = &errb
-	// err := cmd.Run()
-
-	// if err != nil {
-	// 	return errb.Bytes()
-	// }
-	// return outb.Bytes()
+	log.Debug("EXECUTE: ", entry)
+	// TODO: binding with FSM
 	return entry
 }
