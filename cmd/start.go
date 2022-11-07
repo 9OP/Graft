@@ -11,6 +11,7 @@ import (
 )
 
 type configuration struct {
+	Fsm      string `yaml:"fsm"`
 	Timeouts struct {
 		Election  int `yaml:"election"`
 		Heartbeat int `yaml:"heartbeat"`
@@ -127,6 +128,7 @@ var startCmd = &cobra.Command{
 			config.Timeouts.Heartbeat,
 			config.Peers[id].Ports.P2p,
 			config.Peers[id].Ports.Api,
+			config.Fsm,
 			level.String(),
 		)
 	},

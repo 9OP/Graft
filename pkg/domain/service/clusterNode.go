@@ -2,6 +2,7 @@ package service
 
 import (
 	"graft/pkg/domain/entity"
+	"os/exec"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -21,16 +22,23 @@ Implementation note:
 */
 
 type ClusterNode struct {
-	signals
 	*entity.NodeState
+	signals
+	fsmFormatString string
 }
 
-func NewClusterNode(id string, peers entity.Peers, persistent *entity.PersistentState) *ClusterNode {
+func NewClusterNode(
+	id string,
+	peers entity.Peers,
+	fsmFormatString string,
+	persistent *entity.PersistentState,
+) *ClusterNode {
 	nodeState := entity.NewNodeState(id, peers, persistent)
 	signals := newSignals()
 	return &ClusterNode{
-		signals:   signals,
-		NodeState: &nodeState,
+		NodeState:       &nodeState,
+		signals:         signals,
+		fsmFormatString: fsmFormatString,
 	}
 }
 
@@ -192,7 +200,7 @@ func (c *ClusterNode) ApplyLogs() {
 		lastApplied += 1
 		state = state.WithIncrementLastApplied()
 		if log, err := c.MachineLog(lastApplied); err == nil {
-			res := eval(log.Value)
+			res := c.eval(log.Value)
 			if log.C != nil {
 				log.C <- res
 			}
@@ -215,12 +223,13 @@ func (c *ClusterNode) ExecuteCommand(command string) chan interface{} {
 
 func (c ClusterNode) ExecuteQuery(query string) chan interface{} {
 	result := make(chan interface{}, 1)
-	go (func() { result <- eval(query) })()
+	go (func() { result <- c.eval(query) })()
 	return result
 }
 
-func eval(entry string) interface{} {
-	log.Debug("EXECUTE: ", entry)
-	// TODO: binding with FSM
-	return entry
+func (c ClusterNode) eval(entry string) interface{} {
+	cmd := exec.Command("/bin/sh", c.fsmFormatString, entry, c.Id(), c.LeaderId(), c.Role().String())
+	out, err := cmd.Output()
+	log.Debug("EXECUTE: ", entry, " RES: ", string(out), err)
+	return out
 }

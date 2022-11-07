@@ -22,6 +22,7 @@ func Start(
 	heartbeatTimeout int,
 	rpcPort string,
 	apiPort string,
+	fsmFormatString string,
 	logLevel string,
 ) {
 	configureLogger(logLevel)
@@ -36,7 +37,7 @@ func Start(
 	// Domain
 	persistent, _ := persisterPort.Load()
 	timeout := entity.NewTimeout(electionTimeout, heartbeatTimeout)
-	node := service.NewClusterNode(id, peers, persistent)
+	node := service.NewClusterNode(id, peers, fsmFormatString, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(node, timeout, rpcClientPort, persisterPort)

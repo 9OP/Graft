@@ -19,8 +19,8 @@ type synchronise struct {
 type service struct {
 	clusterNode *domain.ClusterNode
 	timeout     *entity.Timeout
-	persister   persister
-	repository  repository
+	repo        repository
+	persist     persister
 	sync        synchronise
 }
 
@@ -31,10 +31,10 @@ func NewService(
 	persister persister,
 ) *service {
 	return &service{
-		repository:  repository,
+		repo:        repository,
 		timeout:     timeout,
 		clusterNode: clusterNode,
-		persister:   persister,
+		persist:     persister,
 	}
 }
 
@@ -78,7 +78,7 @@ func (s *service) commit() {
 func (s *service) saveState() {
 	s.sync.save.Lock()
 	defer s.sync.save.Unlock()
-	s.persister.Save(
+	s.persist.Save(
 		s.clusterNode.CurrentTerm(),
 		s.clusterNode.VotedFor(),
 		s.clusterNode.MachineLogs(),
@@ -93,12 +93,12 @@ func (s *service) runFollower(f follower) {
 }
 
 func (s *service) runCandidate(c candidate) {
-	if wonElection := s.startElection(c); wonElection {
+	if wonElection := s.runElection(c); wonElection {
 		c.UpgradeLeader()
 	} else {
 		// Restart election until: upgrade / downgrade
 		for range s.timeout.ElectionTimer.C {
-			if wonElection := s.startElection(c); wonElection {
+			if wonElection := s.runElection(c); wonElection {
 				c.UpgradeLeader()
 				return
 			}
@@ -108,16 +108,15 @@ func (s *service) runCandidate(c candidate) {
 
 func (s *service) runLeader(l leader) {
 	for range s.timeout.LeaderTicker.C {
-		if !s.sendHeartbeat(l) {
+		if quorumReached := s.synchronizeLogs(l); !quorumReached {
 			log.Debug("LEADER STEP DOWN")
-			term := l.GetState().CurrentTerm()
-			l.DowngradeFollower(term)
+			l.DowngradeFollower(l.GetState().CurrentTerm())
 			return
 		}
 	}
 }
 
-func (s *service) startElection(c candidate) bool {
+func (s *service) runElection(c candidate) bool {
 	s.sync.election.Lock()
 	defer s.sync.election.Unlock()
 
@@ -128,7 +127,7 @@ func (s *service) startElection(c candidate) bool {
 
 	var prevotesGranted uint32 = 1 // vote for self
 	preVoteRoutine := func(p entity.Peer) {
-		if res, err := s.repository.PreVote(p, &input); err == nil {
+		if res, err := s.repo.PreVote(p, &input); err == nil {
 			if res.Term > state.CurrentTerm() {
 				c.DowngradeFollower(res.Term)
 				return
@@ -143,11 +142,11 @@ func (s *service) startElection(c candidate) bool {
 	if int(prevotesGranted) < quorum {
 		return false
 	}
-	log.Debug("PRE VOTE SUCCEED, START GATHERING VOTES")
+	log.Debug("GATHER VOTES")
 
 	var votesGranted uint32 = 1 // vote for self
 	gatherVotesRoutine := func(p entity.Peer) {
-		if res, err := s.repository.RequestVote(p, &input); err == nil {
+		if res, err := s.repo.RequestVote(p, &input); err == nil {
 			if res.Term > state.CurrentTerm() {
 				c.DowngradeFollower(res.Term)
 				return
@@ -162,19 +161,20 @@ func (s *service) startElection(c candidate) bool {
 	return int(votesGranted) >= quorum
 }
 
-func (s *service) sendHeartbeat(l leader) bool {
+func (s *service) synchronizeLogs(l leader) bool {
 	s.sync.heartbeat.Lock()
 	defer s.sync.heartbeat.Unlock()
 
 	state := l.GetState()
 	quorum := l.Quorum()
-	var peersAlive uint32 = 1 // self
 
+	var peersAlive uint32 = 1 // self
 	synchroniseLogsRoutine := func(p entity.Peer) {
 		input := l.AppendEntriesInput(p.Id)
 
-		if res, err := s.repository.AppendEntries(p, &input); err == nil {
+		if res, err := s.repo.AppendEntries(p, &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)
+
 			if res.Term > state.CurrentTerm() {
 				l.DowngradeFollower(res.Term)
 				return

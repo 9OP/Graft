@@ -57,6 +57,24 @@ peers: # Define all cluster peers
       api: 8082
 ```
 
+Graft provides an HTTP API for interrating with the distributed cluster. There are 2 endpoints:
+- Command endpoint
+- Query endpoint
+
+**Command** endpoint is reserved for writes and operations that triggers state change within the FSM. Commands always execute on the cluster leader.
+Previous to executing the command, the leader gather a qorum of up-to-date followers. If the leader is not able to gather such a qorum, then he steps down and the command fails. One cannot force the execution of a command.
+
+
+**Query** endpoint is reserved for reads and operations that do not trigger state change within the FSM. Query execute on the cluster leader by default.
+This behaviour can be overrided. There are 3 types of consistency for queries:
+- default consistency: query will be run on the leader. There is potential stale read as the leader might not have qorum anymore at query execution time.
+- strong consistency: query will be run on the leader after an additionnal round trip to ensure quorum. There is no stale read.
+- weak consistency: query will be run on a follower after it has reached the leader. There is higher potential for stale read as the leader could commit new entry during the query execution.
+
+The consistency trade-offs for query is:
+- Faster and parrallel reads on the followers but with potential stale
+- Slower but safer reads on the leader without potential stale
+
 ### Graft refactoring status
 
 ```

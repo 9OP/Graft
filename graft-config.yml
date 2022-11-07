@@ -1,4 +1,5 @@
 ---
+fsm: ./script.sh
 timeouts:
   election: 300 # ms
   heartbeat: 15 # ms
