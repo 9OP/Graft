@@ -1,9 +1,14 @@
 package entity
 
+type EvalResult struct {
+	Out []byte
+	Err error
+}
+
 type LogEntry struct {
-	Term  uint32           `json:"term"`
-	Value string           `json:"value"`
-	C     chan interface{} `json:"-"`
+	Term  uint32          `json:"term"`
+	Value string          `json:"value"`
+	C     chan EvalResult `json:"-"`
 }
 
 type AppendEntriesInput struct {

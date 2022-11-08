@@ -2,7 +2,6 @@ package service
 
 import (
 	"graft/pkg/domain/entity"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -24,22 +23,27 @@ Implementation note:
 type ClusterNode struct {
 	*entity.NodeState
 	signals
-	fsmFormatString string
+	fsmInit string
+	fsmEval string
 }
 
 func NewClusterNode(
 	id string,
 	peers entity.Peers,
-	fsmFormatString string,
+	fsmInit string,
+	fsmEval string,
 	persistent *entity.PersistentState,
 ) *ClusterNode {
 	nodeState := entity.NewNodeState(id, peers, persistent)
 	signals := newSignals()
-	return &ClusterNode{
-		NodeState:       &nodeState,
-		signals:         signals,
-		fsmFormatString: fsmFormatString,
+	c := &ClusterNode{
+		NodeState: &nodeState,
+		signals:   signals,
+		fsmInit:   fsmInit,
+		fsmEval:   fsmEval,
 	}
+	defer c.init()
+	return c
 }
 
 func (c *ClusterNode) GetState() entity.NodeState {
@@ -200,7 +204,7 @@ func (c *ClusterNode) ApplyLogs() {
 		lastApplied += 1
 		state = state.WithIncrementLastApplied()
 		if log, err := c.MachineLog(lastApplied); err == nil {
-			res := c.eval(log.Value)
+			res := c.eval(log.Value, "COMMAND")
 			if log.C != nil {
 				log.C <- res
 			}
@@ -210,26 +214,19 @@ func (c *ClusterNode) ApplyLogs() {
 	c.SwapState(&state)
 }
 
-func (c *ClusterNode) ExecuteCommand(command string) chan interface{} {
-	result := make(chan interface{}, 1)
+func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
+	result := make(chan entity.EvalResult, 1)
 	newEntry := entity.LogEntry{
 		Value: command,
 		Term:  c.CurrentTerm(),
 		C:     result,
 	}
-	c.AppendLogs(c.LastLogIndex(), newEntry)
+	go c.AppendLogs(c.LastLogIndex(), newEntry)
 	return result
 }
 
-func (c ClusterNode) ExecuteQuery(query string) chan interface{} {
-	result := make(chan interface{}, 1)
-	go (func() { result <- c.eval(query) })()
+func (c ClusterNode) ExecuteQuery(query string) chan entity.EvalResult {
+	result := make(chan entity.EvalResult, 1)
+	go (func() { result <- c.eval(query, "QUERY") })()
 	return result
-}
-
-func (c ClusterNode) eval(entry string) interface{} {
-	cmd := exec.Command("/bin/sh", c.fsmFormatString, entry, c.Id(), c.LeaderId(), c.Role().String())
-	out, err := cmd.Output()
-	log.Debug("EXECUTE: ", entry, " RES: ", string(out), err)
-	return out
 }
