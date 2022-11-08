@@ -22,7 +22,7 @@ func (c ClusterNode) eval(entry string, entryType string) entity.EvalResult {
 	)
 	out, err := cmd.Output()
 	// res :=
-	log.Debugf("EVAL:\n\t%s\n\t%S\n\t%s", entry, string(out), err)
+	log.Debugf("EVAL:\n\t%s\n\t%s\n\t%s", entry, string(out), err)
 	return entity.EvalResult{
 		Out: out,
 		Err: err,

@@ -1,5 +1,5 @@
 ---
-fsm: 
+fsm:
   eval: ./fsm_eval.sh
   init: ./fsm_init.sh
 timeouts:

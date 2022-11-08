@@ -1,0 +1,32 @@
+repos:
+  # Prevent commit on master
+  - repo: local
+    hooks:
+      - id: no-commit-master
+        name: no-commit-master
+        entry: bash -c 'if test $(git rev-parse --abbrev-ref HEAD) = "master"; then  echo "Cannot commit on master"; exit 1; fi'
+        language: system
+
+      - id: go-fmt
+        name: go-fmt
+        entry: .hooks/go-fmt.sh
+        types: [go]
+        language: system
+
+      - id: go-vet
+        name: go-vet
+        entry: .hooks/go-vet.sh
+        types: [go]
+        language: system
+
+  # Generic pre-commit
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.3.0
+    hooks:
+      - id: fix-byte-order-marker
+      - id: check-case-conflict
+      - id: check-json
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
