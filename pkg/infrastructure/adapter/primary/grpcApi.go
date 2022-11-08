@@ -2,6 +2,7 @@ package primaryAdapter
 
 import (
 	"context"
+
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 )
 

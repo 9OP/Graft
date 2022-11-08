@@ -1,8 +1,9 @@
 package cluster
 
 import (
-	"graft/pkg/domain/entity"
 	"time"
+
+	"graft/pkg/domain/entity"
 )
 
 type service struct {

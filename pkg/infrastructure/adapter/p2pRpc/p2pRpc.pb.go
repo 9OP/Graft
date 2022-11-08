@@ -7,10 +7,11 @@
 package p2pRpc
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -412,14 +413,17 @@ func file_p2pRpc_proto_rawDescGZIP() []byte {
 	return file_p2pRpc_proto_rawDescData
 }
 
-var file_p2pRpc_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_p2pRpc_proto_goTypes = []interface{}{
-	(*LogEntry)(nil),            // 0: p2pRpc.logEntry
-	(*AppendEntriesInput)(nil),  // 1: p2pRpc.AppendEntriesInput
-	(*AppendEntriesOutput)(nil), // 2: p2pRpc.AppendEntriesOutput
-	(*RequestVoteInput)(nil),    // 3: p2pRpc.RequestVoteInput
-	(*RequestVoteOutput)(nil),   // 4: p2pRpc.RequestVoteOutput
-}
+var (
+	file_p2pRpc_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+	file_p2pRpc_proto_goTypes  = []interface{}{
+		(*LogEntry)(nil),            // 0: p2pRpc.logEntry
+		(*AppendEntriesInput)(nil),  // 1: p2pRpc.AppendEntriesInput
+		(*AppendEntriesOutput)(nil), // 2: p2pRpc.AppendEntriesOutput
+		(*RequestVoteInput)(nil),    // 3: p2pRpc.RequestVoteInput
+		(*RequestVoteOutput)(nil),   // 4: p2pRpc.RequestVoteOutput
+	}
+)
+
 var file_p2pRpc_proto_depIdxs = []int32{
 	0, // 0: p2pRpc.AppendEntriesInput.entries:type_name -> p2pRpc.logEntry
 	1, // 1: p2pRpc.Rpc.AppendEntries:input_type -> p2pRpc.AppendEntriesInput

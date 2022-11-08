@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+
 	"graft/pkg"
 	"graft/pkg/domain/entity"
-	"os"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -56,6 +57,7 @@ const (
 func (l *logLevel) String() string {
 	return string(*l)
 }
+
 func (l *logLevel) Set(v string) error {
 	switch v {
 	case "DEBUG", "INFO", "ERROR":
@@ -65,6 +67,7 @@ func (l *logLevel) Set(v string) error {
 		return fmt.Errorf("must be one of 'DEBUG', 'INFO', or 'ERROR'")
 	}
 }
+
 func (l *logLevel) Type() string {
 	return "logLevel"
 }

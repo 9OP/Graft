@@ -2,8 +2,9 @@ package server
 
 import (
 	"fmt"
-	"graft/pkg/infrastructure/adapter/p2pRpc"
 	"net"
+
+	"graft/pkg/infrastructure/adapter/p2pRpc"
 
 	log "github.com/sirupsen/logrus"
 

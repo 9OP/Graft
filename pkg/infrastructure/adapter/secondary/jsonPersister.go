@@ -2,8 +2,9 @@ package secondaryAdapter
 
 import (
 	"encoding/json"
-	"graft/pkg/domain/entity"
 	"os"
+
+	"graft/pkg/domain/entity"
 )
 
 type UseCaseJsonPersisterAdapter interface {
@@ -43,5 +44,5 @@ func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(location, data, 0644)
+	return os.WriteFile(location, data, 0o644)
 }

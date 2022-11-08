@@ -1,10 +1,11 @@
 package service
 
 import (
-	"graft/pkg/domain/entity"
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"graft/pkg/domain/entity"
 
 	log "github.com/sirupsen/logrus"
 )

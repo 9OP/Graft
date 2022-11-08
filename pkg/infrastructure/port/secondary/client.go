@@ -28,7 +28,6 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 		Entries:      entries,
 		LeaderCommit: input.LeaderCommit,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,6 @@ func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteI
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
-
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +64,6 @@ func (p *rpcClientPort) PreVote(peer entity.Peer, input *entity.RequestVoteInput
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
-
 	if err != nil {
 		return nil, err
 	}

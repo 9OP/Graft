@@ -26,15 +26,19 @@ func newSignals() signals {
 func (s *signals) saveState() {
 	s.SaveState <- struct{}{}
 }
+
 func (s *signals) shiftRole(role entity.Role) {
 	s.ShiftRole <- role
 }
+
 func (s *signals) resetTimeout() {
 	s.ResetElectionTimer <- struct{}{}
 }
+
 func (s *signals) resetLeaderTicker() {
 	s.ResetLeaderTicker <- struct{}{}
 }
+
 func (s *signals) commit() {
 	s.Commit <- struct{}{}
 }

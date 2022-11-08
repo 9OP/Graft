@@ -5,10 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
-	"graft/pkg/domain/entity"
-	"graft/pkg/usecase/cluster"
 	"net/http"
 	"time"
+
+	"graft/pkg/domain/entity"
+	"graft/pkg/usecase/cluster"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -29,7 +30,6 @@ func getBytes(key interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
-
 }
 
 func render(w http.ResponseWriter, data interface{}) {
@@ -52,7 +52,6 @@ func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data, err := s.repository.ExecuteCommand(command)
-
 	if err != nil {
 		switch e := err.(type) {
 		case *entity.NotLeaderError:
@@ -78,7 +77,6 @@ func (s *clusterServer) executeQuery(w http.ResponseWriter, r *http.Request) {
 	weakConsistency := r.URL.Query().Has("weak")
 
 	data, err := s.repository.ExecuteQuery(query, weakConsistency)
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -105,6 +103,7 @@ func (s *clusterServer) index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
+
 func (s *clusterServer) Start(port string) {
 	mux := http.NewServeMux()
 

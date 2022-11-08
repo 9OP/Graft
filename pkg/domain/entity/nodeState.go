@@ -1,8 +1,9 @@
 package entity
 
 import (
-	utils "graft/pkg/domain"
 	"math"
+
+	utils "graft/pkg/domain"
 )
 
 type NodeState struct {
@@ -62,6 +63,7 @@ func (n NodeState) WithCurrentTerm(term uint32) NodeState {
 	n.FsmState.PersistentState.currentTerm = term
 	return n
 }
+
 func (n NodeState) WithVotedFor(vote string) NodeState {
 	n.FsmState.PersistentState.votedFor = vote
 	return n

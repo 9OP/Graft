@@ -8,6 +8,7 @@ package p2pRpc
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -73,15 +74,16 @@ type RpcServer interface {
 }
 
 // UnimplementedRpcServer must be embedded to have forward compatible implementations.
-type UnimplementedRpcServer struct {
-}
+type UnimplementedRpcServer struct{}
 
 func (UnimplementedRpcServer) AppendEntries(context.Context, *AppendEntriesInput) (*AppendEntriesOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AppendEntries not implemented")
 }
+
 func (UnimplementedRpcServer) RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
 }
+
 func (UnimplementedRpcServer) PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PreVote not implemented")
 }

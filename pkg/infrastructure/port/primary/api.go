@@ -2,6 +2,7 @@ package primaryPort
 
 import (
 	"context"
+
 	"graft/pkg/domain/entity"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	"graft/pkg/usecase/receiver"
@@ -30,7 +31,6 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 		Entries:      entries,
 		LeaderCommit: input.LeaderCommit,
 	})
-
 	if err != nil {
 		log.Errorf("RPC RESP APPEND_ENTRIES %s\n", input.LeaderId)
 		return nil, err
@@ -49,7 +49,6 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
-
 	if err != nil {
 		log.Errorf("RPC RESP REQUEST_VOTE %s\n", input.CandidateId)
 		return nil, err
@@ -68,7 +67,6 @@ func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteIn
 		LastLogIndex: input.LastLogIndex,
 		LastLogTerm:  input.LastLogTerm,
 	})
-
 	if err != nil {
 		log.Errorf("RPC RESP PRE_VOTE %s\n", input.CandidateId)
 		return nil, err

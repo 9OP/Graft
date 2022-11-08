@@ -19,6 +19,7 @@ type TimeoutError struct {
 func NewNotLeaderError(leader Peer) *NotLeaderError {
 	return &NotLeaderError{leader, &domainError{"not leader"}}
 }
+
 func NewTimeoutError() *TimeoutError {
 	return &TimeoutError{&domainError{"timeout"}}
 }

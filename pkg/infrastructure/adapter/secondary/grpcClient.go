@@ -2,8 +2,9 @@ package secondaryAdapter
 
 import (
 	"context"
-	"graft/pkg/infrastructure/adapter/p2pRpc"
 	"time"
+
+	"graft/pkg/infrastructure/adapter/p2pRpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

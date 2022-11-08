@@ -2,8 +2,9 @@ package service
 
 import (
 	"fmt"
-	"graft/pkg/domain/entity"
 	"os/exec"
+
+	"graft/pkg/domain/entity"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -28,6 +29,7 @@ func (c ClusterNode) eval(entry string, entryType string) entity.EvalResult {
 		Err: err,
 	}
 }
+
 func (c ClusterNode) init() {
 	//
 }

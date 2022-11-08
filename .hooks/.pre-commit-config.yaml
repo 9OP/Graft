@@ -1,5 +1,4 @@
 repos:
-  # Prevent commit on master
   - repo: local
     hooks:
       - id: no-commit-master
@@ -13,9 +12,47 @@ repos:
         types: [go]
         language: system
 
+      - id: go-fumpt
+        name: go-fumpt
+        entry: .hooks/go-fumpt.sh
+        types: [go]
+        language: system
+
+      - id: go-critic
+        name: go-critic
+        entry: .hooks/go-critic.sh
+        types: [go]
+        language: system
+
       - id: go-vet
         name: go-vet
         entry: .hooks/go-vet.sh
+        types: [go]
+        language: system
+
+      - id: go-cyclo
+        name: go-cyclo
+        entry: .hooks/go-cyclo.sh
+        args: [-over=20]
+        types: [go]
+        language: system
+
+      - id: go-mod-tidy
+        name: go-mod-tidy
+        entry: .hooks/go-mod-tidy.sh
+        args: [-over=20]
+        types: [go]
+        language: system
+
+      - id: go-sec
+        name: go-sec
+        entry: .hooks/go-sec.sh
+        types: [go]
+        language: system
+
+      - id: go-structslop
+        name: go-structslop
+        entry: .hooks/go-structslop.sh
         types: [go]
         language: system
 

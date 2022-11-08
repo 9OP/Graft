@@ -1,10 +1,11 @@
 package runner
 
 import (
-	"graft/pkg/domain/entity"
-	domain "graft/pkg/domain/service"
 	"sync"
 	"sync/atomic"
+
+	"graft/pkg/domain/entity"
+	domain "graft/pkg/domain/service"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -66,7 +67,6 @@ func (s *service) runAs(role entity.Role) {
 	case entity.Leader:
 		s.runLeader(s.clusterNode)
 	}
-
 }
 
 func (s *service) commit() {
@@ -183,9 +183,8 @@ func (s *service) synchronizeLogs(l leader) bool {
 				leaderLastLogIndex := state.LastLogIndex()
 				peerNextIndex := state.NextIndexForPeer(p.Id)
 				peerMatchIndex := state.MatchIndexForPeer(p.Id)
-				shouldUpdate :=
-					peerNextIndex != leaderLastLogIndex ||
-						peerMatchIndex != leaderLastLogIndex
+				shouldUpdate := peerNextIndex != leaderLastLogIndex ||
+					peerMatchIndex != leaderLastLogIndex
 				if shouldUpdate {
 					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
 				}
