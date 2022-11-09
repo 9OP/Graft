@@ -124,7 +124,7 @@ var startCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		persistentLocation := fmt.Sprintf("persistent_%s.json", id)
+		persistentLocation := fmt.Sprintf("conf/persistent_%s.json", id)
 
 		pkg.Start(
 			id,
@@ -143,6 +143,6 @@ var startCmd = &cobra.Command{
 
 func init() {
 	startCmd.Flags().VarP(&level, "log-level", "l", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
-	startCmd.Flags().StringVarP(&configPath, "config", "c", "graft-config.yml", "Configuration file path")
+	startCmd.Flags().StringVarP(&configPath, "config", "c", "conf/graft-config.yml", "Configuration file path")
 	rootCmd.AddCommand(startCmd)
 }

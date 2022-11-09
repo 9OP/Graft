@@ -78,6 +78,15 @@ The consistency trade-offs for query is:
 - Faster and parrallel reads on the followers but with potential stale
 - Slower but safer reads on the leader without potential stale
 
+### API
+```
+GET  /query?consistency={default|strong|weak}
+POST /command
+
+Body contains b64 encoded binary data to be send to the FSM
+```
+
+
 ### Graft refactoring status
 
 ```

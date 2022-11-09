@@ -94,7 +94,7 @@ func (p PersistentState) WithVotedFor(vote string) PersistentState {
 	return p
 }
 
-func (p PersistentState) WithDeleteLogsFrom(index uint32) PersistentState {
+func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool) {
 	// Delete logs from given index (include deletion)
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
@@ -102,15 +102,16 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) PersistentState {
 		logs := make([]LogEntry, index-1)
 		copy(logs, p.machineLogs[:index-1])
 		p.machineLogs = logs
-		return p
+		return p, true
 	}
-	return p
+	return p, false
 }
 
-func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) PersistentState {
+func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) (PersistentState, bool) {
 	// Should append only new entries
+	changed := false
 	if len(entries) == 0 {
-		return p
+		return p, changed
 	}
 
 	/*
@@ -136,16 +137,21 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry
 	numEntries := uint32(len(entries))
 	lastLogIndex := p.LastLogIndex()
 
-	// Copy existings logs
-	logs := make([]LogEntry, lastLogIndex, numEntries+lastLogIndex)
-	copy(logs, p.machineLogs)
-
 	// Find index of newLogs
 	newLogsFromIndex := utils.Min(lastLogIndex-prevLogIndex, numEntries)
+	changed = len(entries[newLogsFromIndex:]) > 0
+
+	if !changed {
+		return p, changed
+	}
+
+	// Copy existings logs
+	logs := make([]LogEntry, lastLogIndex, numEntries+lastLogIndex)
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
+	copy(logs, p.machineLogs)
 
 	p.machineLogs = logs
-	return p
+	return p, changed
 }

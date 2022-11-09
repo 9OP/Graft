@@ -181,11 +181,7 @@ func (s *service) synchronizeLogs(l leader) bool {
 			}
 			if res.Success {
 				leaderLastLogIndex := state.LastLogIndex()
-				peerNextIndex := state.NextIndexForPeer(p.Id)
-				peerMatchIndex := state.MatchIndexForPeer(p.Id)
-				shouldUpdate := peerNextIndex != leaderLastLogIndex ||
-					peerMatchIndex != leaderLastLogIndex
-				if shouldUpdate {
+				if state.ShouldUpdatePeerIndex(p.Id) {
 					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
 				}
 			} else {

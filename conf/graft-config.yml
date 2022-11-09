@@ -1,7 +1,7 @@
 ---
 fsm:
-  eval: ./fsm_eval.sh
-  init: ./fsm_init.sh
+  eval: conf/fsm_eval.sh
+  init: conf/fsm_init.sh
 timeouts:
   election: 300 # ms
   heartbeat: 15 # ms
