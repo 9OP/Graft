@@ -5,29 +5,24 @@ import (
 
 	"graft/pkg/domain/entity"
 	domain "graft/pkg/domain/service"
-
-	log "github.com/sirupsen/logrus"
 )
 
+type binaryLock struct {
+	c uint32
+}
+
+func (l *binaryLock) Lock() bool {
+	return atomic.CompareAndSwapUint32(&l.c, 0, 1)
+}
+
+func (l *binaryLock) Unlock() {
+	atomic.StoreUint32(&l.c, 0)
+}
+
 type synchronise struct {
-	saving     uint32
-	committing uint32
-}
-
-func (s *synchronise) CanSave() bool {
-	return atomic.CompareAndSwapUint32(&s.saving, 0, 1)
-}
-
-func (s *synchronise) CanCommit() bool {
-	return atomic.CompareAndSwapUint32(&s.committing, 0, 1)
-}
-
-func (s *synchronise) ReleaseSave() {
-	atomic.StoreUint32(&s.saving, 0)
-}
-
-func (s *synchronise) ReleaseCommit() {
-	atomic.StoreUint32(&s.committing, 0)
+	running    binaryLock
+	saving     binaryLock
+	committing binaryLock
 }
 
 type service struct {
@@ -65,14 +60,46 @@ func (s *service) Dispatch() {
 	}
 }
 
+func (s *service) followerFlow() {
+	// Prevent multiple flow from running together
+	if s.sync.running.Lock() {
+		defer s.sync.running.Unlock()
+
+		s.clusterNode.UpgradeCandidate()
+		if wonElection := s.runElection(); wonElection {
+			s.clusterNode.UpgradeLeader()
+		}
+	}
+}
+
+func (s *service) candidateFlow() {
+	// Prevent multiple flow from running together
+	if s.sync.running.Lock() {
+		defer s.sync.running.Unlock()
+
+		if wonElection := s.runElection(); wonElection {
+			s.clusterNode.UpgradeLeader()
+		}
+	}
+}
+
+func (s *service) leaderFlow() {
+	// Prevent multiple flow from running together
+	if s.sync.running.Lock() {
+		defer s.sync.running.Unlock()
+
+		if quorumReached := s.synchronizeLogs(); !quorumReached {
+			// stepdown
+			s.clusterNode.DowngradeFollower(s.clusterNode.CurrentTerm())
+		}
+	}
+}
+
 func (s *service) runFollower() {
 	for s.clusterNode.Role() == entity.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
-			s.clusterNode.UpgradeCandidate()
-			if wonElection := s.runElection(); wonElection {
-				s.clusterNode.UpgradeLeader()
-			}
+			go s.followerFlow()
 
 		case <-s.clusterNode.ResetElectionTimer:
 			go s.timeout.ResetElectionTimer()
@@ -90,9 +117,7 @@ func (s *service) runCandidate() {
 	for s.clusterNode.Role() == entity.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
-			if wonElection := s.runElection(); wonElection {
-				s.clusterNode.UpgradeLeader()
-			}
+			go s.candidateFlow()
 
 		case <-s.clusterNode.ResetElectionTimer:
 			go s.timeout.ResetElectionTimer()
@@ -110,10 +135,7 @@ func (s *service) runLeader() {
 	for s.clusterNode.Role() == entity.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
-			if quorumReached := s.synchronizeLogs(); !quorumReached {
-				log.Debug("LEADER STEP DOWN")
-				s.clusterNode.DowngradeFollower(s.clusterNode.CurrentTerm())
-			}
+			go s.leaderFlow()
 
 		case <-s.clusterNode.Commit:
 			go s.commit()
@@ -131,15 +153,17 @@ func (s *service) runLeader() {
 }
 
 func (s *service) commit() {
-	if s.sync.CanCommit() {
-		defer s.sync.ReleaseCommit()
+	if s.sync.committing.Lock() {
+		defer s.sync.committing.Unlock()
+
 		s.clusterNode.ApplyLogs()
 	}
 }
 
 func (s *service) saveState() {
-	if s.sync.CanSave() {
-		defer s.sync.ReleaseSave()
+	if s.sync.saving.Lock() {
+		defer s.sync.saving.Unlock()
+
 		s.persist.Save(
 			s.clusterNode.CurrentTerm(),
 			s.clusterNode.VotedFor(),
@@ -234,7 +258,6 @@ func (s *service) synchronizeLogs() bool {
 	if isLeader {
 		newCommitIndex := s.clusterNode.ComputeNewCommitIndex()
 		s.clusterNode.SetCommitIndex(newCommitIndex)
-		return true
 	}
 
 	return quorumReached
