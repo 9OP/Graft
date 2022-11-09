@@ -52,6 +52,7 @@ func (c ClusterNode) GetState() entity.NodeState {
 }
 
 func (c *ClusterNode) swapState(state interface{}) {
+	defer c.saveState()
 	var addr *unsafe.Pointer
 	var new unsafe.Pointer
 
@@ -60,7 +61,6 @@ func (c *ClusterNode) swapState(state interface{}) {
 		oldState := &c.NodeState.FsmState.PersistentState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = unsafe.Pointer(newState)
-		defer c.saveState()
 	case *entity.FsmState:
 		oldState := &c.NodeState.FsmState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
@@ -149,7 +149,7 @@ func (c *ClusterNode) DowngradeFollower(term uint32) {
 		WithCurrentTerm(term).
 		WithVotedFor("")
 	c.swapState(&newState)
-	c.shiftRole(newRole)
+	c.shiftRole()
 	c.resetTimeout()
 }
 
@@ -173,7 +173,7 @@ func (c *ClusterNode) UpgradeCandidate() {
 		newRole := entity.Candidate
 		newState := c.WithRole(newRole)
 		c.swapState(&newState)
-		c.shiftRole(newRole)
+		c.shiftRole()
 		c.resetTimeout()
 		return
 	}
@@ -189,7 +189,7 @@ func (c *ClusterNode) UpgradeLeader() {
 			WithClusterLeader(c.Id()).
 			WithRole(newRole)
 		c.swapState(&newState)
-		c.shiftRole(newRole)
+		c.shiftRole()
 		c.resetLeaderTicker()
 		return
 	}

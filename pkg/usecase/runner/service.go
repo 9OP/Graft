@@ -10,13 +10,8 @@ import (
 )
 
 type synchronise struct {
-	running    uint32
 	saving     uint32
 	committing uint32
-}
-
-func (s *synchronise) CanRun() bool {
-	return atomic.CompareAndSwapUint32(&s.running, 0, 1)
 }
 
 func (s *synchronise) CanSave() bool {
@@ -25,10 +20,6 @@ func (s *synchronise) CanSave() bool {
 
 func (s *synchronise) CanCommit() bool {
 	return atomic.CompareAndSwapUint32(&s.committing, 0, 1)
-}
-
-func (s *synchronise) ReleaseRun() {
-	atomic.StoreUint32(&s.running, 0)
 }
 
 func (s *synchronise) ReleaseSave() {
@@ -62,121 +53,120 @@ func NewService(
 }
 
 func (s *service) Dispatch() {
-	select {
-	case role := <-s.clusterNode.ShiftRole:
-		if s.sync.CanRun() {
-			go s.runAs(role)
+	for {
+		switch s.clusterNode.Role() {
+		case entity.Follower:
+			s.runFollower()
+		case entity.Candidate:
+			s.runCandidate()
+		case entity.Leader:
+			s.runLeader()
 		}
-
-	case <-s.clusterNode.SaveState:
-		if s.sync.CanSave() {
-			go s.saveState()
-		}
-
-	case <-s.clusterNode.Commit:
-		if s.sync.CanCommit() {
-			go s.commit()
-		}
-
-	case <-s.clusterNode.ResetElectionTimer:
-		go s.timeout.ResetElectionTimer()
-
-	case <-s.clusterNode.ResetLeaderTicker:
-		go s.timeout.ResetLeaderTicker()
 	}
 }
 
-func (s *service) runAs(role entity.Role) {
-	defer s.sync.ReleaseRun()
+func (s *service) runFollower() {
+	for s.clusterNode.Role() == entity.Follower {
+		select {
+		case <-s.timeout.ElectionTimer.C:
+			s.clusterNode.UpgradeCandidate()
+			if wonElection := s.runElection(); wonElection {
+				s.clusterNode.UpgradeLeader()
+			}
 
-	switch role {
-	case entity.Follower:
-		s.runFollower(s.clusterNode)
-	case entity.Candidate:
-		s.runCandidate(s.clusterNode)
-	case entity.Leader:
-		s.runLeader(s.clusterNode)
+		case <-s.clusterNode.ResetElectionTimer:
+			go s.timeout.ResetElectionTimer()
+
+		case <-s.clusterNode.SaveState:
+			go s.saveState()
+
+		case <-s.clusterNode.ShiftRole:
+			return
+		}
+	}
+}
+
+func (s *service) runCandidate() {
+	for s.clusterNode.Role() == entity.Candidate {
+		select {
+		case <-s.timeout.ElectionTimer.C:
+			if wonElection := s.runElection(); wonElection {
+				s.clusterNode.UpgradeLeader()
+			}
+
+		case <-s.clusterNode.ResetElectionTimer:
+			go s.timeout.ResetElectionTimer()
+
+		case <-s.clusterNode.SaveState:
+			go s.saveState()
+
+		case <-s.clusterNode.ShiftRole:
+			return
+		}
+	}
+}
+
+func (s *service) runLeader() {
+	for s.clusterNode.Role() == entity.Leader {
+		select {
+		case <-s.timeout.LeaderTicker.C:
+			if quorumReached := s.synchronizeLogs(); !quorumReached {
+				log.Debug("LEADER STEP DOWN")
+				s.clusterNode.DowngradeFollower(s.clusterNode.CurrentTerm())
+			}
+
+		case <-s.clusterNode.Commit:
+			go s.commit()
+
+		case <-s.clusterNode.SaveState:
+			go s.saveState()
+
+		case <-s.clusterNode.ResetLeaderTicker:
+			go s.timeout.ResetLeaderTicker()
+
+		case <-s.clusterNode.ShiftRole:
+			return
+		}
 	}
 }
 
 func (s *service) commit() {
-	defer s.sync.ReleaseCommit()
-	s.clusterNode.ApplyLogs()
+	if s.sync.CanCommit() {
+		defer s.sync.ReleaseCommit()
+		s.clusterNode.ApplyLogs()
+	}
 }
 
 func (s *service) saveState() {
-	defer s.sync.ReleaseSave()
-	s.persist.Save(
-		s.clusterNode.CurrentTerm(),
-		s.clusterNode.VotedFor(),
-		s.clusterNode.MachineLogs(),
-	)
-}
-
-func (s *service) runFollower(f follower) {
-	for {
-		select {
-		case <-s.timeout.ElectionTimer.C:
-			f.UpgradeCandidate()
-			return
-		case <-s.clusterNode.ShiftRole:
-			// quit
-			log.Debug("QUIT runFollower")
-			return
-		}
+	if s.sync.CanSave() {
+		defer s.sync.ReleaseSave()
+		s.persist.Save(
+			s.clusterNode.CurrentTerm(),
+			s.clusterNode.VotedFor(),
+			s.clusterNode.MachineLogs(),
+		)
 	}
 }
 
-func (s *service) runCandidate(c candidate) {
-	if wonElection := s.runElection(c); wonElection {
-		c.UpgradeLeader()
-		return
+func (s *service) runElection() bool {
+	s.clusterNode.IncrementCandidateTerm()
+
+	if !s.preVote() {
+		return false
 	}
 
-	// Restart election
-	for {
-		select {
-		case <-s.timeout.ElectionTimer.C:
-			if wonElection := s.runElection(c); wonElection {
-				c.UpgradeLeader()
-				return
-			}
-		case <-s.clusterNode.ShiftRole:
-			// quit
-			log.Debug("QUIT runCandidate")
-			return
-		}
-	}
+	return s.requestVote()
 }
 
-func (s *service) runLeader(l leader) {
-	for {
-		select {
-		case <-s.timeout.LeaderTicker.C:
-			if quorumReached := s.synchronizeLogs(l); !quorumReached {
-				log.Debug("LEADER STEP DOWN")
-				l.DowngradeFollower(l.GetState().CurrentTerm())
-				return
-			}
-		case <-s.clusterNode.ShiftRole:
-			// quit
-			log.Debug("QUIT runLeader")
-			return
-		}
-	}
-}
-
-func (s *service) runElection(c candidate) bool {
-	c.IncrementCandidateTerm()
-	state := c.GetState()
-	input := c.RequestVoteInput()
-	quorum := c.Quorum()
-
+func (s *service) preVote() bool {
+	input := s.clusterNode.RequestVoteInput()
+	quorum := s.clusterNode.Quorum()
 	var prevotesGranted uint32 = 1 // vote for self
+
 	preVoteRoutine := func(p entity.Peer) {
 		if res, err := s.repo.PreVote(p, &input); err == nil {
-			if res.Term > state.CurrentTerm() {
-				c.DowngradeFollower(res.Term)
+			if res.Term > s.clusterNode.CurrentTerm() {
+				s.clusterNode.DowngradeFollower(res.Term)
 				return
 			}
 			if res.VoteGranted {
@@ -184,18 +174,22 @@ func (s *service) runElection(c candidate) bool {
 			}
 		}
 	}
-	c.Broadcast(preVoteRoutine)
+	s.clusterNode.Broadcast(preVoteRoutine)
 
-	if int(prevotesGranted) < quorum {
-		return false
-	}
-	log.Debug("GATHER VOTES")
+	isCandidate := s.clusterNode.Role() == entity.Candidate
+	quorumReached := int(prevotesGranted) >= quorum
+	return isCandidate && quorumReached
+}
 
+func (s *service) requestVote() bool {
+	input := s.clusterNode.RequestVoteInput()
+	quorum := s.clusterNode.Quorum()
 	var votesGranted uint32 = 1 // vote for self
+
 	gatherVotesRoutine := func(p entity.Peer) {
 		if res, err := s.repo.RequestVote(p, &input); err == nil {
-			if res.Term > state.CurrentTerm() {
-				c.DowngradeFollower(res.Term)
+			if res.Term > s.clusterNode.CurrentTerm() {
+				s.clusterNode.DowngradeFollower(res.Term)
 				return
 			}
 			if res.VoteGranted {
@@ -203,39 +197,45 @@ func (s *service) runElection(c candidate) bool {
 			}
 		}
 	}
-	c.Broadcast(gatherVotesRoutine)
+	s.clusterNode.Broadcast(gatherVotesRoutine)
 
-	return int(votesGranted) >= quorum
+	isCandidate := s.clusterNode.Role() == entity.Candidate
+	quorumReached := int(votesGranted) >= quorum
+	return isCandidate && quorumReached
 }
 
-func (s *service) synchronizeLogs(l leader) bool {
-	state := l.GetState()
-	quorum := l.Quorum()
-
+func (s *service) synchronizeLogs() bool {
+	quorum := s.clusterNode.Quorum()
 	var peersAlive uint32 = 1 // self
-	synchroniseLogsRoutine := func(p entity.Peer) {
-		input := l.AppendEntriesInput(p.Id)
 
+	synchroniseLogsRoutine := func(p entity.Peer) {
+		input := s.clusterNode.AppendEntriesInput(p.Id)
 		if res, err := s.repo.AppendEntries(p, &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)
-
-			if res.Term > state.CurrentTerm() {
-				l.DowngradeFollower(res.Term)
+			if res.Term > s.clusterNode.CurrentTerm() {
+				s.clusterNode.DowngradeFollower(res.Term)
 				return
 			}
 			if res.Success {
-				leaderLastLogIndex := state.LastLogIndex()
-				if state.ShouldUpdatePeerIndex(p.Id) {
-					l.SetNextMatchIndex(p.Id, leaderLastLogIndex)
+				leaderLastLogIndex := s.clusterNode.LastLogIndex()
+				if s.clusterNode.ShouldUpdatePeerIndex(p.Id) {
+					s.clusterNode.SetNextMatchIndex(p.Id, leaderLastLogIndex)
 				}
 			} else {
-				l.DecrementNextIndex(p.Id)
+				s.clusterNode.DecrementNextIndex(p.Id)
 			}
 		}
 	}
-	l.Broadcast(synchroniseLogsRoutine)
+	s.clusterNode.Broadcast(synchroniseLogsRoutine)
 
-	newCommitIndex := l.ComputeNewCommitIndex()
-	l.SetCommitIndex(newCommitIndex)
-	return int(peersAlive) >= quorum
+	isLeader := s.clusterNode.Role() == entity.Leader
+	quorumReached := int(peersAlive) >= quorum
+
+	if isLeader {
+		newCommitIndex := s.clusterNode.ComputeNewCommitIndex()
+		s.clusterNode.SetCommitIndex(newCommitIndex)
+		return true
+	}
+
+	return quorumReached
 }
