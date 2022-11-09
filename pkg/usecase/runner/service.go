@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"sync"
 	"sync/atomic"
 
 	"graft/pkg/domain/entity"
@@ -11,10 +10,33 @@ import (
 )
 
 type synchronise struct {
-	save      sync.Mutex
-	commit    sync.Mutex
-	election  sync.Mutex
-	heartbeat sync.Mutex
+	running    uint32
+	saving     uint32
+	committing uint32
+}
+
+func (s *synchronise) CanRun() bool {
+	return atomic.CompareAndSwapUint32(&s.running, 0, 1)
+}
+
+func (s *synchronise) CanSave() bool {
+	return atomic.CompareAndSwapUint32(&s.saving, 0, 1)
+}
+
+func (s *synchronise) CanCommit() bool {
+	return atomic.CompareAndSwapUint32(&s.committing, 0, 1)
+}
+
+func (s *synchronise) ReleaseRun() {
+	atomic.StoreUint32(&s.running, 0)
+}
+
+func (s *synchronise) ReleaseSave() {
+	atomic.StoreUint32(&s.saving, 0)
+}
+
+func (s *synchronise) ReleaseCommit() {
+	atomic.StoreUint32(&s.committing, 0)
 }
 
 type service struct {
@@ -39,16 +61,22 @@ func NewService(
 	}
 }
 
-func (s *service) Run() {
+func (s *service) Dispatch() {
 	select {
 	case role := <-s.clusterNode.ShiftRole:
-		go s.runAs(role)
+		if s.sync.CanRun() {
+			go s.runAs(role)
+		}
 
 	case <-s.clusterNode.SaveState:
-		go s.saveState()
+		if s.sync.CanSave() {
+			go s.saveState()
+		}
 
 	case <-s.clusterNode.Commit:
-		go s.commit()
+		if s.sync.CanCommit() {
+			go s.commit()
+		}
 
 	case <-s.clusterNode.ResetElectionTimer:
 		go s.timeout.ResetElectionTimer()
@@ -59,6 +87,8 @@ func (s *service) Run() {
 }
 
 func (s *service) runAs(role entity.Role) {
+	defer s.sync.ReleaseRun()
+
 	switch role {
 	case entity.Follower:
 		s.runFollower(s.clusterNode)
@@ -70,14 +100,12 @@ func (s *service) runAs(role entity.Role) {
 }
 
 func (s *service) commit() {
-	s.sync.commit.Lock()
-	defer s.sync.commit.Unlock()
+	defer s.sync.ReleaseCommit()
 	s.clusterNode.ApplyLogs()
 }
 
 func (s *service) saveState() {
-	s.sync.save.Lock()
-	defer s.sync.save.Unlock()
+	defer s.sync.ReleaseSave()
 	s.persist.Save(
 		s.clusterNode.CurrentTerm(),
 		s.clusterNode.VotedFor(),
@@ -86,40 +114,59 @@ func (s *service) saveState() {
 }
 
 func (s *service) runFollower(f follower) {
-	for range s.timeout.ElectionTimer.C {
-		f.UpgradeCandidate()
-		return
+	for {
+		select {
+		case <-s.timeout.ElectionTimer.C:
+			f.UpgradeCandidate()
+			return
+		case <-s.clusterNode.ShiftRole:
+			// quit
+			log.Debug("QUIT runFollower")
+			return
+		}
 	}
 }
 
 func (s *service) runCandidate(c candidate) {
 	if wonElection := s.runElection(c); wonElection {
 		c.UpgradeLeader()
-	} else {
-		// Restart election until: upgrade / downgrade
-		for range s.timeout.ElectionTimer.C {
+		return
+	}
+
+	// Restart election
+	for {
+		select {
+		case <-s.timeout.ElectionTimer.C:
 			if wonElection := s.runElection(c); wonElection {
 				c.UpgradeLeader()
 				return
 			}
+		case <-s.clusterNode.ShiftRole:
+			// quit
+			log.Debug("QUIT runCandidate")
+			return
 		}
 	}
 }
 
 func (s *service) runLeader(l leader) {
-	for range s.timeout.LeaderTicker.C {
-		if quorumReached := s.synchronizeLogs(l); !quorumReached {
-			log.Debug("LEADER STEP DOWN")
-			l.DowngradeFollower(l.GetState().CurrentTerm())
+	for {
+		select {
+		case <-s.timeout.LeaderTicker.C:
+			if quorumReached := s.synchronizeLogs(l); !quorumReached {
+				log.Debug("LEADER STEP DOWN")
+				l.DowngradeFollower(l.GetState().CurrentTerm())
+				return
+			}
+		case <-s.clusterNode.ShiftRole:
+			// quit
+			log.Debug("QUIT runLeader")
 			return
 		}
 	}
 }
 
 func (s *service) runElection(c candidate) bool {
-	s.sync.election.Lock()
-	defer s.sync.election.Unlock()
-
 	c.IncrementCandidateTerm()
 	state := c.GetState()
 	input := c.RequestVoteInput()
@@ -162,9 +209,6 @@ func (s *service) runElection(c candidate) bool {
 }
 
 func (s *service) synchronizeLogs(l leader) bool {
-	s.sync.heartbeat.Lock()
-	defer s.sync.heartbeat.Unlock()
-
 	state := l.GetState()
 	quorum := l.Quorum()
 

@@ -3,7 +3,7 @@ package server
 import "sync"
 
 type runner interface {
-	Run()
+	Dispatch()
 }
 
 type runnerServer struct {
@@ -20,7 +20,7 @@ func (s *runnerServer) Start() {
 		wg.Add(1)
 		go (func() {
 			for {
-				runner.Run()
+				runner.Dispatch()
 			}
 		})()
 	}
