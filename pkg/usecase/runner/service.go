@@ -71,6 +71,7 @@ func (s *service) followerFlow() {
 		if wonElection := s.runElection(); wonElection {
 			s.clusterNode.UpgradeLeader()
 		}
+		return
 	}
 }
 
@@ -179,13 +180,14 @@ func (s *service) saveState() {
 }
 
 func (s *service) runElection() bool {
-	s.clusterNode.IncrementCandidateTerm()
-
+	// Prevent candidate with outdated logs
+	// From running election
 	if !s.preVote() {
-		s.timeout.LongResetElectionTimer()
+		log.Debug("FAILED PRE-VOTE")
 		return false
 	}
-	log.Debug("GATHER VOTES")
+
+	s.clusterNode.IncrementCandidateTerm()
 
 	return s.requestVote()
 }
