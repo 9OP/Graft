@@ -230,9 +230,12 @@ func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
 		Term:  c.CurrentTerm(),
 		C:     result,
 	}
-	go c.AppendLogs(c.LastLogIndex(), newEntry)
-	// force leader to trigger synchonize immediately
-	c.synchronizeLogs()
+
+	go (func() {
+		c.AppendLogs(c.LastLogIndex(), newEntry)
+		c.synchronizeLogs()
+	})()
+
 	return result
 }
 

@@ -86,9 +86,9 @@ func (f FsmState) WithMatchIndex(peerId string, index uint32) FsmState {
 func (f FsmState) WithDecrementNextIndex(peerId string) (FsmState, bool) {
 	// Copy of f.nextIndex is expensive
 	// avoid it when next index is already 0
-	// if f.nextIndex[peerId] == 0 {
-	// 	return f, false
-	// }
+	if f.nextIndex[peerId] == 0 {
+		return f, false
+	}
 	nextIndex := f.NextIndex()
 	nextIndex[peerId] -= 1
 	f.nextIndex = nextIndex

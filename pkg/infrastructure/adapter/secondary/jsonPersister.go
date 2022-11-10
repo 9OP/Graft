@@ -44,6 +44,6 @@ func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string
 	if err != nil {
 		return err
 	}
-	return nil
+	// return nil
 	return os.WriteFile(location, data, 0o644)
 }

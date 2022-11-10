@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"graft/pkg/domain/entity"
@@ -147,9 +146,10 @@ func (s *service) runLeader() {
 			go s.leaderFlow()
 
 		case <-s.clusterNode.SynchronizeLogs:
-			fmt.Println("synchronize")
-			go s.timeout.ResetLeaderTicker()
-			go s.leaderFlow()
+			go (func() {
+				s.timeout.ResetLeaderTicker()
+				s.leaderFlow()
+			})()
 
 		case <-s.clusterNode.Commit:
 			go s.commit()
