@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"graft/pkg/domain/entity"
@@ -71,7 +72,6 @@ func (s *service) followerFlow() {
 		if wonElection := s.runElection(); wonElection {
 			s.clusterNode.UpgradeLeader()
 		}
-		return
 	}
 }
 
@@ -104,6 +104,9 @@ func (s *service) runFollower() {
 		case <-s.timeout.ElectionTimer.C:
 			go s.followerFlow()
 
+		case <-s.clusterNode.Commit:
+			go s.commit()
+
 		case <-s.clusterNode.ResetElectionTimer:
 			go s.timeout.ResetElectionTimer()
 
@@ -125,6 +128,9 @@ func (s *service) runCandidate() {
 		case <-s.clusterNode.ResetElectionTimer:
 			go s.timeout.ResetElectionTimer()
 
+		case <-s.clusterNode.Commit:
+			go s.commit()
+
 		case <-s.clusterNode.SaveState:
 			go s.saveState()
 
@@ -141,7 +147,8 @@ func (s *service) runLeader() {
 			go s.leaderFlow()
 
 		case <-s.clusterNode.SynchronizeLogs:
-			s.timeout.ResetLeaderTicker()
+			fmt.Println("synchronize")
+			go s.timeout.ResetLeaderTicker()
 			go s.leaderFlow()
 
 		case <-s.clusterNode.Commit:
@@ -257,11 +264,14 @@ func (s *service) synchronizeLogs() bool {
 				s.clusterNode.DowngradeFollower(res.Term)
 				return
 			}
+
 			if res.Success {
-				leaderLastLogIndex := s.clusterNode.LastLogIndex()
-				if s.clusterNode.ShouldUpdatePeerIndex(p.Id) {
-					s.clusterNode.SetNextMatchIndex(p.Id, leaderLastLogIndex)
-				}
+				// newPeerLastLogIndex is always the sum of len(entries) and prevLogIndex
+				// Even if peer was send logs it already has, because prevLogIndex is the number
+				// of logs already contained at least in peer, and len(entries) is the additional
+				// entries accepted.
+				newPeerLastLogIndex := input.PrevLogIndex + uint32(len(input.Entries))
+				s.clusterNode.SetNextMatchIndex(p.Id, newPeerLastLogIndex)
 			} else {
 				s.clusterNode.DecrementNextIndex(p.Id)
 			}

@@ -1,68 +1,72 @@
 package receiver
 
 import (
+	"fmt"
+
 	utils "graft/pkg/domain"
 	"graft/pkg/domain/entity"
+	domain "graft/pkg/domain/service"
 )
 
 type service struct {
-	repository
+	clusterNode *domain.ClusterNode
 }
 
-func NewService(repository repository) *service {
-	return &service{repository}
+func NewService(clusterNode *domain.ClusterNode) *service {
+	return &service{clusterNode}
 }
 
 func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
-	state := s.GetState()
+	node := s.clusterNode
 
 	output := &entity.AppendEntriesOutput{
-		Term:    state.CurrentTerm(),
+		Term:    node.CurrentTerm(),
 		Success: false,
 	}
-	if input.Term < state.CurrentTerm() {
+	if input.Term < node.CurrentTerm() {
 		return output, nil
 	}
-	if input.Term > state.CurrentTerm() {
-		go s.DowngradeFollower(input.Term)
+	if input.Term > node.CurrentTerm() {
+		node.DowngradeFollower(input.Term)
 	}
 
-	s.SetClusterLeader(input.LeaderId)
-	go s.Heartbeat()
+	node.SetClusterLeader(input.LeaderId)
+	node.Heartbeat()
 
-	localPrevLog, err := state.MachineLog(input.PrevLogIndex)
+	localPrevLog, err := node.MachineLog(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm && err == nil {
-		go s.AppendLogs(input.PrevLogIndex, input.Entries...)
+		node.AppendLogs(input.PrevLogIndex, input.Entries...)
 		output.Success = true
 	} else {
-		go s.DeleteLogsFrom(input.PrevLogIndex)
+		fmt.Println("delete logs")
+		node.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
-	// fmt.Println("input.LeaderCommit > state.CommitIndex()", input.LeaderCommit, state.CommitIndex())
-	if input.LeaderCommit > state.CommitIndex() {
-		go s.SetCommitIndex(utils.Min(state.LastLogIndex(), input.LeaderCommit))
+	if input.LeaderCommit >= node.CommitIndex() {
+		newIndex := utils.Min(node.LastLogIndex(), input.LeaderCommit)
+		node.SetCommitIndex(newIndex)
 	}
 
 	return output, nil
 }
 
 func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
-	state := s.GetState()
+	node := s.clusterNode
 
 	output := &entity.RequestVoteOutput{
-		Term:        state.CurrentTerm(),
+		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
-	if input.Term < state.CurrentTerm() {
+	if input.Term < node.CurrentTerm() {
 		return output, nil
 	}
-	if input.Term > state.CurrentTerm() {
-		go s.DowngradeFollower(input.Term)
+	if input.Term > node.CurrentTerm() {
+		node.DowngradeFollower(input.Term)
 	}
 
-	if state.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
-		go s.Heartbeat()
-		go s.GrantVote(input.CandidateId)
+	if node.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
+		node.Heartbeat()
+		node.GrantVote(input.CandidateId)
 		output.VoteGranted = true
 	}
 
@@ -70,14 +74,14 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 }
 
 func (s *service) PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
-	state := s.GetState()
+	node := s.clusterNode
 
 	output := &entity.RequestVoteOutput{
-		Term:        state.CurrentTerm(),
+		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
 
-	if state.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm) {
+	if node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm) {
 		output.VoteGranted = true
 	}
 

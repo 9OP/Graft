@@ -3,8 +3,8 @@ fsm:
   eval: conf/fsm_eval.sh
   init: conf/fsm_init.sh
 timeouts:
-  election: 300 # ms
-  heartbeat: 30 # ms
+  election: 3000 # ms
+  heartbeat: 1000 # ms
 peers: # Define all cluster peers
   turing: # Peer id
     host: 127.0.0.1

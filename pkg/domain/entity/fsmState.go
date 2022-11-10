@@ -27,15 +27,6 @@ func (f FsmState) CommitIndex() uint32 {
 	return f.commitIndex
 }
 
-func (f FsmState) ShouldUpdatePeerIndex(peerId string) bool {
-	leaderLastLogIndex := f.LastLogIndex()
-	peerNextIndex := f.NextIndexForPeer(peerId)
-	peerMatchIndex := f.MatchIndexForPeer(peerId)
-	shouldUpdate := peerNextIndex != leaderLastLogIndex ||
-		peerMatchIndex != leaderLastLogIndex
-	return shouldUpdate
-}
-
 func (f FsmState) LastApplied() uint32 {
 	return f.lastApplied
 }
@@ -95,9 +86,9 @@ func (f FsmState) WithMatchIndex(peerId string, index uint32) FsmState {
 func (f FsmState) WithDecrementNextIndex(peerId string) (FsmState, bool) {
 	// Copy of f.nextIndex is expensive
 	// avoid it when next index is already 0
-	if f.nextIndex[peerId] == 0 {
-		return f, false
-	}
+	// if f.nextIndex[peerId] == 0 {
+	// 	return f, false
+	// }
 	nextIndex := f.NextIndex()
 	nextIndex[peerId] -= 1
 	f.nextIndex = nextIndex

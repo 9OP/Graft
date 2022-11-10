@@ -47,7 +47,7 @@ func (n NodeState) Peers() Peers {
 }
 
 func (n NodeState) WithInitializeLeader() NodeState {
-	defaultNextIndex := n.LastLogIndex() + 1
+	defaultNextIndex := n.LastLogIndex() // + 1
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
 	for _, peer := range n.peers {
@@ -109,7 +109,7 @@ func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm 
 	return voteAvailable && candidateUpToDate
 }
 
-func (n NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
+func (n *NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
 	matchIndex := n.MatchIndexForPeer(peerId)
 	nextIndex := n.NextIndexForPeer(peerId)
 
@@ -125,12 +125,8 @@ func (n NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
 		prevLog, _ := n.MachineLog(prevLogIndex)
 		prevLogTerm = prevLog.Term
 	} else {
-		entries = n.MachineLogsFrom(nextIndex)
-		if nextIndex == 0 {
-			prevLogIndex = 0
-		} else {
-			prevLogIndex = nextIndex - 1
-		}
+		entries = n.MachineLogsFrom(nextIndex + 1)
+		prevLogIndex = nextIndex
 		prevLog, _ := n.MachineLog(prevLogIndex)
 		prevLogTerm = prevLog.Term
 	}

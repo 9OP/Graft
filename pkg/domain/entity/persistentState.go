@@ -2,8 +2,7 @@ package entity
 
 import (
 	"errors"
-
-	utils "graft/pkg/domain"
+	"fmt"
 )
 
 // https://github.com/golang/go/wiki/SliceTricks
@@ -98,6 +97,7 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool
 	// Delete logs from given index (include deletion)
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
+		fmt.Println("delete logs", index)
 		// index-1 because index starts at 1
 		logs := make([]LogEntry, index-1)
 		copy(logs, p.machineLogs[:index-1])
@@ -134,11 +134,10 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry
 		entries argument, relative to p.MachineLogs
 	*/
 
-	numEntries := uint32(len(entries))
 	lastLogIndex := p.LastLogIndex()
 
 	// Find index of newLogs
-	newLogsFromIndex := utils.Min(lastLogIndex-prevLogIndex, numEntries)
+	newLogsFromIndex := lastLogIndex - prevLogIndex
 	changed = len(entries[newLogsFromIndex:]) > 0
 
 	if !changed {
@@ -146,11 +145,15 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry
 	}
 
 	// Copy existings logs
-	logs := make([]LogEntry, lastLogIndex, numEntries+lastLogIndex)
+	logs := make([]LogEntry, lastLogIndex, uint32(len(entries))+lastLogIndex)
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
 	copy(logs, p.machineLogs)
+
+	// fmt.Println("before", p.machineLogs)
+	// fmt.Println("entries", entries, prevLogIndex, lastLogIndex)
+	// fmt.Println("after", logs)
 
 	p.machineLogs = logs
 	return p, changed

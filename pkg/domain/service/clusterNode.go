@@ -52,7 +52,6 @@ func (c ClusterNode) GetState() entity.NodeState {
 }
 
 func (c *ClusterNode) swapState(state interface{}) {
-	defer c.saveState()
 	var addr *unsafe.Pointer
 	var new unsafe.Pointer
 
@@ -74,6 +73,7 @@ func (c *ClusterNode) swapState(state interface{}) {
 	}
 
 	atomic.SwapPointer(addr, new)
+	c.saveState()
 }
 
 func (c ClusterNode) Heartbeat() {
@@ -115,17 +115,21 @@ func (c *ClusterNode) SetClusterLeader(leaderId string) {
 
 func (c *ClusterNode) SetCommitIndex(index uint32) {
 	if newState, changed := c.WithCommitIndex(index); changed {
-		log.Debug("SET COMMIT INDEX ", index)
+		log.Debug("SET COMMIT INDEX ", index, newState)
 		c.swapState(&newState)
 		c.commit()
 	}
 }
 
 func (c *ClusterNode) SetNextMatchIndex(peerId string, index uint32) {
-	newState := c.
-		WithNextIndex(peerId, index).
-		WithMatchIndex(peerId, index)
-	c.swapState(&newState)
+	shouldUpdate := c.NextIndexForPeer(peerId) != index ||
+		c.MatchIndexForPeer(peerId) != index
+	if shouldUpdate {
+		newState := c.
+			WithNextIndex(peerId, index).
+			WithMatchIndex(peerId, index)
+		c.swapState(&newState)
+	}
 }
 
 func (c *ClusterNode) DecrementNextIndex(peerId string) {
