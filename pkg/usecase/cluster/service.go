@@ -2,38 +2,33 @@ package cluster
 
 import (
 	"graft/pkg/domain/entity"
+	domain "graft/pkg/domain/service"
 )
 
 type service struct {
-	repository repository
+	clusterNode *domain.ClusterNode
 }
 
-func NewService(repository repository) *service {
-	return &service{repository}
+func NewService(clusterNode *domain.ClusterNode) *service {
+	return &service{clusterNode}
 }
 
 func (s *service) ExecuteCommand(command string) ([]byte, error) {
-	if !s.repository.IsLeader() {
-		leader := s.repository.Leader()
+	if !s.clusterNode.IsLeader() {
+		leader := s.clusterNode.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
 
-	res := <-s.repository.ExecuteCommand(command)
+	res := <-s.clusterNode.ExecuteCommand(command)
 	return res.Out, res.Err
 }
 
 func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, error) {
-	if !s.repository.IsLeader() && !weakConsistency {
-		leader := s.repository.Leader()
+	if !s.clusterNode.IsLeader() && !weakConsistency {
+		leader := s.clusterNode.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
 
-	/* Consistency:
-	- default
-	- strong
-	- weak
-	*/
-
-	res := <-s.repository.ExecuteQuery(query)
+	res := <-s.clusterNode.ExecuteQuery(query)
 	return res.Out, res.Err
 }

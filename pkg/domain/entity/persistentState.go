@@ -151,10 +151,6 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry
 	logs = append(logs, entries[newLogsFromIndex:]...)
 	copy(logs, p.machineLogs)
 
-	// fmt.Println("before", p.machineLogs)
-	// fmt.Println("entries", entries, prevLogIndex, lastLogIndex)
-	// fmt.Println("after", logs)
-
 	p.machineLogs = logs
 	return p, changed
 }

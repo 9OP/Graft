@@ -24,9 +24,9 @@ func NewClusterServer(repository cluster.UseCase) *clusterServer {
 func (s clusterServer) Start(port string) {
 	mux := http.NewServeMux()
 
+	// mux.HandleFunc("/", s.index)
 	mux.HandleFunc("/query/", s.query)
 	mux.HandleFunc("/command/", s.command)
-	// mux.HandleFunc("/", s.index)
 
 	addr := fmt.Sprintf("127.0.0.1:%v", port)
 	srv := &http.Server{
@@ -42,6 +42,7 @@ func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
 	b, err := io.ReadAll(r.Body)
@@ -50,10 +51,10 @@ func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// command := r.URL.Query().Get("entry")
+	weakConsistency := r.URL.Query().Has("weak_consistency")
 	queryEntry := string(b)
 
-	data, err := s.repository.ExecuteQuery(queryEntry, false)
+	data, err := s.repository.ExecuteQuery(queryEntry, weakConsistency)
 	if err != nil {
 		switch e := err.(type) {
 		case *entity.NotLeaderError:
@@ -71,6 +72,7 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
 
 	b, err := io.ReadAll(r.Body)

@@ -115,7 +115,7 @@ func (c *ClusterNode) SetClusterLeader(leaderId string) {
 
 func (c *ClusterNode) SetCommitIndex(index uint32) {
 	if newState, changed := c.WithCommitIndex(index); changed {
-		log.Debug("SET COMMIT INDEX ", index, newState)
+		log.Debug("SET COMMIT INDEX ")
 		c.swapState(&newState)
 		c.commit()
 	}
@@ -205,9 +205,9 @@ func (c *ClusterNode) ApplyLogs() {
 	lastApplied := c.LastApplied()
 
 	for lastApplied < commitIndex {
-		// if state.LastApplied() == 0 {
-		// 	c.initFsm()
-		// }
+		if lastApplied == 0 {
+			c.initFsm()
+		}
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
@@ -258,16 +258,16 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 		fmt.Sprint(c.VotedFor()),
 	)
 	out, err := cmd.Output()
-	// log.Debugf("EVAL:\n\t%s\n\t%s\n\t%s", entry, string(out), err.Error())
+	log.Debugf("EVAL:\n\t%s\n\t%s", entry, string(out))
 	return entity.EvalResult{
 		Out: out,
 		Err: err,
 	}
 }
 
-// func (c ClusterNode) initFsm() {
-// 	// cmd := exec.Command(c.fsmInit)
-// 	cmd := exec.Command("/bin/sh echo init")
-// 	out, err := cmd.Output()
-// 	log.Debugf("EVAL:\n\t%s\n\t%s", string(out), err.Error())
-// }
+func (c ClusterNode) initFsm() {
+	cmd := exec.Command(c.fsmInit)
+	// cmd := exec.Command("/bin/sh echo init")
+	out, _ := cmd.Output()
+	log.Debugf("INIT:\n\t%s", string(out))
+}
