@@ -1,28 +1,17 @@
 package server
 
-import "sync"
-
 type runner interface {
-	Dispatch()
+	Run()
 }
 
 type runnerServer struct {
-	runners []runner
+	runner
 }
 
-func NewRunner(runners ...runner) *runnerServer {
-	return &runnerServer{runners}
+func NewRunner(runner runner) *runnerServer {
+	return &runnerServer{runner}
 }
 
 func (s *runnerServer) Start() {
-	var wg sync.WaitGroup
-	for _, runner := range s.runners {
-		wg.Add(1)
-		go (func() {
-			for {
-				runner.Dispatch()
-			}
-		})()
-	}
-	wg.Wait()
+	s.runner.Run()
 }

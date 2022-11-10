@@ -5,6 +5,8 @@ import (
 
 	"graft/pkg/domain/entity"
 	domain "graft/pkg/domain/service"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type binaryLock struct {
@@ -47,7 +49,7 @@ func NewService(
 	}
 }
 
-func (s *service) Dispatch() {
+func (s *service) Run() {
 	for {
 		switch s.clusterNode.Role() {
 		case entity.Follower:
@@ -88,8 +90,8 @@ func (s *service) leaderFlow() {
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
 
-		if quorumReached := s.synchronizeLogs(); !quorumReached {
-			// stepdown
+		if quorumReached := s.heartbeat(); !quorumReached {
+			log.Debug("STEP DOWN")
 			s.clusterNode.DowngradeFollower(s.clusterNode.CurrentTerm())
 		}
 	}
@@ -228,6 +230,18 @@ func (s *service) requestVote() bool {
 	return isCandidate && quorumReached
 }
 
+func (s *service) heartbeat() bool {
+	quorumReached := s.synchronizeLogs()
+
+	if s.clusterNode.Role() == entity.Leader {
+		s.clusterNode.SetCommitIndex(
+			s.clusterNode.ComputeNewCommitIndex(),
+		)
+	}
+
+	return quorumReached
+}
+
 func (s *service) synchronizeLogs() bool {
 	quorum := s.clusterNode.Quorum()
 	var peersAlive uint32 = 1 // self
@@ -252,13 +266,6 @@ func (s *service) synchronizeLogs() bool {
 	}
 	s.clusterNode.Broadcast(synchroniseLogsRoutine)
 
-	isLeader := s.clusterNode.Role() == entity.Leader
 	quorumReached := int(peersAlive) >= quorum
-
-	if isLeader {
-		newCommitIndex := s.clusterNode.ComputeNewCommitIndex()
-		s.clusterNode.SetCommitIndex(newCommitIndex)
-	}
-
 	return quorumReached
 }
