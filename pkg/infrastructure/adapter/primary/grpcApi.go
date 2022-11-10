@@ -30,5 +30,5 @@ func (s *grpcApi) RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInpu
 }
 
 func (s *grpcApi) PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
-	return s.repository.RequestVote(ctx, input)
+	return s.repository.PreVote(ctx, input)
 }

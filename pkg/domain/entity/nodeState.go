@@ -88,23 +88,25 @@ func (n NodeState) IsLeader() bool {
 	return n.Id() == n.LeaderId()
 }
 
+func (n NodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
+	currentLogIndex := n.LastLogIndex()
+	currentLogTerm := n.LastLog().Term
+
+	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
+	return candidateUpToDate
+}
+
 func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
 	// Unknown peer id
 	if _, ok := n.peers[peerId]; !ok {
 		return false
 	}
 
-	currentLogIndex := n.LastLogIndex()
-	currentLogTerm := n.LastLog().Term
 	votedFor := n.VotedFor()
-
 	voteAvailable := votedFor == "" || votedFor == peerId
-	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
+	candidateUpToDate := n.IsLogUpToDate(lastLogIndex, lastLogTerm)
 
-	if voteAvailable && candidateUpToDate {
-		return true
-	}
-	return false
+	return voteAvailable && candidateUpToDate
 }
 
 func (n NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {

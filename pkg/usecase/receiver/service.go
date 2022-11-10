@@ -38,6 +38,7 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 		go s.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
+	// fmt.Println("input.LeaderCommit > state.CommitIndex()", input.LeaderCommit, state.CommitIndex())
 	if input.LeaderCommit > state.CommitIndex() {
 		go s.SetCommitIndex(utils.Min(state.LastLogIndex(), input.LeaderCommit))
 	}
@@ -76,11 +77,7 @@ func (s *service) PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOu
 		VoteGranted: false,
 	}
 
-	if input.Term < state.CurrentTerm() {
-		return output, nil
-	}
-
-	if state.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
+	if state.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm) {
 		output.VoteGranted = true
 	}
 

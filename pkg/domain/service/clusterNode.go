@@ -258,9 +258,9 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 	}
 }
 
-func (c ClusterNode) initFsm() {
-	// cmd := exec.Command(c.fsmInit)
-	cmd := exec.Command("/bin/sh echo init")
-	out, err := cmd.Output()
-	log.Debugf("EVAL:\n\t%s\n\t%s", string(out), err.Error())
-}
+// func (c ClusterNode) initFsm() {
+// 	// cmd := exec.Command(c.fsmInit)
+// 	cmd := exec.Command("/bin/sh echo init")
+// 	out, err := cmd.Output()
+// 	log.Debugf("EVAL:\n\t%s\n\t%s", string(out), err.Error())
+// }

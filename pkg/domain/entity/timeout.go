@@ -34,6 +34,12 @@ func (t *Timeout) ResetElectionTimer() {
 	t.ElectionTimer.Reset(rnd * time.Millisecond)
 }
 
+func (t *Timeout) LongResetElectionTimer() {
+	t.LeaderTicker.Stop()
+	t.ElectionTimer.Stop()
+	t.ElectionTimer.Reset(t.electionDuration * 2 * time.Millisecond)
+}
+
 func (t *Timeout) ResetLeaderTicker() {
 	t.ElectionTimer.Stop()
 	t.LeaderTicker.Stop()

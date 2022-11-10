@@ -182,8 +182,10 @@ func (s *service) runElection() bool {
 	s.clusterNode.IncrementCandidateTerm()
 
 	if !s.preVote() {
+		s.timeout.LongResetElectionTimer()
 		return false
 	}
+	log.Debug("GATHER VOTES")
 
 	return s.requestVote()
 }
@@ -195,10 +197,6 @@ func (s *service) preVote() bool {
 
 	preVoteRoutine := func(p entity.Peer) {
 		if res, err := s.repo.PreVote(p, &input); err == nil {
-			if res.Term > s.clusterNode.CurrentTerm() {
-				s.clusterNode.DowngradeFollower(res.Term)
-				return
-			}
 			if res.VoteGranted {
 				atomic.AddUint32(&prevotesGranted, 1)
 			}
@@ -206,9 +204,8 @@ func (s *service) preVote() bool {
 	}
 	s.clusterNode.Broadcast(preVoteRoutine)
 
-	isCandidate := s.clusterNode.Role() == entity.Candidate
 	quorumReached := int(prevotesGranted) >= quorum
-	return isCandidate && quorumReached
+	return quorumReached
 }
 
 func (s *service) requestVote() bool {
