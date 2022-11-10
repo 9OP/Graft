@@ -24,22 +24,22 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 		return output, nil
 	}
 	if input.Term > state.CurrentTerm() {
-		s.DowngradeFollower(input.Term)
+		go s.DowngradeFollower(input.Term)
 	}
 
 	s.SetClusterLeader(input.LeaderId)
-	s.Heartbeat()
+	go s.Heartbeat()
 
 	localPrevLog, err := state.MachineLog(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm && err == nil {
-		s.AppendLogs(input.PrevLogIndex, input.Entries...)
+		go s.AppendLogs(input.PrevLogIndex, input.Entries...)
 		output.Success = true
 	} else {
-		s.DeleteLogsFrom(input.PrevLogIndex)
+		go s.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
 	if input.LeaderCommit > state.CommitIndex() {
-		s.SetCommitIndex(utils.Min(state.LastLogIndex(), input.LeaderCommit))
+		go s.SetCommitIndex(utils.Min(state.LastLogIndex(), input.LeaderCommit))
 	}
 
 	return output, nil
@@ -56,12 +56,12 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 		return output, nil
 	}
 	if input.Term > state.CurrentTerm() {
-		s.DowngradeFollower(input.Term)
+		go s.DowngradeFollower(input.Term)
 	}
 
 	if state.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
-		s.Heartbeat()
-		s.GrantVote(input.CandidateId)
+		go s.Heartbeat()
+		go s.GrantVote(input.CandidateId)
 		output.VoteGranted = true
 	}
 

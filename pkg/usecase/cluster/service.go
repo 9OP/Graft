@@ -17,6 +17,7 @@ func (s *service) ExecuteCommand(command string) ([]byte, error) {
 		leader := s.repository.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
+
 	res := <-s.repository.ExecuteCommand(command)
 	return res.Out, res.Err
 }

@@ -197,17 +197,17 @@ func (c *ClusterNode) UpgradeLeader() {
 }
 
 func (c *ClusterNode) ApplyLogs() {
-	state := *c.FsmState
 	commitIndex := c.CommitIndex()
+	lastApplied := c.LastApplied()
 
-	for state.LastApplied() < commitIndex {
+	for lastApplied < commitIndex {
 		// if state.LastApplied() == 0 {
 		// 	c.initFsm()
 		// }
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
-		state = state.WithIncrementLastApplied()
-		if log, err := c.MachineLog(state.LastApplied()); err == nil {
+		lastApplied += 1
+		if log, err := c.MachineLog(lastApplied); err == nil {
 			res := c.evalFsm(log.Value, "COMMAND")
 			if log.C != nil {
 				log.C <- res
@@ -215,7 +215,8 @@ func (c *ClusterNode) ApplyLogs() {
 		}
 	}
 	// Swap only once
-	c.swapState(&state)
+	newState := c.WithLastApplied(lastApplied)
+	c.swapState(&newState)
 }
 
 func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {

@@ -68,6 +68,11 @@ func (f FsmState) WithCommitIndex(index uint32) (FsmState, bool) {
 	return f, changed
 }
 
+func (f FsmState) WithLastApplied(lastApplied uint32) FsmState {
+	f.lastApplied = lastApplied
+	return f
+}
+
 func (f FsmState) WithIncrementLastApplied() FsmState {
 	f.lastApplied += 1
 	return f
