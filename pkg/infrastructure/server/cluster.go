@@ -1,10 +1,9 @@
 package server
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/gob"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -22,42 +21,43 @@ func NewClusterServer(repository cluster.UseCase) *clusterServer {
 	return &clusterServer{repository}
 }
 
-func getBytes(key interface{}) ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(key)
-	if err != nil {
-		return nil, err
+func (s clusterServer) Start(port string) {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/query/", s.query)
+	mux.HandleFunc("/command/", s.command)
+	// mux.HandleFunc("/", s.index)
+
+	addr := fmt.Sprintf("127.0.0.1:%v", port)
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		WriteTimeout: 5 * time.Second,
+		ReadTimeout:  2 * time.Second,
 	}
-	return buf.Bytes(), nil
+	listenAndServe(srv)
 }
 
-func render(w http.ResponseWriter, data interface{}) {
-	bytes, err := getBytes(data)
+func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	res := base64.StdEncoding.EncodeToString(bytes)
-	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Type", "application/text")
-	w.Write([]byte(res))
-}
 
-func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
-	command := r.URL.Query().Get("entry")
-	if len(command) == 0 {
-		http.Error(w, "missing <entry> query param", http.StatusBadRequest)
-		return
-	}
+	// command := r.URL.Query().Get("entry")
+	queryEntry := string(b)
 
-	data, err := s.repository.ExecuteCommand(command)
+	data, err := s.repository.ExecuteQuery(queryEntry, false)
 	if err != nil {
 		switch e := err.(type) {
 		case *entity.NotLeaderError:
 			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
-		case *entity.TimeoutError:
-			http.Error(w, err.Error(), http.StatusGatewayTimeout)
 		default:
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
@@ -67,56 +67,39 @@ func (s *clusterServer) executeCommand(w http.ResponseWriter, r *http.Request) {
 	render(w, data)
 }
 
-func (s *clusterServer) executeQuery(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("entry")
-	if len(query) == 0 {
-		http.Error(w, "missing <entry> query param", http.StatusBadRequest)
+func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	weakConsistency := r.URL.Query().Has("weak")
+	commandEntry := string(b)
 
-	data, err := s.repository.ExecuteQuery(query, weakConsistency)
+	data, err := s.repository.ExecuteCommand(commandEntry)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		switch e := err.(type) {
+		case *entity.NotLeaderError:
+			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
+		default:
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 
 	render(w, data)
 }
 
-func (s *clusterServer) index(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-
-	switch r.Method {
-	case http.MethodGet:
-		s.executeQuery(w, r)
-
-	case http.MethodPost:
-		s.executeCommand(w, r)
-
-	default:
-		w.Header().Set("Allow", "GET, POST")
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *clusterServer) Start(port string) {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/", s.index)
-
-	addr := fmt.Sprintf("127.0.0.1:%v", port)
-	srv := &http.Server{
-		Addr:         addr,
-		Handler:      mux,
-		WriteTimeout: 5 * time.Second,
-		ReadTimeout:  1 * time.Second,
-	}
-	listenAndServe(srv)
+func render(w http.ResponseWriter, data []byte) {
+	res := base64.StdEncoding.EncodeToString(data)
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/text")
+	w.Write([]byte(res))
 }
 
 func listenAndServe(srv *http.Server) {

@@ -139,6 +139,10 @@ func (s *service) runLeader() {
 		case <-s.timeout.LeaderTicker.C:
 			go s.leaderFlow()
 
+		// case <-s.clusterNode.SynchronizeLogs:
+		// 	go s.timeout.ResetLeaderTicker()
+		// 	go s.leaderFlow()
+
 		case <-s.clusterNode.Commit:
 			go s.commit()
 

@@ -201,9 +201,9 @@ func (c *ClusterNode) ApplyLogs() {
 	commitIndex := c.CommitIndex()
 
 	for state.LastApplied() < commitIndex {
-		if state.LastApplied() == 0 {
-			c.initFsm()
-		}
+		// if state.LastApplied() == 0 {
+		// 	c.initFsm()
+		// }
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
 		state = state.WithIncrementLastApplied()
@@ -226,6 +226,8 @@ func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
 		C:     result,
 	}
 	go c.AppendLogs(c.LastLogIndex(), newEntry)
+	// force leader to trigger synchonize immediately
+	c.synchronizeLogs()
 	return result
 }
 
@@ -248,7 +250,7 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 		fmt.Sprint(c.VotedFor()),
 	)
 	out, err := cmd.Output()
-	log.Debugf("EVAL:\n\t%s\n\t%s\n\t%s", entry, string(out), err.Error())
+	// log.Debugf("EVAL:\n\t%s\n\t%s\n\t%s", entry, string(out), err.Error())
 	return entity.EvalResult{
 		Out: out,
 		Err: err,
@@ -256,7 +258,8 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 }
 
 func (c ClusterNode) initFsm() {
-	cmd := exec.Command(c.fsmInit)
+	// cmd := exec.Command(c.fsmInit)
+	cmd := exec.Command("/bin/sh echo init")
 	out, err := cmd.Output()
 	log.Debugf("EVAL:\n\t%s\n\t%s", string(out), err.Error())
 }

@@ -10,8 +10,6 @@ type repository interface {
 }
 
 type UseCase interface {
-	// Writes with ExecuteCommand (leader only)
-	ExecuteCommand(command string) (interface{}, error)
-	// Reads with ExecuteQuery (leader + followers)
-	ExecuteQuery(query string, weakConsistency bool) (interface{}, error)
+	ExecuteCommand(command string) ([]byte, error)
+	ExecuteQuery(query string, weakConsistency bool) ([]byte, error)
 }

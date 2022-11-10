@@ -1,8 +1,6 @@
 package cluster
 
 import (
-	"time"
-
 	"graft/pkg/domain/entity"
 )
 
@@ -14,28 +12,16 @@ func NewService(repository repository) *service {
 	return &service{repository}
 }
 
-func (s *service) ExecuteCommand(command string) (interface{}, error) {
+func (s *service) ExecuteCommand(command string) ([]byte, error) {
 	if !s.repository.IsLeader() {
 		leader := s.repository.Leader()
 		return nil, entity.NewNotLeaderError(leader)
 	}
-
-	/*
-		1) Force synchronise logs
-		2) Respond only if synchronise reach quorum
-	*/
-
-	applied := s.repository.ExecuteCommand(command)
-
-	select {
-	case <-time.After(2 * time.Second):
-		return nil, entity.NewTimeoutError()
-	case result := <-applied:
-		return result, nil
-	}
+	res := <-s.repository.ExecuteCommand(command)
+	return res.Out, res.Err
 }
 
-func (s *service) ExecuteQuery(query string, weakConsistency bool) (interface{}, error) {
+func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, error) {
 	if !s.repository.IsLeader() && !weakConsistency {
 		leader := s.repository.Leader()
 		return nil, entity.NewNotLeaderError(leader)
@@ -47,12 +33,6 @@ func (s *service) ExecuteQuery(query string, weakConsistency bool) (interface{},
 	- weak
 	*/
 
-	applied := s.repository.ExecuteQuery(query)
-
-	select {
-	case <-time.After(2 * time.Second):
-		return nil, entity.NewTimeoutError()
-	case result := <-applied:
-		return result, nil
-	}
+	res := <-s.repository.ExecuteQuery(query)
+	return res.Out, res.Err
 }
