@@ -1,6 +1,8 @@
 package service
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os/exec"
 	"sync"
@@ -269,16 +271,23 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 		fmt.Sprint(c.CurrentTerm()),
 		fmt.Sprint(c.VotedFor()),
 	)
-	out, err := cmd.Output()
-	log.Debugf("EVAL:\n\t%s\n\t%s", entry, string(out))
+
+	var outb, errb bytes.Buffer
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
+
+	if err := cmd.Run(); err != nil {
+		return entity.EvalResult{
+			Err: errors.New(errb.String()),
+		}
+	}
+
 	return entity.EvalResult{
-		Out: out,
-		Err: err,
+		Out: outb.Bytes(),
 	}
 }
 
 func (c ClusterNode) initFsm() {
 	cmd := exec.Command(c.fsmInit, c.Id())
-	out, _ := cmd.Output()
-	log.Debugf("INIT:\n\t%s", string(out))
+	cmd.Run()
 }

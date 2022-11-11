@@ -41,7 +41,6 @@ try:
         for row in cur.execute(args.entry):
             print(row)
 except Exception as e:
-    print(e)
-    sys.exit(1)
+    sys.exit(str(e))
 finally:
     con.close()
