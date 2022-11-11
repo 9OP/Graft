@@ -86,6 +86,12 @@ POST /command
 Body contains b64 encoded binary data to be send to the FSM
 ```
 
+Examples:
+```sh
+curl  -X POST  -H 'Content-Type: text/plain' --data "@conf/demo.sql" http://localhost:8080/command/
+curl  -X GET  -H 'Content-Type: text/plain' --data "SELECT * FROM users;" http://localhost:8080/query/
+```
+
 
 ### Graft refactoring status
 

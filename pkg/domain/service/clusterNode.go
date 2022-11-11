@@ -193,6 +193,14 @@ func (c *ClusterNode) UpgradeLeader() {
 			WithClusterLeader(c.Id()).
 			WithRole(newRole)
 		c.swapState(&newState)
+		// noOp will force logs commit and trigger
+		// ApplyLogs in the entire cluster
+		noOp := entity.LogEntry{
+			Term:  c.CurrentTerm(),
+			Type:  "ADMIN",
+			Value: "NO_OP",
+		}
+		c.AppendLogs(c.LastLogIndex(), noOp)
 		c.shiftRole()
 		c.resetLeaderTicker()
 		return
@@ -212,6 +220,9 @@ func (c *ClusterNode) ApplyLogs() {
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := c.MachineLog(lastApplied); err == nil {
+			if log.Type != "COMMAND" {
+				continue
+			}
 			res := c.evalFsm(log.Value, "COMMAND")
 			if log.C != nil {
 				log.C <- res
@@ -228,6 +239,7 @@ func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
 	newEntry := entity.LogEntry{
 		Value: command,
 		Term:  c.CurrentTerm(),
+		Type:  "COMMAND",
 		C:     result,
 	}
 
@@ -266,8 +278,7 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 }
 
 func (c ClusterNode) initFsm() {
-	cmd := exec.Command(c.fsmInit)
-	// cmd := exec.Command("/bin/sh echo init")
+	cmd := exec.Command(c.fsmInit, c.Id())
 	out, _ := cmd.Output()
 	log.Debugf("INIT:\n\t%s", string(out))
 }

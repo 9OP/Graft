@@ -2,7 +2,6 @@ package entity
 
 import (
 	"errors"
-	"fmt"
 )
 
 // https://github.com/golang/go/wiki/SliceTricks
@@ -49,7 +48,7 @@ func (p PersistentState) MachineLog(index uint32) (LogEntry, error) {
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex {
 		log := p.machineLogs[index-1]
-		return LogEntry{Term: log.Term, Value: log.Value, C: log.C}, nil
+		return log.Copy(), nil
 	}
 	return LogEntry{}, errors.New("index out of range")
 }
@@ -59,7 +58,7 @@ func (p PersistentState) MachineLogs() []LogEntry {
 	machineLogs := make([]LogEntry, len)
 	for i := uint32(1); i <= len; i += 1 {
 		if log, err := p.MachineLog(i); err == nil {
-			machineLogs[i-1] = log
+			machineLogs[i-1] = log.Copy()
 		}
 	}
 	return machineLogs
@@ -70,13 +69,13 @@ func (p PersistentState) MachineLogsFrom(index uint32) []LogEntry {
 
 	if index == 0 {
 		logs := make([]LogEntry, lastLogIndex)
-		copy(logs, p.machineLogs)
+		copy(logs, p.MachineLogs())
 		return logs
 	}
 
 	if index <= lastLogIndex {
 		logs := make([]LogEntry, lastLogIndex-index+1)
-		copy(logs, p.machineLogs[index-1:])
+		copy(logs, p.MachineLogs()[index-1:])
 		return logs
 	}
 
@@ -97,10 +96,9 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool
 	// Delete logs from given index (include deletion)
 	lastLogIndex := p.LastLogIndex()
 	if index <= lastLogIndex && index >= 1 {
-		fmt.Println("delete logs", index)
 		// index-1 because index starts at 1
 		logs := make([]LogEntry, index-1)
-		copy(logs, p.machineLogs[:index-1])
+		copy(logs, p.MachineLogs()[:index-1])
 		p.machineLogs = logs
 		return p, true
 	}
@@ -149,7 +147,7 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
-	copy(logs, p.machineLogs)
+	copy(logs, p.MachineLogs())
 
 	p.machineLogs = logs
 	return p, changed

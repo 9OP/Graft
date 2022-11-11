@@ -1,7 +1,7 @@
 ---
 fsm:
-  eval: conf/fsm_eval.sh
-  init: conf/fsm_init.sh
+  eval: conf/fsm_eval.py
+  init: conf/fsm_init.py
 timeouts:
   election: 300 # ms
   heartbeat: 30 # ms

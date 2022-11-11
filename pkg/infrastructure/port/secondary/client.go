@@ -18,7 +18,12 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 	target := peer.TargetP2p()
 	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
-		entries = append(entries, &p2pRpc.LogEntry{Term: log.Term, Value: log.Value})
+		entry := &p2pRpc.LogEntry{
+			Term:  log.Term,
+			Value: log.Value,
+			Type:  log.Type,
+		}
+		entries = append(entries, entry)
 	}
 	output, err := p.adapter.AppendEntries(target, &p2pRpc.AppendEntriesInput{
 		Term:         input.Term,
