@@ -81,7 +81,10 @@ func (s *service) PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOu
 		VoteGranted: false,
 	}
 
-	if node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm) {
+	hasLeader := node.HasLeader()
+	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
+
+	if !hasLeader && isUpToDate {
 		output.VoteGranted = true
 	}
 

@@ -12,7 +12,7 @@ type NotLeaderError struct {
 	Leader Peer
 	*domainError
 }
-type TimeoutError struct {
+type UnknownLeaderError struct {
 	*domainError
 }
 
@@ -20,6 +20,6 @@ func NewNotLeaderError(leader Peer) *NotLeaderError {
 	return &NotLeaderError{leader, &domainError{"not leader"}}
 }
 
-func NewTimeoutError() *TimeoutError {
-	return &TimeoutError{&domainError{"timeout"}}
+func NewUnknownLeaderError() *UnknownLeaderError {
+	return &UnknownLeaderError{&domainError{"unknown leader"}}
 }

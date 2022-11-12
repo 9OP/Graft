@@ -177,7 +177,9 @@ func (c *ClusterNode) UpgradeCandidate() {
 	if c.Role() == entity.Follower {
 		log.Info("UPGRADE TO CANDIDATE")
 		newRole := entity.Candidate
-		newState := c.WithRole(newRole)
+		newState := c.
+			WithRole(newRole).
+			WithClusterLeader("")
 		c.swapState(&newState)
 		c.shiftRole()
 		c.resetTimeout()

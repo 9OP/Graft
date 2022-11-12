@@ -32,6 +32,11 @@ func (n NodeState) LeaderId() string {
 	return n.leaderId
 }
 
+func (n NodeState) HasLeader() bool {
+	_, ok := n.peers[n.leaderId]
+	return ok
+}
+
 func (n NodeState) Leader() Peer {
 	leaderId := n.leaderId
 	leader := n.peers[leaderId]

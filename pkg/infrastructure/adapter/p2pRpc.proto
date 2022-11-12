@@ -36,8 +36,22 @@ message RequestVoteOutput {
     bool voteGranted = 2;
 }
 
+message InstallSnapshotInput {
+    uint32 term = 1;
+    string leaderId = 2;
+    uint32 lastIncludedIndex = 3;
+    uint32 lastIncludedTerm = 4;
+    uint32 offset = 5;
+    bytes data = 6;
+}
+
+message InstallSnapshotOutput {
+    uint32 term = 1;
+}
+
 service Rpc {
     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
+    rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
 }

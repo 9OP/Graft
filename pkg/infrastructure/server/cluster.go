@@ -1,7 +1,6 @@
 package server
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,7 +23,6 @@ func NewClusterServer(repository cluster.UseCase) *clusterServer {
 func (s clusterServer) Start(port string) {
 	mux := http.NewServeMux()
 
-	// mux.HandleFunc("/", s.index)
 	mux.HandleFunc("/query/", s.query)
 	mux.HandleFunc("/command/", s.command)
 
@@ -98,10 +96,9 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 }
 
 func render(w http.ResponseWriter, data []byte) {
-	res := base64.StdEncoding.EncodeToString(data)
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "application/text")
-	w.Write([]byte(res))
+	w.Write(data)
 }
 
 func listenAndServe(srv *http.Server) {

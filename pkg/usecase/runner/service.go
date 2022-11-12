@@ -145,6 +145,7 @@ func (s *service) runLeader() {
 		case <-s.timeout.LeaderTicker.C:
 			go s.leaderFlow()
 
+		// Should batch execution
 		case <-s.clusterNode.SynchronizeLogs:
 			go (func() {
 				s.timeout.ResetLeaderTicker()
