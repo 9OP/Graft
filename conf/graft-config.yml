@@ -1,0 +1,23 @@
+---
+fsm:
+  eval: conf/fsm_eval.py
+  init: conf/fsm_init.py
+timeouts:
+  election: 300 # ms
+  heartbeat: 30 # ms
+peers: # Define all cluster peers
+  turing: # Peer id
+    host: 127.0.0.1
+    ports:
+      p2p: 8880 # Peer to peer port
+      api: 8080 # Public cluster API
+  ritchie:
+    host: 127.0.0.1
+    ports:
+      p2p: 8881
+      api: 8081
+  lovelace:
+    host: 127.0.0.1
+    ports:
+      p2p: 8882
+      api: 8082
