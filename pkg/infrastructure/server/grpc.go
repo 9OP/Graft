@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 
@@ -9,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type rpcServer struct {
@@ -23,6 +25,22 @@ func (r *rpcServer) Start(port string) {
 	grpcServer := createGrpcServer(r.apis...)
 	lis := getListennerOrFail(port)
 	serveOrFail(grpcServer, lis)
+}
+
+func loadTLSCredentials() (credentials.TransportCredentials, error) {
+	// Load server's certificate and private key
+	serverCert, err := tls.LoadX509KeyPair("cert/server.pem", "cert/server.key")
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the credentials and return it
+	config := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		ClientAuth:   tls.NoClientCert,
+	}
+
+	return credentials.NewTLS(config), nil
 }
 
 func getListennerOrFail(port string) net.Listener {
@@ -41,7 +59,11 @@ func serveOrFail(server *grpc.Server, lis net.Listener) {
 }
 
 func createGrpcServer(apis ...p2pRpc.RpcServer) *grpc.Server {
-	server := grpc.NewServer()
+	creds, err := loadTLSCredentials()
+	if err != nil {
+		log.Fatalf("Failed to setup TLS: %v", err)
+	}
+	server := grpc.NewServer(grpc.Creds(creds))
 	for _, api := range apis {
 		p2pRpc.RegisterRpcServer(server, api)
 	}
