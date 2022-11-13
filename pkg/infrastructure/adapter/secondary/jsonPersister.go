@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"os"
 
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 )
 
 type UseCaseJsonPersisterAdapter interface {
 	Load(location string) (*persistent, error)
-	Save(location string, currentTerm uint32, votedFor string, machineLogs []entity.LogEntry) error
+	Save(location string, currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error
 }
 
 type jsonPersister struct{}
@@ -21,7 +21,7 @@ func NewJsonPersister() *jsonPersister {
 type persistent struct {
 	CurrentTerm uint32            `json:"current_term"`
 	VotedFor    string            `json:"voted_for"`
-	MachineLogs []entity.LogEntry `json:"machine_logs"`
+	MachineLogs []domain.LogEntry `json:"machine_logs"`
 }
 
 func (p jsonPersister) Load(location string) (*persistent, error) {
@@ -34,7 +34,7 @@ func (p jsonPersister) Load(location string) (*persistent, error) {
 	return state, err
 }
 
-func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string, machineLogs []entity.LogEntry) error {
+func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error {
 	state := persistent{
 		CurrentTerm: currentTerm,
 		VotedFor:    votedFor,

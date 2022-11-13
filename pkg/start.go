@@ -1,8 +1,8 @@
 package pkg
 
 import (
-	"graft/pkg/domain/entity"
-	"graft/pkg/domain/service"
+	"graft/pkg/domain"
+	"graft/pkg/domain/state"
 	primaryAdapter "graft/pkg/infrastructure/adapter/primary"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
 	primaryPort "graft/pkg/infrastructure/port/primary"
@@ -12,11 +12,12 @@ import (
 	"graft/pkg/usecase/cluster"
 	"graft/pkg/usecase/receiver"
 	"graft/pkg/usecase/runner"
+	"graft/pkg/utils"
 )
 
 func Start(
 	id string,
-	peers entity.Peers,
+	peers domain.Peers,
 	persistentLocation string,
 	electionTimeout int,
 	heartbeatTimeout int,
@@ -26,7 +27,7 @@ func Start(
 	fsmEval string,
 	logLevel string,
 ) {
-	configureLogger(logLevel)
+	utils.ConfigureLogger(logLevel)
 
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
@@ -37,11 +38,10 @@ func Start(
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	timeout := entity.NewTimeout(electionTimeout, heartbeatTimeout)
-	node := service.NewClusterNode(id, peers, fsmInit, fsmEval, persistent)
+	node := state.NewClusterNode(id, peers, fsmInit, fsmEval, persistent)
 
 	// Services
-	runnerUsecase := runner.NewService(node, timeout, rpcClientPort, persisterPort)
+	runnerUsecase := runner.NewService(node, rpcClientPort, persisterPort, electionTimeout, heartbeatTimeout)
 	receiverUsecase := receiver.NewService(node)
 	clusterUsecase := cluster.NewService(node)
 

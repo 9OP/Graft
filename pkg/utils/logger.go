@@ -1,4 +1,4 @@
-package pkg
+package utils
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func configureLogger(logLevel string) {
+func ConfigureLogger(logLevel string) {
 	var level log.Level = log.InfoLevel
 	switch logLevel {
 	case "DEBUG":

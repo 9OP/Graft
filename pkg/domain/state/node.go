@@ -1,4 +1,4 @@
-package service
+package state
 
 import (
 	"bytes"
@@ -9,24 +9,68 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 
 	log "github.com/sirupsen/logrus"
 )
 
 /*
 Implementation note:
-- NodeState is supposed to only expose pure function `Withers` that return a copy
+- nodeState is supposed to only expose pure function `Withers` that return a copy
   instead of mutating the instance.
-- When a mutation needs to be saved in ClusterNode (for instance incrementing NodeState.CurrentTerm)
-  You should call swapState, which atomically change the pointer of ClusterNode.NodeState to your
-  new NodeState version.
+- When a mutation needs to be saved in ClusterNode (for instance incrementing nodeState.CurrentTerm)
+  You should call swapState, which atomically change the pointer of ClusterNode.nodeState to your
+  new nodeState version.
 - This means that every ClusterNode method that calls swapState, needs to accept a pointer receiver (c *ClusterNode)
   Because otherwise, swapState is called with a copy of the pointers instead of original pointers
 */
 
+type signals struct {
+	Commit             chan struct{}
+	ShiftRole          chan struct{}
+	SaveState          chan struct{}
+	SynchronizeLogs    chan struct{}
+	ResetLeaderTicker  chan struct{}
+	ResetElectionTimer chan struct{}
+}
+
+func newSignals() signals {
+	return signals{
+		Commit:             make(chan struct{}, 1),
+		ShiftRole:          make(chan struct{}, 1),
+		SaveState:          make(chan struct{}, 1),
+		SynchronizeLogs:    make(chan struct{}, 1),
+		ResetLeaderTicker:  make(chan struct{}, 1),
+		ResetElectionTimer: make(chan struct{}, 1),
+	}
+}
+
+func (s *signals) commit() {
+	s.Commit <- struct{}{}
+}
+
+func (s *signals) shiftRole() {
+	s.ShiftRole <- struct{}{}
+}
+
+func (s *signals) saveState() {
+	s.SaveState <- struct{}{}
+}
+
+func (s *signals) synchronizeLogs() {
+	s.SynchronizeLogs <- struct{}{}
+}
+
+func (s *signals) resetLeaderTicker() {
+	s.ResetLeaderTicker <- struct{}{}
+}
+
+func (s *signals) resetTimeout() {
+	s.ResetElectionTimer <- struct{}{}
+}
+
 type ClusterNode struct {
-	*entity.NodeState
+	*nodeState
 	signals
 	fsmInit string
 	fsmEval string
@@ -34,23 +78,23 @@ type ClusterNode struct {
 
 func NewClusterNode(
 	id string,
-	peers entity.Peers,
+	peers domain.Peers,
 	fsmInit string,
 	fsmEval string,
-	persistent *entity.PersistentState,
+	persistent *PersistentState,
 ) *ClusterNode {
-	nodeState := entity.NewNodeState(id, peers, persistent)
+	nodeState := NewNodeState(id, peers, persistent)
 	signals := newSignals()
 	return &ClusterNode{
-		NodeState: &nodeState,
+		nodeState: &nodeState,
 		signals:   signals,
 		fsmInit:   fsmInit,
 		fsmEval:   fsmEval,
 	}
 }
 
-func (c ClusterNode) GetState() entity.NodeState {
-	return *c.NodeState
+func (c ClusterNode) GetState() nodeState {
+	return *c.nodeState
 }
 
 func (c *ClusterNode) swapState(state interface{}) {
@@ -58,16 +102,16 @@ func (c *ClusterNode) swapState(state interface{}) {
 	var new unsafe.Pointer
 
 	switch newState := state.(type) {
-	case *entity.PersistentState:
-		oldState := &c.NodeState.FsmState.PersistentState
+	case *PersistentState:
+		oldState := &c.nodeState.fsmState.PersistentState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = unsafe.Pointer(newState)
-	case *entity.FsmState:
-		oldState := &c.NodeState.FsmState
+	case *fsmState:
+		oldState := &c.nodeState.fsmState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = unsafe.Pointer(newState)
-	case *entity.NodeState:
-		oldState := &c.NodeState
+	case *nodeState:
+		oldState := &c.nodeState
 		addr = (*unsafe.Pointer)(unsafe.Pointer(oldState))
 		new = (unsafe.Pointer(newState))
 	default:
@@ -82,11 +126,11 @@ func (c ClusterNode) Heartbeat() {
 	c.resetTimeout()
 }
 
-func (c ClusterNode) Broadcast(fn func(p entity.Peer)) {
+func (c ClusterNode) Broadcast(fn func(p domain.Peer)) {
 	var wg sync.WaitGroup
 	for _, peer := range c.Peers() {
 		wg.Add(1)
-		go func(p entity.Peer, w *sync.WaitGroup) {
+		go func(p domain.Peer, w *sync.WaitGroup) {
 			defer w.Done()
 			fn(p)
 		}(peer, &wg)
@@ -100,7 +144,7 @@ func (c *ClusterNode) DeleteLogsFrom(index uint32) {
 	}
 }
 
-func (c *ClusterNode) AppendLogs(prevLogIndex uint32, entries ...entity.LogEntry) {
+func (c *ClusterNode) AppendLogs(prevLogIndex uint32, entries ...domain.LogEntry) {
 	if newState, changed := c.WithAppendLogs(prevLogIndex, entries...); changed {
 		log.Debug("APPEND LOGS")
 		c.swapState(&newState)
@@ -149,7 +193,7 @@ func (c *ClusterNode) GrantVote(peerId string) {
 
 func (c *ClusterNode) DowngradeFollower(term uint32) {
 	log.Infof("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
-	newRole := entity.Follower
+	newRole := domain.Follower
 	newState := c.
 		WithRole(newRole).
 		WithCurrentTerm(term).
@@ -160,7 +204,7 @@ func (c *ClusterNode) DowngradeFollower(term uint32) {
 }
 
 func (c *ClusterNode) IncrementCandidateTerm() {
-	if c.Role() == entity.Candidate {
+	if c.Role() == domain.Candidate {
 		term := c.CurrentTerm() + 1
 		log.Debugf("INCREMENT CANDIDATE TERM %d\n", term)
 		newState := c.
@@ -174,9 +218,9 @@ func (c *ClusterNode) IncrementCandidateTerm() {
 }
 
 func (c *ClusterNode) UpgradeCandidate() {
-	if c.Role() == entity.Follower {
+	if c.Role() == domain.Follower {
 		log.Info("UPGRADE TO CANDIDATE")
-		newRole := entity.Candidate
+		newRole := domain.Candidate
 		newState := c.
 			WithRole(newRole).
 			WithClusterLeader("")
@@ -189,9 +233,9 @@ func (c *ClusterNode) UpgradeCandidate() {
 }
 
 func (c *ClusterNode) UpgradeLeader() {
-	if c.Role() == entity.Candidate {
+	if c.Role() == domain.Candidate {
 		log.Infof("UPGRADE TO LEADER TERM %d\n", c.CurrentTerm())
-		newRole := entity.Leader
+		newRole := domain.Leader
 		newState := c.
 			WithInitializeLeader().
 			WithClusterLeader(c.Id()).
@@ -199,7 +243,7 @@ func (c *ClusterNode) UpgradeLeader() {
 		c.swapState(&newState)
 		// noOp will force logs commit and trigger
 		// ApplyLogs in the entire cluster
-		noOp := entity.LogEntry{
+		noOp := domain.LogEntry{
 			Term:  c.CurrentTerm(),
 			Type:  "ADMIN",
 			Value: "NO_OP",
@@ -238,9 +282,9 @@ func (c *ClusterNode) ApplyLogs() {
 	c.swapState(&newState)
 }
 
-func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
-	result := make(chan entity.EvalResult, 1)
-	newEntry := entity.LogEntry{
+func (c *ClusterNode) ExecuteCommand(command string) chan domain.EvalResult {
+	result := make(chan domain.EvalResult, 1)
+	newEntry := domain.LogEntry{
 		Value: command,
 		Term:  c.CurrentTerm(),
 		Type:  "COMMAND",
@@ -255,13 +299,13 @@ func (c *ClusterNode) ExecuteCommand(command string) chan entity.EvalResult {
 	return result
 }
 
-func (c ClusterNode) ExecuteQuery(query string) chan entity.EvalResult {
-	result := make(chan entity.EvalResult, 1)
+func (c ClusterNode) ExecuteQuery(query string) chan domain.EvalResult {
+	result := make(chan domain.EvalResult, 1)
 	go (func() { result <- c.evalFsm(query, "QUERY") })()
 	return result
 }
 
-func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
+func (c ClusterNode) evalFsm(entry string, entryType string) domain.EvalResult {
 	cmd := exec.Command(
 		c.fsmEval,
 		entry,
@@ -279,12 +323,12 @@ func (c ClusterNode) evalFsm(entry string, entryType string) entity.EvalResult {
 	cmd.Stderr = &errb
 
 	if err := cmd.Run(); err != nil {
-		return entity.EvalResult{
+		return domain.EvalResult{
 			Err: errors.New(errb.String()),
 		}
 	}
 
-	return entity.EvalResult{
+	return domain.EvalResult{
 		Out: outb.Bytes(),
 	}
 }

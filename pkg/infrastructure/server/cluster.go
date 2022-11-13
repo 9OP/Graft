@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 	"graft/pkg/usecase/cluster"
 
 	log "github.com/sirupsen/logrus"
@@ -55,7 +55,7 @@ func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
 	data, err := s.repository.ExecuteQuery(queryEntry, weakConsistency)
 	if err != nil {
 		switch e := err.(type) {
-		case *entity.NotLeaderError:
+		case *domain.NotLeaderError:
 			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
 		default:
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -84,7 +84,7 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 	data, err := s.repository.ExecuteCommand(commandEntry)
 	if err != nil {
 		switch e := err.(type) {
-		case *entity.NotLeaderError:
+		case *domain.NotLeaderError:
 			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
 		default:
 			http.Error(w, err.Error(), http.StatusBadRequest)

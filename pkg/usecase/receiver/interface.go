@@ -1,11 +1,11 @@
 package receiver
 
 import (
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 )
 
 type UseCase interface {
-	AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error)
-	RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
-	PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error)
+	AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error)
+	RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
+	PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 }

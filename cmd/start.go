@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"graft/pkg"
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -76,7 +76,7 @@ var (
 	level      = INFO
 	configPath string
 	config     *configuration
-	peers      entity.Peers
+	peers      domain.Peers
 )
 
 var startCmd = &cobra.Command{
@@ -101,9 +101,9 @@ var startCmd = &cobra.Command{
 		config = c
 		if _, ok := config.Peers[id]; ok {
 			// Validate peers format
-			validPeers := entity.Peers{}
+			validPeers := domain.Peers{}
 			for peerId, peer := range config.Peers {
-				validPeer, err := entity.NewPeer(peerId, peer.Host, peer.Ports.P2p, peer.Ports.Api)
+				validPeer, err := domain.NewPeer(peerId, peer.Host, peer.Ports.P2p, peer.Ports.Api)
 				if err != nil {
 					return err
 				}

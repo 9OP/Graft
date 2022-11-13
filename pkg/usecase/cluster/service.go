@@ -1,15 +1,15 @@
 package cluster
 
 import (
-	"graft/pkg/domain/entity"
-	domain "graft/pkg/domain/service"
+	"graft/pkg/domain"
+	"graft/pkg/domain/state"
 )
 
 type service struct {
-	clusterNode *domain.ClusterNode
+	clusterNode *state.ClusterNode
 }
 
-func NewService(clusterNode *domain.ClusterNode) *service {
+func NewService(clusterNode *state.ClusterNode) *service {
 	return &service{clusterNode}
 }
 
@@ -17,9 +17,9 @@ func (s *service) ExecuteCommand(command string) ([]byte, error) {
 	if !s.clusterNode.IsLeader() {
 		if s.clusterNode.HasLeader() {
 			leader := s.clusterNode.Leader()
-			return nil, entity.NewNotLeaderError(leader)
+			return nil, domain.NewNotLeaderError(leader)
 		}
-		return nil, entity.NewUnknownLeaderError()
+		return nil, domain.NewUnknownLeaderError()
 	}
 
 	res := <-s.clusterNode.ExecuteCommand(command)
@@ -30,9 +30,9 @@ func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, erro
 	if !s.clusterNode.IsLeader() && !weakConsistency {
 		if s.clusterNode.HasLeader() {
 			leader := s.clusterNode.Leader()
-			return nil, entity.NewNotLeaderError(leader)
+			return nil, domain.NewNotLeaderError(leader)
 		}
-		return nil, entity.NewUnknownLeaderError()
+		return nil, domain.NewUnknownLeaderError()
 	}
 
 	// TODO: Should ensure that the node has the lastest state version

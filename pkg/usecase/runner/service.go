@@ -3,8 +3,8 @@ package runner
 import (
 	"sync/atomic"
 
-	"graft/pkg/domain/entity"
-	domain "graft/pkg/domain/service"
+	"graft/pkg/domain"
+	"graft/pkg/domain/state"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -28,19 +28,21 @@ type synchronise struct {
 }
 
 type service struct {
-	clusterNode *domain.ClusterNode
-	timeout     *entity.Timeout
+	clusterNode *state.ClusterNode
+	timeout     *timeout
 	repo        repository
 	persist     persister
 	sync        synchronise
 }
 
 func NewService(
-	clusterNode *domain.ClusterNode,
-	timeout *entity.Timeout,
+	clusterNode *state.ClusterNode,
 	repository repository,
 	persister persister,
+	electionDuration int,
+	leaderHearbeat int,
 ) *service {
+	timeout := newTimeout(electionDuration, leaderHearbeat)
 	return &service{
 		repo:        repository,
 		timeout:     timeout,
@@ -52,11 +54,11 @@ func NewService(
 func (s *service) Run() {
 	for {
 		switch s.clusterNode.Role() {
-		case entity.Follower:
+		case domain.Follower:
 			s.runFollower()
-		case entity.Candidate:
+		case domain.Candidate:
 			s.runCandidate()
-		case entity.Leader:
+		case domain.Leader:
 			s.runLeader()
 		}
 	}
@@ -98,7 +100,7 @@ func (s *service) leaderFlow() {
 }
 
 func (s *service) runFollower() {
-	for s.clusterNode.Role() == entity.Follower {
+	for s.clusterNode.Role() == domain.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
 			go s.followerFlow()
@@ -107,7 +109,7 @@ func (s *service) runFollower() {
 			go s.commit()
 
 		case <-s.clusterNode.ResetElectionTimer:
-			go s.timeout.ResetElectionTimer()
+			go s.timeout.resetElectionTimer()
 
 		case <-s.clusterNode.SaveState:
 			go s.saveState()
@@ -119,13 +121,13 @@ func (s *service) runFollower() {
 }
 
 func (s *service) runCandidate() {
-	for s.clusterNode.Role() == entity.Candidate {
+	for s.clusterNode.Role() == domain.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
 			go s.candidateFlow()
 
 		case <-s.clusterNode.ResetElectionTimer:
-			go s.timeout.ResetElectionTimer()
+			go s.timeout.resetElectionTimer()
 
 		case <-s.clusterNode.Commit:
 			go s.commit()
@@ -140,7 +142,7 @@ func (s *service) runCandidate() {
 }
 
 func (s *service) runLeader() {
-	for s.clusterNode.Role() == entity.Leader {
+	for s.clusterNode.Role() == domain.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
 			go s.leaderFlow()
@@ -148,7 +150,7 @@ func (s *service) runLeader() {
 		// Should batch execution
 		case <-s.clusterNode.SynchronizeLogs:
 			go (func() {
-				s.timeout.ResetLeaderTicker()
+				s.timeout.resetLeaderTicker()
 				s.leaderFlow()
 			})()
 
@@ -159,7 +161,7 @@ func (s *service) runLeader() {
 			go s.saveState()
 
 		case <-s.clusterNode.ResetLeaderTicker:
-			go s.timeout.ResetLeaderTicker()
+			go s.timeout.resetLeaderTicker()
 
 		case <-s.clusterNode.ShiftRole:
 			return
@@ -205,7 +207,7 @@ func (s *service) preVote() bool {
 	quorum := s.clusterNode.Quorum()
 	var prevotesGranted uint32 = 1 // vote for self
 
-	preVoteRoutine := func(p entity.Peer) {
+	preVoteRoutine := func(p domain.Peer) {
 		if res, err := s.repo.PreVote(p, &input); err == nil {
 			if res.VoteGranted {
 				atomic.AddUint32(&prevotesGranted, 1)
@@ -223,7 +225,7 @@ func (s *service) requestVote() bool {
 	quorum := s.clusterNode.Quorum()
 	var votesGranted uint32 = 1 // vote for self
 
-	gatherVotesRoutine := func(p entity.Peer) {
+	gatherVotesRoutine := func(p domain.Peer) {
 		if res, err := s.repo.RequestVote(p, &input); err == nil {
 			if res.Term > s.clusterNode.CurrentTerm() {
 				s.clusterNode.DowngradeFollower(res.Term)
@@ -236,7 +238,7 @@ func (s *service) requestVote() bool {
 	}
 	s.clusterNode.Broadcast(gatherVotesRoutine)
 
-	isCandidate := s.clusterNode.Role() == entity.Candidate
+	isCandidate := s.clusterNode.Role() == domain.Candidate
 	quorumReached := int(votesGranted) >= quorum
 	return isCandidate && quorumReached
 }
@@ -244,7 +246,7 @@ func (s *service) requestVote() bool {
 func (s *service) heartbeat() bool {
 	quorumReached := s.synchronizeLogs()
 
-	if s.clusterNode.Role() == entity.Leader {
+	if s.clusterNode.Role() == domain.Leader {
 		s.clusterNode.SetCommitIndex(
 			s.clusterNode.ComputeNewCommitIndex(),
 		)
@@ -257,7 +259,7 @@ func (s *service) synchronizeLogs() bool {
 	quorum := s.clusterNode.Quorum()
 	var peersAlive uint32 = 1 // self
 
-	synchroniseLogsRoutine := func(p entity.Peer) {
+	synchroniseLogsRoutine := func(p domain.Peer) {
 		input := s.clusterNode.AppendEntriesInput(p.Id)
 		if res, err := s.repo.AppendEntries(p, &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)

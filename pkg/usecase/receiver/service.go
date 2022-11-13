@@ -1,25 +1,23 @@
 package receiver
 
 import (
-	"fmt"
-
-	utils "graft/pkg/domain"
-	"graft/pkg/domain/entity"
-	domain "graft/pkg/domain/service"
+	"graft/pkg/domain"
+	"graft/pkg/domain/state"
+	"graft/pkg/utils"
 )
 
 type service struct {
-	clusterNode *domain.ClusterNode
+	clusterNode *state.ClusterNode
 }
 
-func NewService(clusterNode *domain.ClusterNode) *service {
+func NewService(clusterNode *state.ClusterNode) *service {
 	return &service{clusterNode}
 }
 
-func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
+func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	node := s.clusterNode
 
-	output := &entity.AppendEntriesOutput{
+	output := &domain.AppendEntriesOutput{
 		Term:    node.CurrentTerm(),
 		Success: false,
 	}
@@ -38,11 +36,10 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 		node.AppendLogs(input.PrevLogIndex, input.Entries...)
 		output.Success = true
 	} else {
-		fmt.Println("delete logs")
 		node.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
-	if input.LeaderCommit >= node.CommitIndex() {
+	if input.LeaderCommit > node.CommitIndex() {
 		newIndex := utils.Min(node.LastLogIndex(), input.LeaderCommit)
 		node.SetCommitIndex(newIndex)
 	}
@@ -50,10 +47,10 @@ func (s *service) AppendEntries(input *entity.AppendEntriesInput) (*entity.Appen
 	return output, nil
 }
 
-func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.clusterNode
 
-	output := &entity.RequestVoteOutput{
+	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
@@ -73,10 +70,10 @@ func (s *service) RequestVote(input *entity.RequestVoteInput) (*entity.RequestVo
 	return output, nil
 }
 
-func (s *service) PreVote(input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.clusterNode
 
-	output := &entity.RequestVoteOutput{
+	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}

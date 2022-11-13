@@ -1,57 +1,58 @@
-package entity
+package state
 
 import (
 	"math"
 
-	utils "graft/pkg/domain"
+	"graft/pkg/domain"
+	"graft/pkg/utils"
 )
 
-type NodeState struct {
+type nodeState struct {
 	id       string
 	leaderId string
-	peers    Peers
-	role     Role
-	*FsmState
+	peers    domain.Peers
+	role     domain.Role
+	*fsmState
 }
 
-func NewNodeState(id string, peers Peers, persistent *PersistentState) NodeState {
+func NewNodeState(id string, peers domain.Peers, persistent *PersistentState) nodeState {
 	fsmState := NewFsmState(persistent)
-	return NodeState{
+	return nodeState{
 		id:       id,
 		peers:    peers,
-		role:     Follower,
-		FsmState: &fsmState,
+		role:     domain.Follower,
+		fsmState: &fsmState,
 	}
 }
 
-func (n NodeState) Id() string {
+func (n nodeState) Id() string {
 	return n.id
 }
 
-func (n NodeState) LeaderId() string {
+func (n nodeState) LeaderId() string {
 	return n.leaderId
 }
 
-func (n NodeState) HasLeader() bool {
+func (n nodeState) HasLeader() bool {
 	_, ok := n.peers[n.leaderId]
 	return ok
 }
 
-func (n NodeState) Leader() Peer {
+func (n nodeState) Leader() domain.Peer {
 	leaderId := n.leaderId
 	leader := n.peers[leaderId]
 	return leader
 }
 
-func (n NodeState) Role() Role {
+func (n nodeState) Role() domain.Role {
 	return n.role
 }
 
-func (n NodeState) Peers() Peers {
+func (n nodeState) Peers() domain.Peers {
 	return utils.CopyMap(n.peers)
 }
 
-func (n NodeState) WithInitializeLeader() NodeState {
+func (n nodeState) WithInitializeLeader() nodeState {
 	defaultNextIndex := n.LastLogIndex() // + 1
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
@@ -64,36 +65,36 @@ func (n NodeState) WithInitializeLeader() NodeState {
 	return n
 }
 
-func (n NodeState) WithCurrentTerm(term uint32) NodeState {
-	n.FsmState.PersistentState.currentTerm = term
+func (n nodeState) WithCurrentTerm(term uint32) nodeState {
+	n.fsmState.PersistentState.currentTerm = term
 	return n
 }
 
-func (n NodeState) WithVotedFor(vote string) NodeState {
-	n.FsmState.PersistentState.votedFor = vote
+func (n nodeState) WithVotedFor(vote string) nodeState {
+	n.fsmState.PersistentState.votedFor = vote
 	return n
 }
 
-func (n NodeState) WithRole(role Role) NodeState {
+func (n nodeState) WithRole(role domain.Role) nodeState {
 	n.role = role
 	return n
 }
 
-func (n NodeState) WithClusterLeader(leaderId string) NodeState {
+func (n nodeState) WithClusterLeader(leaderId string) nodeState {
 	n.leaderId = leaderId
 	return n
 }
 
-func (n NodeState) Quorum() int {
+func (n nodeState) Quorum() int {
 	totalPeers := len(n.peers) + 1
 	return int(math.Ceil(float64(totalPeers) / 2.0))
 }
 
-func (n NodeState) IsLeader() bool {
+func (n nodeState) IsLeader() bool {
 	return n.Id() == n.LeaderId()
 }
 
-func (n NodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
+func (n nodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
 	currentLogIndex := n.LastLogIndex()
 	currentLogTerm := n.LastLog().Term
 
@@ -101,7 +102,7 @@ func (n NodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
 	return candidateUpToDate
 }
 
-func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
+func (n nodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
 	// Unknown peer id
 	if _, ok := n.peers[peerId]; !ok {
 		return false
@@ -114,18 +115,18 @@ func (n NodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm 
 	return voteAvailable && candidateUpToDate
 }
 
-func (n *NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
+func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput {
 	matchIndex := n.MatchIndexForPeer(peerId)
 	nextIndex := n.NextIndexForPeer(peerId)
 
 	var prevLogTerm uint32
 	var prevLogIndex uint32
-	var entries []LogEntry
+	var entries []domain.LogEntry
 
 	// No need to send new entries when peer
 	// Already has matching log for lastLogIndex
 	if matchIndex == n.LastLogIndex() {
-		entries = []LogEntry{}
+		entries = []domain.LogEntry{}
 		prevLogIndex = n.LastLogIndex()
 		prevLog, _ := n.MachineLog(prevLogIndex)
 		prevLogTerm = prevLog.Term
@@ -136,7 +137,7 @@ func (n *NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
 		prevLogTerm = prevLog.Term
 	}
 
-	return AppendEntriesInput{
+	return domain.AppendEntriesInput{
 		LeaderId:     n.Id(),
 		Term:         n.CurrentTerm(),
 		LeaderCommit: n.CommitIndex(),
@@ -146,8 +147,8 @@ func (n *NodeState) AppendEntriesInput(peerId string) AppendEntriesInput {
 	}
 }
 
-func (n NodeState) RequestVoteInput() RequestVoteInput {
-	return RequestVoteInput{
+func (n nodeState) RequestVoteInput() domain.RequestVoteInput {
+	return domain.RequestVoteInput{
 		CandidateId:  n.Id(),
 		Term:         n.CurrentTerm(),
 		LastLogIndex: n.LastLogIndex(),
@@ -155,7 +156,7 @@ func (n NodeState) RequestVoteInput() RequestVoteInput {
 	}
 }
 
-func (n NodeState) ComputeNewCommitIndex() uint32 {
+func (n nodeState) ComputeNewCommitIndex() uint32 {
 	/*
 		Compute new commitIndex N such that:
 			- N > commitIndex,

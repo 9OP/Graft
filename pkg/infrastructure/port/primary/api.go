@@ -3,7 +3,7 @@ package primaryPort
 import (
 	"context"
 
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	"graft/pkg/usecase/receiver"
 
@@ -19,16 +19,16 @@ func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
 }
 
 func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
-	entries := make([]entity.LogEntry, 0, len(input.Entries))
+	entries := make([]domain.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
-		entry := entity.LogEntry{
+		entry := domain.LogEntry{
 			Term:  log.Term,
 			Value: log.Value,
 			Type:  log.Type,
 		}
 		entries = append(entries, entry)
 	}
-	output, err := p.adapter.AppendEntries(&entity.AppendEntriesInput{
+	output, err := p.adapter.AppendEntries(&domain.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
@@ -48,7 +48,7 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 }
 
 func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
-	output, err := p.adapter.RequestVote(&entity.RequestVoteInput{
+	output, err := p.adapter.RequestVote(&domain.RequestVoteInput{
 		CandidateId:  input.CandidateId,
 		Term:         input.Term,
 		LastLogIndex: input.LastLogIndex,
@@ -66,7 +66,7 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 }
 
 func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
-	output, err := p.adapter.PreVote(&entity.RequestVoteInput{
+	output, err := p.adapter.PreVote(&domain.RequestVoteInput{
 		CandidateId:  input.CandidateId,
 		Term:         input.Term,
 		LastLogIndex: input.LastLogIndex,

@@ -1,8 +1,8 @@
-package entity
+package state
 
-import utils "graft/pkg/domain"
+import "graft/pkg/utils"
 
-type FsmState struct {
+type fsmState struct {
 	commitIndex uint32
 	lastApplied uint32
 	nextIndex   map[string]uint32
@@ -13,8 +13,8 @@ type FsmState struct {
 // Maps peerId to log index
 type peerIndex map[string]uint32
 
-func NewFsmState(persistent *PersistentState) FsmState {
-	return FsmState{
+func NewFsmState(persistent *PersistentState) fsmState {
+	return fsmState{
 		commitIndex:     0,
 		lastApplied:     0,
 		nextIndex:       peerIndex{},
@@ -23,67 +23,67 @@ func NewFsmState(persistent *PersistentState) FsmState {
 	}
 }
 
-func (f FsmState) CommitIndex() uint32 {
+func (f fsmState) CommitIndex() uint32 {
 	return f.commitIndex
 }
 
-func (f FsmState) LastApplied() uint32 {
+func (f fsmState) LastApplied() uint32 {
 	return f.lastApplied
 }
 
-func (f FsmState) NextIndex() peerIndex {
+func (f fsmState) NextIndex() peerIndex {
 	return utils.CopyMap(f.nextIndex)
 }
 
-func (f FsmState) MatchIndex() peerIndex {
+func (f fsmState) MatchIndex() peerIndex {
 	return utils.CopyMap(f.matchIndex)
 }
 
-func (f FsmState) NextIndexForPeer(peerId string) uint32 {
+func (f fsmState) NextIndexForPeer(peerId string) uint32 {
 	if idx, ok := f.nextIndex[peerId]; ok {
 		return idx
 	}
 	return 0
 }
 
-func (f FsmState) MatchIndexForPeer(peerId string) uint32 {
+func (f fsmState) MatchIndexForPeer(peerId string) uint32 {
 	if idx, ok := f.matchIndex[peerId]; ok {
 		return idx
 	}
 	return 0
 }
 
-func (f FsmState) WithCommitIndex(index uint32) (FsmState, bool) {
+func (f fsmState) WithCommitIndex(index uint32) (fsmState, bool) {
 	changed := f.commitIndex != index
 	f.commitIndex = index
 	return f, changed
 }
 
-func (f FsmState) WithLastApplied(lastApplied uint32) FsmState {
+func (f fsmState) WithLastApplied(lastApplied uint32) fsmState {
 	f.lastApplied = lastApplied
 	return f
 }
 
-func (f FsmState) WithIncrementLastApplied() FsmState {
+func (f fsmState) WithIncrementLastApplied() fsmState {
 	f.lastApplied += 1
 	return f
 }
 
-func (f FsmState) WithNextIndex(peerId string, index uint32) FsmState {
+func (f fsmState) WithNextIndex(peerId string, index uint32) fsmState {
 	nextIndex := f.NextIndex()
 	nextIndex[peerId] = index
 	f.nextIndex = nextIndex
 	return f
 }
 
-func (f FsmState) WithMatchIndex(peerId string, index uint32) FsmState {
+func (f fsmState) WithMatchIndex(peerId string, index uint32) fsmState {
 	matchIndex := f.MatchIndex()
 	matchIndex[peerId] = index
 	f.matchIndex = matchIndex
 	return f
 }
 
-func (f FsmState) WithDecrementNextIndex(peerId string) (FsmState, bool) {
+func (f fsmState) WithDecrementNextIndex(peerId string) (fsmState, bool) {
 	// Copy of f.nextIndex is expensive
 	// avoid it when next index is already 0
 	if f.nextIndex[peerId] == 0 {

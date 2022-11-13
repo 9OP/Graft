@@ -1,7 +1,7 @@
 package secondaryPort
 
 import (
-	"graft/pkg/domain/entity"
+	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	adapter "graft/pkg/infrastructure/adapter/secondary"
 )
@@ -14,7 +14,7 @@ func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 	return &rpcClientPort{adapter}
 }
 
-func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntriesInput) (*entity.AppendEntriesOutput, error) {
+func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	target := peer.TargetP2p()
 	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
@@ -37,13 +37,13 @@ func (p *rpcClientPort) AppendEntries(peer entity.Peer, input *entity.AppendEntr
 		return nil, err
 	}
 
-	return &entity.AppendEntriesOutput{
+	return &domain.AppendEntriesOutput{
 		Term:    output.Term,
 		Success: output.Success,
 	}, nil
 }
 
-func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	target := peer.TargetP2p()
 	output, err := p.adapter.RequestVote(target, &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
@@ -55,13 +55,13 @@ func (p *rpcClientPort) RequestVote(peer entity.Peer, input *entity.RequestVoteI
 		return nil, err
 	}
 
-	return &entity.RequestVoteOutput{
+	return &domain.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
 	}, nil
 }
 
-func (p *rpcClientPort) PreVote(peer entity.Peer, input *entity.RequestVoteInput) (*entity.RequestVoteOutput, error) {
+func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	target := peer.TargetP2p()
 	output, err := p.adapter.PreVote(target, &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
@@ -73,7 +73,7 @@ func (p *rpcClientPort) PreVote(peer entity.Peer, input *entity.RequestVoteInput
 		return nil, err
 	}
 
-	return &entity.RequestVoteOutput{
+	return &domain.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
 	}, nil
