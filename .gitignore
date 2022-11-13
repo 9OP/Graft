@@ -1,4 +1,7 @@
 *.json
 *.db
+*.key
+*.csr
+*.pem
 build/
 .DS_Store

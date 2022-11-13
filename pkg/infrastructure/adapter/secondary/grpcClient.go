@@ -2,12 +2,17 @@ package secondaryAdapter
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"log"
+	"os"
 	"time"
 
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 )
 
 type UseCaseGrpcClient interface {
@@ -22,16 +27,35 @@ func NewGrpcClient() *grpcClient {
 	return &grpcClient{}
 }
 
+func loadTLSCredentials() (credentials.TransportCredentials, error) {
+	// Load certificate of the CA who signed server's certificate
+	pemServerCA, err := os.ReadFile("cert/server.pem")
+	if err != nil {
+		return nil, err
+	}
+
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(pemServerCA) {
+		return nil, fmt.Errorf("failed to add server CA's certificate")
+	}
+
+	// Create the credentials and return it
+	config := &tls.Config{
+		RootCAs:            certPool,
+		InsecureSkipVerify: true,
+	}
+
+	return credentials.NewTLS(config), nil
+}
+
 func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
 	// Dial options
-	creds := grpc.WithTransportCredentials(insecure.NewCredentials())
+	creds, err := loadTLSCredentials()
+	if err != nil {
+		log.Fatalf("could not process the credentials: %v", err)
+	}
 
-	// With Dialing timeout
-	// block := grpc.WithBlock()
-	// ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	// defer cancel()
-	// conn, err := grpc.DialContext(ctx, target, creds, block)
-	conn, err := grpc.Dial(target, creds)
+	conn, err := grpc.Dial(target, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, err
 	}
