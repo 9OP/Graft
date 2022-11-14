@@ -11,6 +11,7 @@ import (
 type PersistentState struct {
 	currentTerm uint32
 	votedFor    string
+	// Important: index starts at 1
 	machineLogs []domain.LogEntry
 }
 
@@ -43,44 +44,33 @@ func (p PersistentState) LastLog() domain.LogEntry {
 	return lastLog
 }
 
+var errIndexOutOfRange = errors.New("index out of range")
+
 func (p PersistentState) MachineLog(index uint32) (domain.LogEntry, error) {
 	if index == 0 {
 		return domain.LogEntry{}, nil
 	}
-	lastLogIndex := p.LastLogIndex()
-	if index <= lastLogIndex {
-		log := p.machineLogs[index-1]
-		return log.Copy(), nil
+	if index <= p.LastLogIndex() {
+		return p.machineLogs[index-1], nil
 	}
-	return domain.LogEntry{}, errors.New("index out of range")
+	return domain.LogEntry{}, errIndexOutOfRange
 }
 
+// Return a slice copy of state machine logs
 func (p PersistentState) MachineLogs() []domain.LogEntry {
-	len := p.LastLogIndex()
-	machineLogs := make([]domain.LogEntry, len)
-	for i := uint32(1); i <= len; i += 1 {
-		if log, err := p.MachineLog(i); err == nil {
-			machineLogs[i-1] = log.Copy()
-		}
-	}
+	machineLogs := make([]domain.LogEntry, len(p.machineLogs))
+	copy(machineLogs, p.machineLogs)
 	return machineLogs
 }
 
 func (p PersistentState) MachineLogsFrom(index uint32) []domain.LogEntry {
-	lastLogIndex := p.LastLogIndex()
-
+	logs := p.MachineLogs()
 	if index == 0 {
-		logs := make([]domain.LogEntry, lastLogIndex)
-		copy(logs, p.MachineLogs())
 		return logs
 	}
-
-	if index <= lastLogIndex {
-		logs := make([]domain.LogEntry, lastLogIndex-index+1)
-		copy(logs, p.MachineLogs()[index-1:])
-		return logs
+	if index <= p.LastLogIndex() {
+		return logs[index-1:]
 	}
-
 	return []domain.LogEntry{}
 }
 
@@ -95,13 +85,13 @@ func (p PersistentState) WithVotedFor(vote string) PersistentState {
 }
 
 func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool) {
-	// Delete logs from given index (include deletion)
-	lastLogIndex := p.LastLogIndex()
-	if index <= lastLogIndex && index >= 1 {
-		// index-1 because index starts at 1
-		logs := make([]domain.LogEntry, index-1)
-		copy(logs, p.MachineLogs()[:index-1])
-		p.machineLogs = logs
+	if index == 0 {
+		p.machineLogs = []domain.LogEntry{}
+		return p, true
+	}
+	if index <= p.LastLogIndex() && index >= 1 {
+		logs := p.MachineLogs()
+		p.machineLogs = logs[:index-1]
 		return p, true
 	}
 	return p, false

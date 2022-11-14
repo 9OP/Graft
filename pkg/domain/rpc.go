@@ -31,15 +31,6 @@ type LogEntry struct {
 	C     chan EvalResult `json:"-"`
 }
 
-func (l LogEntry) Copy() LogEntry {
-	return LogEntry{
-		Term:  l.Term,
-		Value: l.Value,
-		Type:  l.Type,
-		C:     l.C,
-	}
-}
-
 type EvalResult struct {
 	Out []byte
 	Err error
