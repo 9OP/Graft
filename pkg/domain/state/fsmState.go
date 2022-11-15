@@ -13,8 +13,8 @@ type fsmState struct {
 // Maps peerId to log index
 type peerIndex map[string]uint32
 
-func NewFsmState(persistent *PersistentState) fsmState {
-	return fsmState{
+func NewFsmState(persistent *PersistentState) *fsmState {
+	return &fsmState{
 		commitIndex:     0,
 		lastApplied:     0,
 		nextIndex:       peerIndex{},

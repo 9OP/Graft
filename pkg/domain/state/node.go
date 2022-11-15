@@ -83,11 +83,9 @@ func NewClusterNode(
 	fsmEval string,
 	persistent *PersistentState,
 ) *ClusterNode {
-	nodeState := NewNodeState(id, peers, persistent)
-	signals := newSignals()
 	return &ClusterNode{
-		nodeState: &nodeState,
-		signals:   signals,
+		nodeState: NewNodeState(id, peers, persistent),
+		signals:   newSignals(),
 		fsmInit:   fsmInit,
 		fsmEval:   fsmEval,
 	}

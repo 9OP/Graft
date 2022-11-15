@@ -15,13 +15,12 @@ type nodeState struct {
 	*fsmState
 }
 
-func NewNodeState(id string, peers domain.Peers, persistent *PersistentState) nodeState {
-	fsmState := NewFsmState(persistent)
-	return nodeState{
+func NewNodeState(id string, peers domain.Peers, persistent *PersistentState) *nodeState {
+	return &nodeState{
 		id:       id,
 		peers:    peers,
 		role:     domain.Follower,
-		fsmState: &fsmState,
+		fsmState: NewFsmState(persistent),
 	}
 }
 
