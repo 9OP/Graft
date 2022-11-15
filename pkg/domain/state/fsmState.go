@@ -5,8 +5,8 @@ import "graft/pkg/utils"
 type fsmState struct {
 	commitIndex uint32
 	lastApplied uint32
-	nextIndex   map[string]uint32
-	matchIndex  map[string]uint32
+	nextIndex   peerIndex
+	matchIndex  peerIndex
 	*PersistentState
 }
 
@@ -70,6 +70,9 @@ func (f fsmState) WithIncrementLastApplied() fsmState {
 }
 
 func (f fsmState) WithNextIndex(peerId string, index uint32) fsmState {
+	if idx, ok := f.nextIndex[peerId]; idx == index && ok {
+		return f
+	}
 	nextIndex := f.NextIndex()
 	nextIndex[peerId] = index
 	f.nextIndex = nextIndex
@@ -77,6 +80,9 @@ func (f fsmState) WithNextIndex(peerId string, index uint32) fsmState {
 }
 
 func (f fsmState) WithMatchIndex(peerId string, index uint32) fsmState {
+	if idx, ok := f.matchIndex[peerId]; idx == index && ok {
+		return f
+	}
 	matchIndex := f.MatchIndex()
 	matchIndex[peerId] = index
 	f.matchIndex = matchIndex
@@ -84,13 +90,8 @@ func (f fsmState) WithMatchIndex(peerId string, index uint32) fsmState {
 }
 
 func (f fsmState) WithDecrementNextIndex(peerId string) (fsmState, bool) {
-	// Copy of f.nextIndex is expensive
-	// avoid it when next index is already 0
-	if f.nextIndex[peerId] == 0 {
+	if idx, ok := f.nextIndex[peerId]; idx == 0 || !ok {
 		return f, false
 	}
-	nextIndex := f.NextIndex()
-	nextIndex[peerId] -= 1
-	f.nextIndex = nextIndex
-	return f, true
+	return f.WithNextIndex(peerId, f.nextIndex[peerId]-1), true
 }
