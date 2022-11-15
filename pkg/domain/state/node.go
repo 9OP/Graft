@@ -265,7 +265,7 @@ func (c *ClusterNode) ApplyLogs() {
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
-		if log, err := c.MachineLog(lastApplied); err == nil {
+		if log, err := c.Log(lastApplied); err == nil {
 			if log.Type != "COMMAND" {
 				continue
 			}

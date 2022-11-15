@@ -31,7 +31,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 	node.SetClusterLeader(input.LeaderId)
 	node.Heartbeat()
 
-	localPrevLog, err := node.MachineLog(input.PrevLogIndex)
+	localPrevLog, err := node.Log(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm && err == nil {
 		node.AppendLogs(input.PrevLogIndex, input.Entries...)
 		output.Success = true
@@ -79,7 +79,7 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	}
 
 	hasLeader := node.HasLeader()
-	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
+	isUpToDate := node.IsUpToDate(input.LastLogIndex, input.LastLogTerm)
 
 	if !hasLeader && isUpToDate {
 		output.VoteGranted = true

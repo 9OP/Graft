@@ -30,7 +30,7 @@ func (p persisterPort) Load() (*state.PersistentState, error) {
 	res := state.NewPersistentState(
 		ps.CurrentTerm,
 		ps.VotedFor,
-		ps.MachineLogs,
+		ps.Logs,
 	)
 	return &res, nil
 }

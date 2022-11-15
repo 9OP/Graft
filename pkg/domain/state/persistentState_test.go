@@ -127,7 +127,7 @@ func TestMachineLog(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
-			out, err := state.MachineLog(tt.in)
+			out, err := state.Log(tt.in)
 			// Check output and error
 			if out != tt.out || !errors.Is(err, tt.err) {
 				t.Errorf("got %v %v, want %v %v", out, err, tt.out, tt.err)
@@ -136,7 +136,7 @@ func TestMachineLog(t *testing.T) {
 	}
 
 	// Mutate
-	log, _ := state.MachineLog(1)
+	log, _ := state.Log(1)
 	state.machineLogs[0].Term += 1
 	if reflect.DeepEqual(log, state.machineLogs[0]) {
 		t.Error("mutate copy")
@@ -152,7 +152,7 @@ func TestMachineLogs(t *testing.T) {
 		},
 	}
 
-	res := state.MachineLogs()
+	res := state.Logs()
 	if !reflect.DeepEqual(res, state.machineLogs) {
 		t.Errorf("got %v, want %v", res, state.machineLogs)
 	}
@@ -190,7 +190,7 @@ func TestMachineLogsFrom(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
-			out := state.MachineLogsFrom(tt.in)
+			out := state.LogsFrom(tt.in)
 
 			if !reflect.DeepEqual(out, tt.out) {
 				t.Errorf("got %v, want %v", out, tt.out)
@@ -203,7 +203,7 @@ func TestMachineLogsFrom(t *testing.T) {
 	}
 
 	// Mutate state
-	log := state.MachineLogsFrom(0)[0]
+	log := state.LogsFrom(0)[0]
 	state.machineLogs[0].Term += 1
 	if reflect.DeepEqual(log, state.machineLogs[0]) {
 		t.Error("mutate copy")

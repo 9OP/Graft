@@ -38,9 +38,7 @@ func (n nodeState) HasLeader() bool {
 }
 
 func (n nodeState) Leader() domain.Peer {
-	leaderId := n.leaderId
-	leader := n.peers[leaderId]
-	return leader
+	return n.peers[n.leaderId]
 }
 
 func (n nodeState) Role() domain.Role {
@@ -90,15 +88,24 @@ func (n nodeState) Quorum() int {
 }
 
 func (n nodeState) IsLeader() bool {
-	return n.Id() == n.LeaderId()
+	return n.id == n.leaderId
 }
 
-func (n nodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
-	currentLogIndex := n.LastLogIndex()
-	currentLogTerm := n.LastLog().Term
+// Raft determines which of two logs is more up-to-date
+// by comparing the index and term of the last entries in the
+// logs. If the logs have last entries with different terms, then
+// the log with the later term is more up-to-date. If the logs
+// end with the same term, then whichever log is longer is
+// more up-to-date.
+// IsUpToDate from the caller point of view
+func (n nodeState) IsUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
+	log := n.LastLog()
 
-	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
-	return candidateUpToDate
+	if log.Term == lastLogTerm {
+		return lastLogIndex >= n.LastLogIndex()
+	}
+
+	return lastLogTerm >= log.Term
 }
 
 func (n nodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
@@ -109,7 +116,7 @@ func (n nodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm 
 
 	votedFor := n.VotedFor()
 	voteAvailable := votedFor == "" || votedFor == peerId
-	candidateUpToDate := n.IsLogUpToDate(lastLogIndex, lastLogTerm)
+	candidateUpToDate := n.IsUpToDate(lastLogIndex, lastLogTerm)
 
 	return voteAvailable && candidateUpToDate
 }
@@ -127,12 +134,12 @@ func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput 
 	if matchIndex == n.LastLogIndex() {
 		entries = []domain.LogEntry{}
 		prevLogIndex = n.LastLogIndex()
-		prevLog, _ := n.MachineLog(prevLogIndex)
+		prevLog, _ := n.Log(prevLogIndex)
 		prevLogTerm = prevLog.Term
 	} else {
-		entries = n.MachineLogsFrom(nextIndex + 1)
+		entries = n.LogsFrom(nextIndex + 1)
 		prevLogIndex = nextIndex
-		prevLog, _ := n.MachineLog(prevLogIndex)
+		prevLog, _ := n.Log(prevLogIndex)
 		prevLogTerm = prevLog.Term
 	}
 
@@ -176,7 +183,7 @@ func (n nodeState) ComputeNewCommitIndex() uint32 {
 			}
 		}
 		if count >= quorum {
-			if log, err := n.MachineLog(N); err == nil {
+			if log, err := n.Log(N); err == nil {
 				if log.Term == n.CurrentTerm() {
 					return N
 				}

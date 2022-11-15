@@ -39,13 +39,13 @@ func (p PersistentState) LastLogIndex() uint32 {
 }
 
 func (p PersistentState) LastLog() domain.LogEntry {
-	lastLog, _ := p.MachineLog(p.LastLogIndex())
+	lastLog, _ := p.Log(p.LastLogIndex())
 	return lastLog
 }
 
 var errIndexOutOfRange = errors.New("index out of range")
 
-func (p PersistentState) MachineLog(index uint32) (domain.LogEntry, error) {
+func (p PersistentState) Log(index uint32) (domain.LogEntry, error) {
 	if index == 0 {
 		return domain.LogEntry{}, nil
 	}
@@ -56,14 +56,14 @@ func (p PersistentState) MachineLog(index uint32) (domain.LogEntry, error) {
 }
 
 // Return a slice copy of state machine logs
-func (p PersistentState) MachineLogs() []domain.LogEntry {
+func (p PersistentState) Logs() []domain.LogEntry {
 	machineLogs := make([]domain.LogEntry, len(p.machineLogs))
 	copy(machineLogs, p.machineLogs)
 	return machineLogs
 }
 
-func (p PersistentState) MachineLogsFrom(index uint32) []domain.LogEntry {
-	logs := p.MachineLogs()
+func (p PersistentState) LogsFrom(index uint32) []domain.LogEntry {
+	logs := p.Logs()
 	if index == 0 {
 		return logs
 	}
@@ -88,7 +88,7 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool
 		p.machineLogs = []domain.LogEntry{}
 		return p, true
 	}
-	logs := p.MachineLogs()
+	logs := p.Logs()
 	if index <= p.LastLogIndex() && index >= 1 {
 		p.machineLogs = logs[:index-1]
 		return p, true
@@ -121,7 +121,7 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...domain.L
 		and then only copy the remaining "new" logs.
 
 		prevLogIndex is necessay as it gives the offset of the
-		entries argument, relative to p.MachineLogs
+		entries argument, relative to p.Logs
 	*/
 
 	lastLogIndex := p.LastLogIndex()
@@ -145,7 +145,7 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...domain.L
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
-	copy(logs, p.MachineLogs())
+	copy(logs, p.Logs())
 
 	p.machineLogs = logs
 	return p, changed
