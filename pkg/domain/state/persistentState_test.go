@@ -134,6 +134,13 @@ func TestMachineLog(t *testing.T) {
 			}
 		})
 	}
+
+	// Mutate
+	log, _ := state.MachineLog(1)
+	state.machineLogs[0].Term += 1
+	if reflect.DeepEqual(log, state.machineLogs[0]) {
+		t.Error("mutate copy")
+	}
 }
 
 func TestMachineLogs(t *testing.T) {
@@ -230,10 +237,101 @@ func TestWithers(t *testing.T) {
 	}
 }
 
-func TestDeleteLogsFrom(t *testing.T) {
-	//
+func TestWithDeleteLogsFrom(t *testing.T) {
+	state := PersistentState{
+		machineLogs: []domain.LogEntry{
+			{Term: 1, Value: "val1"},
+			{Term: 2, Value: "val2"},
+			{Term: 3, Value: "val3"},
+			{Term: 4, Value: "val4"},
+			{Term: 5, Value: "val5"},
+		},
+	}
+
+	res := []struct {
+		in      uint32
+		out     []domain.LogEntry
+		len     int
+		changed bool
+	}{
+		{0, []domain.LogEntry{}, 0, true},
+		{1, []domain.LogEntry{}, 0, true},
+		{3, state.machineLogs[:2], 2, true},
+		{4, state.machineLogs[:3], 3, true},
+		{5, state.machineLogs[:4], 4, true},
+		{6, state.machineLogs, 5, false},
+		{10, state.machineLogs, 5, false},
+	}
+
+	for _, tt := range res {
+		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
+			out, changed := state.WithDeleteLogsFrom(tt.in)
+
+			if !reflect.DeepEqual(out.machineLogs, tt.out) {
+				t.Errorf("got %v, want %v", out.machineLogs, tt.out)
+			}
+
+			if len(out.machineLogs) != tt.len {
+				t.Errorf("len got %v, want %v", len(out.machineLogs), tt.len)
+			}
+
+			if changed != tt.changed {
+				t.Errorf("changed got %v, want %v", changed, tt.changed)
+			}
+		})
+	}
+
+	// Mutate
+	newState, _ := state.WithDeleteLogsFrom(10)
+	state.machineLogs[0].Term += 1
+	if reflect.DeepEqual(newState.machineLogs, state.machineLogs) {
+		t.Error("mutate copy")
+	}
 }
 
-func TestAppendLogsFrom(t *testing.T) {
-	//
+func TestWithAppendLogsFrom(t *testing.T) {
+	state := PersistentState{
+		machineLogs: []domain.LogEntry{
+			{Term: 1},
+			{Term: 2},
+			{Term: 3},
+		},
+	}
+	entries := []domain.LogEntry{
+		{Term: 4},
+		{Term: 5},
+	}
+	res := []struct {
+		prevLogIndex uint32
+		entries      []domain.LogEntry
+		logs         []domain.LogEntry
+		len          int
+		changed      bool
+	}{
+		{3, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 4}, {Term: 5}}, 5, true},
+		{2, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 5}}, 4, true},
+		{1, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{0, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{4, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{5, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{2, []domain.LogEntry{}, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+	}
+
+	for _, tt := range res {
+		t.Run(fmt.Sprintf("%d", tt.prevLogIndex), func(t *testing.T) {
+			out, changed := state.WithAppendLogs(tt.prevLogIndex, tt.entries...)
+
+			if !reflect.DeepEqual(out.machineLogs, tt.logs) {
+				t.Errorf("got %v, want %v", out.machineLogs, tt.logs)
+			}
+
+			if changed != tt.changed {
+				t.Errorf("got %v, want %v", changed, tt.changed)
+			}
+
+			if len(out.machineLogs) != len(tt.logs) {
+				t.Errorf("got %v, want %v", len(out.machineLogs), len(tt.logs))
+			}
+		})
+	}
 }

@@ -4,9 +4,8 @@ import (
 	"errors"
 
 	"graft/pkg/domain"
+	"graft/pkg/utils"
 )
-
-// https://github.com/golang/go/wiki/SliceTricks
 
 type PersistentState struct {
 	currentTerm uint32
@@ -89,11 +88,12 @@ func (p PersistentState) WithDeleteLogsFrom(index uint32) (PersistentState, bool
 		p.machineLogs = []domain.LogEntry{}
 		return p, true
 	}
+	logs := p.MachineLogs()
 	if index <= p.LastLogIndex() && index >= 1 {
-		logs := p.MachineLogs()
 		p.machineLogs = logs[:index-1]
 		return p, true
 	}
+	p.machineLogs = logs
 	return p, false
 }
 
@@ -125,9 +125,15 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...domain.L
 	*/
 
 	lastLogIndex := p.LastLogIndex()
+	lenEntries := uint32(len(entries))
 
 	// Find index of newLogs
-	newLogsFromIndex := lastLogIndex - prevLogIndex
+	var newLogsFromIndex uint32
+	if lastLogIndex >= prevLogIndex {
+		newLogsFromIndex = utils.Min(lastLogIndex-prevLogIndex, lenEntries)
+	} else {
+		newLogsFromIndex = lenEntries
+	}
 	changed = len(entries[newLogsFromIndex:]) > 0
 
 	if !changed {
@@ -135,7 +141,7 @@ func (p PersistentState) WithAppendLogs(prevLogIndex uint32, entries ...domain.L
 	}
 
 	// Copy existings logs
-	logs := make([]domain.LogEntry, lastLogIndex, uint32(len(entries))+lastLogIndex)
+	logs := make([]domain.LogEntry, lastLogIndex, lenEntries+lastLogIndex)
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
