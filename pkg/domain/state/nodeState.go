@@ -91,13 +91,15 @@ func (n nodeState) IsLeader() bool {
 	return n.id == n.leaderId
 }
 
+// IsUpToDate from the caller point of view
+//
+// Note:
 // Raft determines which of two logs is more up-to-date
 // by comparing the index and term of the last entries in the
 // logs. If the logs have last entries with different terms, then
 // the log with the later term is more up-to-date. If the logs
 // end with the same term, then whichever log is longer is
 // more up-to-date.
-// IsUpToDate from the caller point of view
 func (n nodeState) IsUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
 	log := n.LastLog()
 
@@ -108,17 +110,14 @@ func (n nodeState) IsUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
 	return lastLogTerm >= log.Term
 }
 
-func (n nodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
+func (n nodeState) CanGrantVote(peerId string) bool {
 	// Unknown peer id
 	if _, ok := n.peers[peerId]; !ok {
 		return false
 	}
-
 	votedFor := n.VotedFor()
 	voteAvailable := votedFor == "" || votedFor == peerId
-	candidateUpToDate := n.IsUpToDate(lastLogIndex, lastLogTerm)
-
-	return voteAvailable && candidateUpToDate
+	return voteAvailable
 }
 
 func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput {

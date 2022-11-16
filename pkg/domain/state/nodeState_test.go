@@ -10,8 +10,10 @@ import (
 func TestHasLeader(t *testing.T) {
 	peer := domain.Peer{}
 	res := []struct {
-		leaderId  string
-		peers     domain.Peers
+		// state
+		leaderId string
+		peers    domain.Peers
+		// output
 		hasLeader bool
 	}{
 		{"leaderId", domain.Peers{}, false},
@@ -35,7 +37,9 @@ func TestWithInitializeLeader(t *testing.T) {
 func TestQuorum(t *testing.T) {
 	p := domain.Peer{}
 	res := []struct {
-		peers  domain.Peers
+		// state
+		peers domain.Peers
+		// output
 		quorum int
 	}{
 		{domain.Peers{"peer1": p, "peer2": p}, 2},
@@ -54,12 +58,15 @@ func TestQuorum(t *testing.T) {
 	}
 }
 
-func TestDoesLogExists(t *testing.T) {
+func TestIsLogUpToDate(t *testing.T) {
 	res := []struct {
-		logs         []domain.LogEntry
+		// state
+		logs []domain.LogEntry
+		// input
 		lastLogIndex uint32
 		lastLogTerm  uint32
-		upToDate     bool
+		// output
+		upToDate bool
 	}{
 		{[]domain.LogEntry{}, 0, 0, true},
 		{[]domain.LogEntry{}, 1, 0, true},
@@ -101,6 +108,34 @@ func TestDoesLogExists(t *testing.T) {
 }
 
 func TestCanGrantVote(t *testing.T) {
+	res := []struct {
+		votedFor string
+		// input
+		peerId string
+		// ouput
+		canGrantVote bool
+	}{
+		{"", "peerId", true},
+		{"peerId", "peerId", true},
+		{"peerId", "", false},
+		{"unknownId", "peerId", false},
+	}
+	for _, tt := range res {
+		t.Run(fmt.Sprintf("%v", tt.votedFor), func(t *testing.T) {
+			state := nodeState{
+				fsmState: &fsmState{
+					PersistentState: &PersistentState{
+						votedFor: tt.votedFor,
+					},
+				},
+				peers: domain.Peers{"peerId": domain.Peer{}},
+			}
+			canGrantVote := state.CanGrantVote(tt.peerId)
+			if canGrantVote != tt.canGrantVote {
+				t.Errorf("CanGrantVote got %v, want %v", canGrantVote, tt.canGrantVote)
+			}
+		})
+	}
 }
 
 func TestAppendEntriesInput(t *testing.T) {

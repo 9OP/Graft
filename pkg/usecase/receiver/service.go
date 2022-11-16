@@ -61,7 +61,10 @@ func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVo
 		node.DowngradeFollower(input.Term)
 	}
 
-	if node.CanGrantVote(input.CandidateId, input.LastLogIndex, input.LastLogTerm) {
+	isUpToDate := node.IsUpToDate(input.LastLogIndex, input.LastLogTerm)
+	canGrantVote := node.CanGrantVote(input.CandidateId)
+
+	if canGrantVote && isUpToDate {
 		node.Heartbeat()
 		node.GrantVote(input.CandidateId)
 		output.VoteGranted = true
