@@ -16,14 +16,18 @@ type Peer struct {
 	}
 }
 
+func errInvalidAddr(addr string) error {
+	return fmt.Errorf("invalid addr format %s", addr)
+}
+
 func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
 	p2pAddr := fmt.Sprintf("%s:%s", host, p2p)
 	apiAddr := fmt.Sprintf("%s:%s", host, api)
 	if _, err := netip.ParseAddrPort(p2pAddr); err != nil {
-		return nil, fmt.Errorf("invalid addr %s", p2pAddr)
+		return nil, errInvalidAddr(p2pAddr)
 	}
 	if _, err := netip.ParseAddrPort(apiAddr); err != nil {
-		return nil, fmt.Errorf("invalid addr %s", apiAddr)
+		return nil, errInvalidAddr(apiAddr)
 	}
 
 	return &Peer{
