@@ -184,7 +184,7 @@ func (s *service) saveState() {
 		s.persist.Save(
 			s.clusterNode.CurrentTerm(),
 			s.clusterNode.VotedFor(),
-			s.clusterNode.MachineLogs(),
+			s.clusterNode.Logs(),
 		)
 	}
 }

@@ -3,6 +3,8 @@ package domain
 import (
 	"fmt"
 	"net/netip"
+
+	"graft/pkg/utils"
 )
 
 type Peer struct {
@@ -14,14 +16,18 @@ type Peer struct {
 	}
 }
 
+func errInvalidAddr(addr string) error {
+	return fmt.Errorf("invalid addr format %s", addr)
+}
+
 func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
 	p2pAddr := fmt.Sprintf("%s:%s", host, p2p)
 	apiAddr := fmt.Sprintf("%s:%s", host, api)
 	if _, err := netip.ParseAddrPort(p2pAddr); err != nil {
-		return nil, fmt.Errorf("invalid addr %s", p2pAddr)
+		return nil, errInvalidAddr(p2pAddr)
 	}
 	if _, err := netip.ParseAddrPort(apiAddr); err != nil {
-		return nil, fmt.Errorf("invalid addr %s", apiAddr)
+		return nil, errInvalidAddr(apiAddr)
 	}
 
 	return &Peer{
@@ -36,12 +42,16 @@ func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
 
 type Peers map[string]Peer
 
-func (p *Peers) AddPeer(newPeer Peer) {
-	(*p)[newPeer.Id] = newPeer
+func (p Peers) AddPeer(newPeer Peer) Peers {
+	peersCopy := utils.CopyMap(p)
+	peersCopy[newPeer.Id] = newPeer
+	return peersCopy
 }
 
-func (p *Peers) RemovePeer(peerId string) {
-	delete(*p, peerId)
+func (p Peers) RemovePeer(peerId string) Peers {
+	peersCopy := utils.CopyMap(p)
+	delete(peersCopy, peerId)
+	return peersCopy
 }
 
 func (p Peer) TargetP2p() string {

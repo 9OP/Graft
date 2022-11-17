@@ -15,13 +15,12 @@ type nodeState struct {
 	*fsmState
 }
 
-func NewNodeState(id string, peers domain.Peers, persistent *PersistentState) nodeState {
-	fsmState := NewFsmState(persistent)
-	return nodeState{
+func NewNodeState(id string, peers domain.Peers, persistent *PersistentState) *nodeState {
+	return &nodeState{
 		id:       id,
 		peers:    peers,
 		role:     domain.Follower,
-		fsmState: &fsmState,
+		fsmState: NewFsmState(persistent),
 	}
 }
 
@@ -39,9 +38,7 @@ func (n nodeState) HasLeader() bool {
 }
 
 func (n nodeState) Leader() domain.Peer {
-	leaderId := n.leaderId
-	leader := n.peers[leaderId]
-	return leader
+	return n.peers[n.leaderId]
 }
 
 func (n nodeState) Role() domain.Role {
@@ -53,7 +50,7 @@ func (n nodeState) Peers() domain.Peers {
 }
 
 func (n nodeState) WithInitializeLeader() nodeState {
-	defaultNextIndex := n.LastLogIndex() // + 1
+	defaultNextIndex := n.LastLogIndex()
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
 	for _, peer := range n.peers {
@@ -85,34 +82,45 @@ func (n nodeState) WithClusterLeader(leaderId string) nodeState {
 	return n
 }
 
+// Quorum is defined as the absolute majority of nodes:
+// (N + 1) / 2, where N is the number of nodes in the cluster
+// which can recover from up to (N - 1) / 2 failures
 func (n nodeState) Quorum() int {
-	totalPeers := len(n.peers) + 1
-	return int(math.Ceil(float64(totalPeers) / 2.0))
+	numberNodes := float64(len(n.peers) + 1) // add self
+	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 
 func (n nodeState) IsLeader() bool {
-	return n.Id() == n.LeaderId()
+	return n.id == n.leaderId
 }
 
-func (n nodeState) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
-	currentLogIndex := n.LastLogIndex()
-	currentLogTerm := n.LastLog().Term
+// IsUpToDate from the caller point of view
+//
+// Note:
+// Raft determines which of two logs is more up-to-date
+// by comparing the index and term of the last entries in the
+// logs. If the logs have last entries with different terms, then
+// the log with the later term is more up-to-date. If the logs
+// end with the same term, then whichever log is longer is
+// more up-to-date.
+func (n nodeState) IsUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
+	log := n.LastLog()
 
-	candidateUpToDate := currentLogTerm <= lastLogTerm && currentLogIndex <= lastLogIndex
-	return candidateUpToDate
+	if log.Term == lastLogTerm {
+		return lastLogIndex >= n.LastLogIndex()
+	}
+
+	return lastLogTerm >= log.Term
 }
 
-func (n nodeState) CanGrantVote(peerId string, lastLogIndex uint32, lastLogTerm uint32) bool {
+func (n nodeState) CanGrantVote(peerId string) bool {
 	// Unknown peer id
 	if _, ok := n.peers[peerId]; !ok {
 		return false
 	}
-
 	votedFor := n.VotedFor()
 	voteAvailable := votedFor == "" || votedFor == peerId
-	candidateUpToDate := n.IsLogUpToDate(lastLogIndex, lastLogTerm)
-
-	return voteAvailable && candidateUpToDate
+	return voteAvailable
 }
 
 func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput {
@@ -123,18 +131,27 @@ func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput 
 	var prevLogIndex uint32
 	var entries []domain.LogEntry
 
-	// No need to send new entries when peer
-	// Already has matching log for lastLogIndex
+	// When peer has commitIndex matching
+	// leader lastLogIndex, there is no need to send
+	// new entries.
 	if matchIndex == n.LastLogIndex() {
 		entries = []domain.LogEntry{}
 		prevLogIndex = n.LastLogIndex()
-		prevLog, _ := n.MachineLog(prevLogIndex)
-		prevLogTerm = prevLog.Term
+		prevLogTerm = n.LastLog().Term
 	} else {
-		entries = n.MachineLogsFrom(nextIndex + 1)
+		entries = n.LogsFrom(nextIndex + 1)
 		prevLogIndex = nextIndex
-		prevLog, _ := n.MachineLog(prevLogIndex)
-		prevLogTerm = prevLog.Term
+
+		// When prevLogIndex >= lastLogIndex, prevLogTerm
+		// is at least >= CurrentTerm logically
+		// It also prevent to match the receiver condition:
+		// prevLogTerm == log(prevLogIndex).Term
+		prevLog, err := n.Log(prevLogIndex)
+		if err == errIndexOutOfRange {
+			prevLogTerm = n.CurrentTerm()
+		} else {
+			prevLogTerm = prevLog.Term
+		}
 	}
 
 	return domain.AppendEntriesInput{
@@ -156,32 +173,26 @@ func (n nodeState) RequestVoteInput() domain.RequestVoteInput {
 	}
 }
 
+// Compute new commitIndex N such that:
+// - N > commitIndex,
+// - a majority of matchIndex[i] ≥ N
+// - log[N].term == currentTerm
 func (n nodeState) ComputeNewCommitIndex() uint32 {
-	/*
-		Compute new commitIndex N such that:
-			- N > commitIndex,
-			- a majority of matchIndex[i] ≥ N
-			- log[N].term == currentTerm:
-	*/
 	quorum := n.Quorum()
 	lastLogIndex := n.LastLogIndex() // Upper value of N
 	commitIndex := n.CommitIndex()   // Lower value of N
 	matchIndex := n.MatchIndex()
 
 	for N := lastLogIndex; N > commitIndex; N-- {
-		// Get a majority for which matchIndex >= n
 		count := 1 // count self
-		for _, matchIndex := range matchIndex {
-			if matchIndex >= N {
+		for _, mIndex := range matchIndex {
+			if mIndex >= N {
 				count += 1
 			}
 		}
-		if count >= quorum {
-			if log, err := n.MachineLog(N); err == nil {
-				if log.Term == n.CurrentTerm() {
-					return N
-				}
-			}
+		log, _ := n.Log(N)
+		if count >= quorum && log.Term == n.CurrentTerm() {
+			return N
 		}
 	}
 

@@ -21,7 +21,7 @@ func NewJsonPersister() *jsonPersister {
 type persistent struct {
 	CurrentTerm uint32            `json:"current_term"`
 	VotedFor    string            `json:"voted_for"`
-	MachineLogs []domain.LogEntry `json:"machine_logs"`
+	Logs        []domain.LogEntry `json:"machine_logs"`
 }
 
 func (p jsonPersister) Load(location string) (*persistent, error) {
@@ -38,7 +38,7 @@ func (p jsonPersister) Save(location string, currentTerm uint32, votedFor string
 	state := persistent{
 		CurrentTerm: currentTerm,
 		VotedFor:    votedFor,
-		MachineLogs: machineLogs,
+		Logs:        machineLogs,
 	}
 	data, err := json.MarshalIndent(&state, "", "  ")
 	if err != nil {
