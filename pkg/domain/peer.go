@@ -3,6 +3,8 @@ package domain
 import (
 	"fmt"
 	"net/netip"
+
+	"graft/pkg/utils"
 )
 
 type Peer struct {
@@ -36,12 +38,16 @@ func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
 
 type Peers map[string]Peer
 
-func (p *Peers) AddPeer(newPeer Peer) {
-	(*p)[newPeer.Id] = newPeer
+func (p Peers) AddPeer(newPeer Peer) Peers {
+	peersCopy := utils.CopyMap(p)
+	peersCopy[newPeer.Id] = newPeer
+	return peersCopy
 }
 
-func (p *Peers) RemovePeer(peerId string) {
-	delete(*p, peerId)
+func (p Peers) RemovePeer(peerId string) Peers {
+	peersCopy := utils.CopyMap(p)
+	delete(peersCopy, peerId)
+	return peersCopy
 }
 
 func (p Peer) TargetP2p() string {

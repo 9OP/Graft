@@ -50,7 +50,7 @@ func (n nodeState) Peers() domain.Peers {
 }
 
 func (n nodeState) WithInitializeLeader() nodeState {
-	defaultNextIndex := n.LastLogIndex() // + 1
+	defaultNextIndex := n.LastLogIndex()
 	nextIndex := make(peerIndex, len(n.peers))
 	matchIndex := make(peerIndex, len(n.peers))
 	for _, peer := range n.peers {
@@ -82,9 +82,12 @@ func (n nodeState) WithClusterLeader(leaderId string) nodeState {
 	return n
 }
 
+// Quorum is defined as the absolute majority of nodes:
+// (N + 1) / 2, where N is the number of nodes in the cluster
+// which can recover from up to (N - 1) / 2 failures
 func (n nodeState) Quorum() int {
-	totalPeers := len(n.peers) + 1
-	return int(math.Ceil(float64(totalPeers) / 2.0))
+	numberNodes := float64(len(n.peers) + 1) // add self
+	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 
 func (n nodeState) IsLeader() bool {
@@ -133,13 +136,21 @@ func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput 
 	if matchIndex == n.LastLogIndex() {
 		entries = []domain.LogEntry{}
 		prevLogIndex = n.LastLogIndex()
-		prevLog, _ := n.Log(prevLogIndex)
-		prevLogTerm = prevLog.Term
+		prevLogTerm = n.LastLog().Term
 	} else {
 		entries = n.LogsFrom(nextIndex + 1)
 		prevLogIndex = nextIndex
-		prevLog, _ := n.Log(prevLogIndex)
-		prevLogTerm = prevLog.Term
+
+		// When prevLogIndex > lastLogIndex, prevLogTerm
+		// is at least >= CurrentTerm logically
+		// It also prevent to match the receiver condition:
+		// prevLogTerm == log(prevLogIndex).Term
+		prevLog, err := n.Log(prevLogIndex)
+		if err == errIndexOutOfRange {
+			prevLogTerm = n.CurrentTerm()
+		} else {
+			prevLogTerm = prevLog.Term
+		}
 	}
 
 	return domain.AppendEntriesInput{
@@ -161,32 +172,26 @@ func (n nodeState) RequestVoteInput() domain.RequestVoteInput {
 	}
 }
 
+// Compute new commitIndex N such that:
+// - N > commitIndex,
+// - a majority of matchIndex[i] ≥ N
+// - log[N].term == currentTerm
 func (n nodeState) ComputeNewCommitIndex() uint32 {
-	/*
-		Compute new commitIndex N such that:
-			- N > commitIndex,
-			- a majority of matchIndex[i] ≥ N
-			- log[N].term == currentTerm:
-	*/
 	quorum := n.Quorum()
 	lastLogIndex := n.LastLogIndex() // Upper value of N
 	commitIndex := n.CommitIndex()   // Lower value of N
 	matchIndex := n.MatchIndex()
 
 	for N := lastLogIndex; N > commitIndex; N-- {
-		// Get a majority for which matchIndex >= n
 		count := 1 // count self
-		for _, matchIndex := range matchIndex {
-			if matchIndex >= N {
+		for _, mIndex := range matchIndex {
+			if mIndex >= N {
 				count += 1
 			}
 		}
-		if count >= quorum {
-			if log, err := n.Log(N); err == nil {
-				if log.Term == n.CurrentTerm() {
-					return N
-				}
-			}
+		log, _ := n.Log(N)
+		if count >= quorum && log.Term == n.CurrentTerm() {
+			return N
 		}
 	}
 

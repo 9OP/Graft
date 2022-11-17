@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"graft/pkg/domain"
@@ -42,11 +43,11 @@ func TestQuorum(t *testing.T) {
 		// output
 		quorum int
 	}{
-		{domain.Peers{"peer1": p, "peer2": p}, 2},
-		{domain.Peers{"peer1": p, "peer2": p, "peer3": p}, 2},
-		{domain.Peers{"peer1": p, "peer2": p, "peer3": p, "peer4": p}, 3},
-		{domain.Peers{"peer1": p}, 1},
-		{domain.Peers{}, 1},
+		{domain.Peers{"peer1": p, "peer2": p}, 2},                         // tolerate 1 failure
+		{domain.Peers{"peer1": p, "peer2": p, "peer3": p}, 3},             // tolerate 1 failure
+		{domain.Peers{"peer1": p, "peer2": p, "peer3": p, "peer4": p}, 3}, // tolerate 2 failures
+		{domain.Peers{"peer1": p}, 2},                                     // tolerate 0 failure
+		{domain.Peers{}, 1},                                               // tolerate 0 failure
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.peers), func(t *testing.T) {
@@ -139,7 +140,104 @@ func TestCanGrantVote(t *testing.T) {
 }
 
 func TestAppendEntriesInput(t *testing.T) {
+	var currenTerm uint32 = 9
+	logs := []domain.LogEntry{
+		{Term: 1, Value: "val1"},
+		{Term: 2, Value: "val2"},
+		{Term: 3, Value: "val3"},
+		{Term: 4, Value: "val4"},
+		{Term: 5, Value: "val5"},
+	}
+	nextIndex := peerIndex{
+		"peer1": 5,
+		"peer2": 0,
+		"peer3": 1,
+		"peer4": 6,
+		"peer5": 3,
+	}
+	matchIndex := peerIndex{
+		"peer1": 0,
+		"peer2": 3,
+		"peer3": 5,
+		"peer4": 2,
+		"peer5": 3,
+	}
+	res := []struct {
+		// input
+		peerId string
+		// output
+		out domain.AppendEntriesInput
+	}{
+		{"peer1", domain.AppendEntriesInput{
+			Term:         currenTerm,
+			PrevLogIndex: 5,
+			PrevLogTerm:  5,
+			Entries:      []domain.LogEntry{},
+		}},
+		{"peer2", domain.AppendEntriesInput{
+			Term:         currenTerm,
+			PrevLogIndex: 0,
+			PrevLogTerm:  0,
+			Entries:      logs,
+		}},
+		{"peer3", domain.AppendEntriesInput{
+			Term:         currenTerm,
+			PrevLogIndex: 5,
+			PrevLogTerm:  5,
+			Entries:      []domain.LogEntry{},
+		}},
+		{"peer4", domain.AppendEntriesInput{
+			Term:         currenTerm,
+			PrevLogIndex: 6,
+			PrevLogTerm:  currenTerm,
+			Entries:      []domain.LogEntry{},
+		}},
+		{"peer5", domain.AppendEntriesInput{
+			Term:         currenTerm,
+			PrevLogIndex: 3,
+			PrevLogTerm:  3,
+			Entries:      logs[3:],
+		}},
+	}
+	for _, tt := range res {
+		t.Run(tt.peerId, func(t *testing.T) {
+			state := nodeState{
+				peers: domain.Peers{"peerId": domain.Peer{}},
+				fsmState: &fsmState{
+					matchIndex: matchIndex,
+					nextIndex:  nextIndex,
+					PersistentState: &PersistentState{
+						currentTerm: currenTerm,
+						machineLogs: logs,
+					},
+				},
+			}
+			out := state.AppendEntriesInput(tt.peerId)
+			if !reflect.DeepEqual(tt.out, out) {
+				t.Errorf("AppendEntriesInput got %v, want %v", out, tt.out)
+			}
+		})
+	}
 }
 
-func TestComputeNewCommitIndex(t *testing.T) {
-}
+// func TestComputeNewCommitIndex(t *testing.T) {
+// 	logs := []domain.LogEntry{
+// 		{Term: 1, Value: "val1"},
+// 		{Term: 1, Value: "val2"},
+// 		{Term: 3, Value: "val3"},
+// 		{Term: 3, Value: "val4"},
+// 		{Term: 5, Value: "val5"},
+// 		{Term: 10, Value: "val6"},
+// 	}
+// 	peers := domain.Peers{}
+// 	res := []struct {
+// 		// state
+// 		commitIndex uint32
+// 		currentTerm uint32
+// 		matchIndex  peerIndex
+// 		// output
+// 		newCommitIndex uint32
+// 	}{
+// 		{2, 10, peerIndex{"peer": 1}, 0},
+// 	}
+// }
