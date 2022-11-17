@@ -131,8 +131,9 @@ func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput 
 	var prevLogIndex uint32
 	var entries []domain.LogEntry
 
-	// No need to send new entries when peer
-	// Already has matching log for lastLogIndex
+	// When peer has commitIndex matching
+	// leader lastLogIndex, there is no need to send
+	// new entries.
 	if matchIndex == n.LastLogIndex() {
 		entries = []domain.LogEntry{}
 		prevLogIndex = n.LastLogIndex()
@@ -141,7 +142,7 @@ func (n *nodeState) AppendEntriesInput(peerId string) domain.AppendEntriesInput 
 		entries = n.LogsFrom(nextIndex + 1)
 		prevLogIndex = nextIndex
 
-		// When prevLogIndex > lastLogIndex, prevLogTerm
+		// When prevLogIndex >= lastLogIndex, prevLogTerm
 		// is at least >= CurrentTerm logically
 		// It also prevent to match the receiver condition:
 		// prevLogTerm == log(prevLogIndex).Term

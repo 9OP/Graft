@@ -24,7 +24,8 @@ func TestHasLeader(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(tt.leaderId, func(t *testing.T) {
-			ok := nodeState{leaderId: tt.leaderId, peers: tt.peers}.HasLeader()
+			state := nodeState{leaderId: tt.leaderId, peers: tt.peers}
+			ok := state.HasLeader()
 			if ok != tt.hasLeader {
 				t.Errorf("HasLeader got %v, want %v", ok, tt.hasLeader)
 			}
@@ -51,7 +52,8 @@ func TestQuorum(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.peers), func(t *testing.T) {
-			quorum := nodeState{peers: tt.peers}.Quorum()
+			state := nodeState{peers: tt.peers}
+			quorum := state.Quorum()
 			if quorum != tt.quorum {
 				t.Errorf("Quorum got %v, want %v", quorum, tt.quorum)
 			}
@@ -93,14 +95,14 @@ func TestIsLogUpToDate(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.logs), func(t *testing.T) {
-			upToDate := nodeState{
+			state := nodeState{
 				fsmState: &fsmState{
 					PersistentState: &PersistentState{
 						machineLogs: tt.logs,
 					},
 				},
-			}.IsUpToDate(tt.lastLogIndex, tt.lastLogTerm)
-
+			}
+			upToDate := state.IsUpToDate(tt.lastLogIndex, tt.lastLogTerm)
 			if upToDate != tt.upToDate {
 				t.Errorf("IsUpToDate got %v, want %v", upToDate, tt.upToDate)
 			}
@@ -220,24 +222,55 @@ func TestAppendEntriesInput(t *testing.T) {
 	}
 }
 
-// func TestComputeNewCommitIndex(t *testing.T) {
-// 	logs := []domain.LogEntry{
-// 		{Term: 1, Value: "val1"},
-// 		{Term: 1, Value: "val2"},
-// 		{Term: 3, Value: "val3"},
-// 		{Term: 3, Value: "val4"},
-// 		{Term: 5, Value: "val5"},
-// 		{Term: 10, Value: "val6"},
-// 	}
-// 	peers := domain.Peers{}
-// 	res := []struct {
-// 		// state
-// 		commitIndex uint32
-// 		currentTerm uint32
-// 		matchIndex  peerIndex
-// 		// output
-// 		newCommitIndex uint32
-// 	}{
-// 		{2, 10, peerIndex{"peer": 1}, 0},
-// 	}
-// }
+func TestComputeNewCommitIndex(t *testing.T) {
+	logs := []domain.LogEntry{
+		{Term: 1, Value: "val1"},
+		{Term: 1, Value: "val2"},
+		{Term: 3, Value: "val3"},
+		{Term: 3, Value: "val4"},
+		{Term: 5, Value: "val5"},
+		{Term: 10, Value: "val6"},
+	}
+	// 4 + 1 nodes cluster
+	p := domain.Peer{}
+	peers := domain.Peers{
+		"peer1": p,
+		"peer2": p,
+		"peer3": p,
+		"peer4": p,
+	}
+	res := []struct {
+		// state
+		commitIndex uint32
+		currentTerm uint32
+		matchIndex  peerIndex
+		// output
+		newCommitIndex uint32
+	}{
+		{2, 5, peerIndex{"peer1": 6, "peer2": 10, "peer3": 1, "peer4": 1}, 5},
+		{6, 12, peerIndex{"peer1": 1, "peer2": 1, "peer3": 1, "peer4": 1}, 6},
+		{5, 10, peerIndex{"peer1": 6, "peer2": 6, "peer3": 1, "peer4": 1}, 6},
+		{3, 3, peerIndex{"peer1": 4, "peer2": 4, "peer3": 1, "peer4": 1}, 4},
+		{0, 10, peerIndex{"peer1": 6, "peer2": 6, "peer3": 6, "peer4": 6}, 6},
+		{0, 10, peerIndex{"peer1": 5, "peer2": 5, "peer3": 5, "peer4": 5}, 0},
+	}
+	for _, tt := range res {
+		t.Run(fmt.Sprintf("%v", tt.commitIndex), func(t *testing.T) {
+			state := nodeState{
+				peers: peers,
+				fsmState: &fsmState{
+					commitIndex: tt.commitIndex,
+					matchIndex:  tt.matchIndex,
+					PersistentState: &PersistentState{
+						currentTerm: tt.currentTerm,
+						machineLogs: logs,
+					},
+				},
+			}
+			newCommitIndex := state.ComputeNewCommitIndex()
+			if tt.newCommitIndex != newCommitIndex {
+				t.Errorf("ComputeNewCommitIndex got %v, want %v", newCommitIndex, tt.newCommitIndex)
+			}
+		})
+	}
+}
