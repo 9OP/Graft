@@ -5,16 +5,16 @@ import (
 
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
-	"graft/pkg/usecase/receiver"
+	"graft/pkg/services/rpc"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type rpcServerPort struct {
-	adapter receiver.UseCase
+	adapter rpc.UseCase
 }
 
-func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
+func NewRpcServerPort(adapter rpc.UseCase) *rpcServerPort {
 	return &rpcServerPort{adapter}
 }
 

@@ -1,4 +1,4 @@
-package cluster
+package api
 
 type UseCase interface {
 	ExecuteCommand(command string) ([]byte, error)

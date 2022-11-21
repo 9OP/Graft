@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"graft/pkg/domain"
-	"graft/pkg/usecase/cluster"
+	"graft/pkg/services/api"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type clusterServer struct {
-	repository cluster.UseCase
+	repository api.UseCase
 }
 
-func NewClusterServer(repository cluster.UseCase) *clusterServer {
+func NewClusterServer(repository api.UseCase) *clusterServer {
 	return &clusterServer{repository}
 }
 
