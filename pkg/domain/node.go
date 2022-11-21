@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -271,17 +272,28 @@ func (n *Node) ApplyLogs() {
 		// if lastApplied == 0 {
 		// 	c.initFsm()
 		// }
+
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := n.Log(lastApplied); err == nil {
-			if log.Type != LogCommand {
+			switch log.Type {
+			case LogCommand:
+				// do command
+				// res := c.evalFsm(log.Value, "COMMAND")
+				// if log.C != nil {
+				// 	log.C <- res
+				// }
+			case LogConfiguration:
+				var config ConfigurationUpdate
+				if err := json.Unmarshal(log.Data, &config); err == nil {
+					n.configurationUpdate(config)
+				}
+			case LogNoop:
+				continue
+			default:
 				continue
 			}
-			// res := c.evalFsm(log.Value, "COMMAND")
-			// if log.C != nil {
-			// 	log.C <- res
-			// }
 		}
 	}
 
@@ -290,4 +302,30 @@ func (n *Node) ApplyLogs() {
 		newState := n.withLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
+}
+
+func (n *Node) configurationUpdate(config ConfigurationUpdate) {
+	var peers Peers
+	peer := config.Peer
+
+	switch config.ConfigurationUpdateType {
+	case ConfigurationAddPeer:
+		peer.Active = false
+		peers = n.peers.addPeer(peer)
+
+	case ConfigurationActivatePeer:
+		peers = n.peers.activatePeer(peer.Id)
+
+	case ConfigurationDeactivatePeer:
+		peers = n.peers.deactivatePeer(peer.Id)
+
+	case ConfigurationRemovePeer:
+		peers = n.peers.removePeer(peer.Id)
+
+	default:
+		return
+	}
+
+	newState := n.withPeers(peers)
+	n.swapState(&newState)
 }

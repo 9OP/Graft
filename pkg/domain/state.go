@@ -93,6 +93,11 @@ func (s state) withLeaderInitialization() state {
 	return s
 }
 
+func (s state) withPeers(peers Peers) state {
+	s.peers = peers
+	return s
+}
+
 func (s state) activePeers() Peers {
 	activePeers := make(Peers, len(s.peers))
 	for peerId, peer := range s.peers {

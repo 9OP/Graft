@@ -26,6 +26,19 @@ type RequestVoteOutput struct {
 	VoteGranted bool
 }
 
+type LogEntry struct {
+	Index uint64          `json:"index"`
+	Term  uint32          `json:"term"`
+	Data  []byte          `json:"value"`
+	Type  LogType         `json:"type"`
+	C     chan EvalResult `json:"-"`
+}
+
+type EvalResult struct {
+	Out []byte
+	Err error
+}
+
 type LogType uint8
 
 const (
@@ -47,15 +60,16 @@ func (lt LogType) String() string {
 	}
 }
 
-type LogEntry struct {
-	Index uint64          `json:"index"`
-	Term  uint32          `json:"term"`
-	Data  []byte          `json:"value"`
-	Type  LogType         `json:"type"`
-	C     chan EvalResult `json:"-"`
-}
+type ConfigurationUpdateType uint8
 
-type EvalResult struct {
-	Out []byte
-	Err error
+const (
+	ConfigurationAddPeer ConfigurationUpdateType = iota
+	ConfigurationActivatePeer
+	ConfigurationDeactivatePeer
+	ConfigurationRemovePeer
+)
+
+type ConfigurationUpdate struct {
+	ConfigurationUpdateType
+	Peer
 }

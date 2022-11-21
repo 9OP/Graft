@@ -57,7 +57,7 @@ func TestAddPeer(t *testing.T) {
 	}
 
 	// Add peer
-	res := peers.AddPeer(newPeer)
+	res := peers.addPeer(newPeer)
 	expected := Peers{
 		"peerId":    Peer{Id: "peerId"},
 		"newPeerId": Peer{Id: "newPeerId"},
@@ -79,7 +79,7 @@ func TestRemovePeer(t *testing.T) {
 	}
 
 	// Add peer
-	res := peers.RemovePeer("oldPeerId")
+	res := peers.removePeer("oldPeerId")
 	expected := Peers{
 		"peerId": Peer{Id: "peerId"},
 	}
