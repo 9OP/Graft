@@ -64,7 +64,7 @@ func (l *logLevel) Set(v string) error {
 		*l = logLevel(v)
 		return nil
 	default:
-		return fmt.Errorf("must be one of 'DEBUG', 'INFO', or 'ERROR'")
+		return fmt.Errorf("\n\tmust be one of 'DEBUG', 'INFO', or 'ERROR'")
 	}
 }
 
@@ -80,7 +80,7 @@ var (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start [peer]",
+	Use:   "start [peer-id]",
 	Short: "Start a cluster node",
 	Args: func(cmd *cobra.Command, args []string) error {
 		// Custom args validator
