@@ -1,5 +1,7 @@
 package domain
 
+// TODO: Refactor
+
 type domainError struct {
 	message string
 }
