@@ -1,5 +1,7 @@
 package domain
 
+import "fmt"
+
 type AppendEntriesInput struct {
 	LeaderId     string
 	Entries      []LogEntry
@@ -24,10 +26,32 @@ type RequestVoteOutput struct {
 	VoteGranted bool
 }
 
+type LogType uint8
+
+const (
+	LogCommand LogType = iota
+	LogNoop
+	LogConfiguration
+)
+
+func (lt LogType) String() string {
+	switch lt {
+	case LogCommand:
+		return "LogCommand"
+	case LogNoop:
+		return "LogNoop"
+	case LogConfiguration:
+		return "LogConfiguration"
+	default:
+		return fmt.Sprintf("%d", lt)
+	}
+}
+
 type LogEntry struct {
+	Index uint64          `json:"index"`
 	Term  uint32          `json:"term"`
-	Value string          `json:"value"`
-	Type  string          `json:"type"`
+	Data  []byte          `json:"value"`
+	Type  LogType         `json:"type"`
 	C     chan EvalResult `json:"-"`
 }
 

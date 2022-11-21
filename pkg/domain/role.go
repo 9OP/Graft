@@ -1,16 +1,22 @@
 package domain
 
-type Role struct {
-	string
-}
+type Role uint8
+
+const (
+	Undefined Role = iota
+	Follower
+	Candidate
+	Leader
+)
 
 func (r Role) String() string {
-	return r.string
+	switch r {
+	case Follower:
+		return "follower"
+	case Candidate:
+		return "candidate"
+	case Leader:
+		return "leader"
+	}
+	return "undefined"
 }
-
-var (
-	Undefined = Role{""}
-	Follower  = Role{"Follower"}
-	Candidate = Role{"Candidate"}
-	Leader    = Role{"Leader"}
-)

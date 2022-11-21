@@ -1,8 +1,7 @@
-package runner
+package core
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
 )
 
 type repository interface {
@@ -12,8 +11,8 @@ type repository interface {
 }
 
 type persister interface {
-	Load() (*state.PersistentState, error)
-	Save(currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error
+	Load() (domain.PersistentState, error)
+	Save(domain.PersistentState) error
 }
 
 type UseCase interface {

@@ -5,26 +5,27 @@ import (
 
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
-	"graft/pkg/usecase/receiver"
+	"graft/pkg/services/rpc"
 
 	log "github.com/sirupsen/logrus"
 )
 
 type rpcServerPort struct {
-	adapter receiver.UseCase
+	adapter rpc.UseCase
 }
 
-func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
+func NewRpcServerPort(adapter rpc.UseCase) *rpcServerPort {
 	return &rpcServerPort{adapter}
 }
 
 func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
 	entries := make([]domain.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
+		logType := domain.LogType(log.Type)
 		entry := domain.LogEntry{
-			Term:  log.Term,
-			Value: log.Value,
-			Type:  log.Type,
+			Term: log.Term,
+			Data: log.Data,
+			Type: logType,
 		}
 		entries = append(entries, entry)
 	}

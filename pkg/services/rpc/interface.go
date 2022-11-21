@@ -1,4 +1,4 @@
-package receiver
+package rpc
 
 import (
 	"graft/pkg/domain"
