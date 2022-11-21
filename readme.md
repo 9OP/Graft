@@ -100,10 +100,10 @@ TODO:
 - Client command (support for leader redirection)
 - FSM execution bindings
 - API error sanitization
-- Mutual TLS
 - API (command/query) TLS
 - Document graph of deps / hexagonal architecture
-- Rename the use case and the servers
+- (done) Mutual TLS
+- (done) Rename the use case and the servers
 - (done) Log level sanitization
 - (done) Refactor FSM state => immutable, return copy, Getters/Withers
 ```

@@ -195,7 +195,7 @@ func (s *service) preVote() bool {
 			}
 		}
 	}
-	s.clusterNode.Broadcast(preVoteRoutine)
+	s.clusterNode.Broadcast(preVoteRoutine, domain.BroadcastActive)
 
 	quorumReached := int(prevotesGranted) >= quorum
 	return quorumReached
@@ -217,7 +217,7 @@ func (s *service) requestVote() bool {
 			}
 		}
 	}
-	s.clusterNode.Broadcast(gatherVotesRoutine)
+	s.clusterNode.Broadcast(gatherVotesRoutine, domain.BroadcastActive)
 
 	isCandidate := s.clusterNode.Role() == domain.Candidate
 	quorumReached := int(votesGranted) >= quorum
@@ -258,7 +258,7 @@ func (s *service) synchronizeLogs() bool {
 			}
 		}
 	}
-	s.clusterNode.Broadcast(synchroniseLogsRoutine)
+	s.clusterNode.Broadcast(synchroniseLogsRoutine, domain.BroadcastAll)
 
 	quorumReached := int(peersAlive) >= quorum
 	return quorumReached

@@ -93,11 +93,21 @@ func (s state) withLeaderInitialization() state {
 	return s
 }
 
+func (s state) activePeers() Peers {
+	activePeers := make(Peers, len(s.peers))
+	for peerId, peer := range s.peers {
+		if peer.Active {
+			activePeers[peerId] = peer
+		}
+	}
+	return activePeers
+}
+
 // Quorum is defined as the absolute majority of nodes:
 // (N + 1) / 2, where N is the number of nodes in the cluster
 // which can recover from up to (N - 1) / 2 failures
 func (s state) Quorum() int {
-	numberNodes := float64(len(s.peers) + 1) // add self
+	numberNodes := float64(len(s.activePeers()) + 1) // add self
 	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 

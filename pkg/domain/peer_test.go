@@ -24,7 +24,7 @@ func TestNewPeer(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(tt.id, func(t *testing.T) {
-			peer, err := NewPeer(tt.id, tt.host, tt.p2p, tt.api)
+			peer, err := NewPeer(tt.id, true, tt.host, tt.p2p, tt.api)
 			if err != nil && tt.err != nil {
 				if err.Error() != tt.err.Error() {
 					t.Errorf("NewPeer err got %v, want %v", err.Error(), tt.err.Error())
@@ -32,8 +32,9 @@ func TestNewPeer(t *testing.T) {
 				return
 			}
 			expected := Peer{
-				Id:   tt.id,
-				Host: tt.host,
+				Id:     tt.id,
+				Host:   tt.host,
+				Active: true,
 				Ports: struct {
 					P2p string
 					Api string

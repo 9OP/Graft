@@ -103,7 +103,7 @@ var startCmd = &cobra.Command{
 			// Validate peers format
 			validPeers := domain.Peers{}
 			for peerId, peer := range config.Peers {
-				validPeer, err := domain.NewPeer(peerId, peer.Host, peer.Ports.P2p, peer.Ports.Api)
+				validPeer, err := domain.NewPeer(peerId, true, peer.Host, peer.Ports.P2p, peer.Ports.Api)
 				if err != nil {
 					return err
 				}

@@ -166,9 +166,28 @@ func (n Node) Heartbeat() {
 	n.resetTimeout()
 }
 
-func (n Node) Broadcast(fn func(p Peer)) {
+type BroadcastType uint8
+
+const (
+	BroadcastAll BroadcastType = iota
+	BroadcastActive
+	BroadcastInactive
+)
+
+func (n Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
 	var wg sync.WaitGroup
-	for _, peer := range n.peers {
+	var peers Peers
+
+	switch broadcastType {
+	case BroadcastAll:
+		peers = n.peers
+	case BroadcastActive:
+		peers = n.activePeers()
+	default:
+		peers = Peers{}
+	}
+
+	for _, peer := range peers {
 		wg.Add(1)
 		go func(p Peer, w *sync.WaitGroup) {
 			defer w.Done()

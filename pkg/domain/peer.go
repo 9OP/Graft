@@ -8,9 +8,10 @@ import (
 )
 
 type Peer struct {
-	Id    string
-	Host  string
-	Ports struct {
+	Id     string
+	Host   string
+	Active bool
+	Ports  struct {
 		P2p string
 		Api string
 	}
@@ -20,7 +21,7 @@ func errInvalidAddr(addr string) error {
 	return fmt.Errorf("invalid addr format %s", addr)
 }
 
-func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
+func NewPeer(id string, active bool, host string, p2p string, api string) (*Peer, error) {
 	p2pAddr := fmt.Sprintf("%s:%s", host, p2p)
 	apiAddr := fmt.Sprintf("%s:%s", host, api)
 	if _, err := netip.ParseAddrPort(p2pAddr); err != nil {
@@ -31,8 +32,9 @@ func NewPeer(id string, host string, p2p string, api string) (*Peer, error) {
 	}
 
 	return &Peer{
-		Id:   id,
-		Host: host,
+		Id:     id,
+		Host:   host,
+		Active: active,
 		Ports: struct {
 			P2p string
 			Api string
