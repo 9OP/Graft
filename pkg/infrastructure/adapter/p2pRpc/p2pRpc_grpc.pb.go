@@ -8,7 +8,6 @@ package p2pRpc
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -26,6 +25,7 @@ type RpcClient interface {
 	AppendEntries(ctx context.Context, in *AppendEntriesInput, opts ...grpc.CallOption) (*AppendEntriesOutput, error)
 	RequestVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
 	PreVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
+	InstallSnapshot(ctx context.Context, in *InstallSnapshotInput, opts ...grpc.CallOption) (*InstallSnapshotOutput, error)
 }
 
 type rpcClient struct {
@@ -63,6 +63,15 @@ func (c *rpcClient) PreVote(ctx context.Context, in *RequestVoteInput, opts ...g
 	return out, nil
 }
 
+func (c *rpcClient) InstallSnapshot(ctx context.Context, in *InstallSnapshotInput, opts ...grpc.CallOption) (*InstallSnapshotOutput, error) {
+	out := new(InstallSnapshotOutput)
+	err := c.cc.Invoke(ctx, "/p2pRpc.Rpc/InstallSnapshot", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RpcServer is the server API for Rpc service.
 // All implementations must embed UnimplementedRpcServer
 // for forward compatibility
@@ -70,22 +79,25 @@ type RpcServer interface {
 	AppendEntries(context.Context, *AppendEntriesInput) (*AppendEntriesOutput, error)
 	RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
 	PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
+	InstallSnapshot(context.Context, *InstallSnapshotInput) (*InstallSnapshotOutput, error)
 	mustEmbedUnimplementedRpcServer()
 }
 
 // UnimplementedRpcServer must be embedded to have forward compatible implementations.
-type UnimplementedRpcServer struct{}
+type UnimplementedRpcServer struct {
+}
 
 func (UnimplementedRpcServer) AppendEntries(context.Context, *AppendEntriesInput) (*AppendEntriesOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AppendEntries not implemented")
 }
-
 func (UnimplementedRpcServer) RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
 }
-
 func (UnimplementedRpcServer) PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PreVote not implemented")
+}
+func (UnimplementedRpcServer) InstallSnapshot(context.Context, *InstallSnapshotInput) (*InstallSnapshotOutput, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InstallSnapshot not implemented")
 }
 func (UnimplementedRpcServer) mustEmbedUnimplementedRpcServer() {}
 
@@ -154,6 +166,24 @@ func _Rpc_PreVote_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Rpc_InstallSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InstallSnapshotInput)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RpcServer).InstallSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/p2pRpc.Rpc/InstallSnapshot",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RpcServer).InstallSnapshot(ctx, req.(*InstallSnapshotInput))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Rpc_ServiceDesc is the grpc.ServiceDesc for Rpc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -172,6 +202,10 @@ var Rpc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PreVote",
 			Handler:    _Rpc_PreVote_Handler,
+		},
+		{
+			MethodName: "InstallSnapshot",
+			Handler:    _Rpc_InstallSnapshot_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

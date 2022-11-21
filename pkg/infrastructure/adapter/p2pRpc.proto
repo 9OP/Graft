@@ -4,10 +4,16 @@ package p2pRpc;
 
 option go_package = "./p2pRpc";
 
-message logEntry {
-    uint32 term = 1;
-    string value = 2;
-    string type = 3;
+message LogEntry {
+    enum LogType {
+        LogCommand = 0;
+        LogNoop = 1;
+        LogConfiguration = 2;
+    }
+    uint64 index = 1;
+    uint32 term = 2;
+    bytes data = 3;
+    LogType type = 4;
 }
 
 message AppendEntriesInput {
@@ -15,7 +21,7 @@ message AppendEntriesInput {
     string leaderId = 2;
     uint32 prevLogIndex = 3;
     uint32 prevLogTerm = 4;
-    repeated logEntry entries = 5;
+    repeated LogEntry entries = 5;
     uint32 leaderCommit = 6;
 }
 

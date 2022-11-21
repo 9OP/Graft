@@ -135,11 +135,11 @@ func TestCanGrantVote(t *testing.T) {
 func TestAppendEntriesInput(t *testing.T) {
 	var currenTerm uint32 = 9
 	logs := []LogEntry{
-		{Term: 1, Value: "val1"},
-		{Term: 2, Value: "val2"},
-		{Term: 3, Value: "val3"},
-		{Term: 4, Value: "val4"},
-		{Term: 5, Value: "val5"},
+		{Term: 1, Data: []byte("val1")},
+		{Term: 2, Data: []byte("val2")},
+		{Term: 3, Data: []byte("val3")},
+		{Term: 4, Data: []byte("val4")},
+		{Term: 5, Data: []byte("val5")},
 	}
 	nextIndex := peerIndex{
 		"peer1": 5,
@@ -211,12 +211,12 @@ func TestAppendEntriesInput(t *testing.T) {
 
 func TestComputeNewCommitIndex(t *testing.T) {
 	logs := []LogEntry{
-		{Term: 1, Value: "val1"},
-		{Term: 1, Value: "val2"},
-		{Term: 3, Value: "val3"},
-		{Term: 3, Value: "val4"},
-		{Term: 5, Value: "val5"},
-		{Term: 10, Value: "val6"},
+		{Term: 1, Data: []byte("val1")},
+		{Term: 1, Data: []byte("val2")},
+		{Term: 3, Data: []byte("val3")},
+		{Term: 3, Data: []byte("val4")},
+		{Term: 5, Data: []byte("val5")},
+		{Term: 10, Data: []byte("val6")},
 	}
 	// 4 + 1 nodes cluster
 	p := Peer{}
@@ -356,9 +356,9 @@ func TestLastLogIndex(t *testing.T) {
 	// index start at 1 and not 0
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
+			{Term: 1, Data: []byte("val1")},
 			{Term: 2},
-			{Term: 3, Value: "val3", Type: "ADMIN"},
+			{Term: 3, Data: []byte("val3"), Type: LogNoop},
 		},
 	}
 
@@ -370,14 +370,14 @@ func TestLastLogIndex(t *testing.T) {
 func TestLastLog(t *testing.T) {
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
+			{Term: 1, Data: []byte("val1")},
 			{Term: 2},
-			{Term: 3, Value: "val3", Type: "ADMIN"},
+			{Term: 3, Data: []byte("val3"), Type: LogNoop},
 		},
 	}
 
 	lastLog := state.lastLog()
-	if lastLog != state.machineLogs[2] {
+	if !reflect.DeepEqual(lastLog, state.machineLogs[2]) {
 		t.Fatalf("state.LastLog() = %v, want %v", state.machineLogs[2], lastLog)
 	}
 	if &lastLog == &state.machineLogs[2] {
@@ -386,11 +386,11 @@ func TestLastLog(t *testing.T) {
 
 	// Mutate last log in state
 	state.machineLogs[2].Term = 1
-	state.machineLogs[2].Value = "val1"
+	state.machineLogs[2].Data = []byte("val1")
 
 	updatedLastLog := state.lastLog()
 
-	if lastLog == updatedLastLog {
+	if reflect.DeepEqual(lastLog, updatedLastLog) {
 		t.Fatalf("state.LastLog() = %v, dont want %v", updatedLastLog, lastLog)
 	}
 	if &lastLog == &updatedLastLog {
@@ -401,9 +401,9 @@ func TestLastLog(t *testing.T) {
 func TestMachineLog(t *testing.T) {
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
+			{Term: 1, Data: []byte("val1")},
 			{Term: 2},
-			{Term: 3, Value: "val3", Type: "ADMIN"},
+			{Term: 3, Data: []byte("val3"), Type: LogNoop},
 		},
 	}
 
@@ -413,8 +413,8 @@ func TestMachineLog(t *testing.T) {
 		err error
 	}{
 		{0, LogEntry{}, nil},
-		{1, LogEntry{Term: 1, Value: "val1"}, nil},
-		{3, LogEntry{Term: 3, Value: "val3", Type: "ADMIN"}, nil},
+		{1, LogEntry{Term: 1, Data: []byte("val1")}, nil},
+		{3, LogEntry{Term: 3, Data: []byte("val3"), Type: LogNoop}, nil},
 		{4, LogEntry{}, errIndexOutOfRange},
 	}
 
@@ -422,7 +422,7 @@ func TestMachineLog(t *testing.T) {
 		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
 			out, err := state.Log(tt.in)
 			// Check output and error
-			if out != tt.out || !errors.Is(err, tt.err) {
+			if !reflect.DeepEqual(out, tt.out) || !errors.Is(err, tt.err) {
 				t.Errorf("got %v %v, want %v %v", out, err, tt.out, tt.err)
 			}
 		})
@@ -439,9 +439,9 @@ func TestMachineLog(t *testing.T) {
 func TestMachineLogs(t *testing.T) {
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
+			{Term: 1, Data: []byte("val1")},
 			{Term: 2},
-			{Term: 3, Value: "val3", Type: "ADMIN"},
+			{Term: 3, Data: []byte("val3"), Type: LogNoop},
 		},
 	}
 
@@ -460,11 +460,11 @@ func TestMachineLogs(t *testing.T) {
 func TestMachineLogsFrom(t *testing.T) {
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
-			{Term: 2, Value: "val2"},
-			{Term: 3, Value: "val3"},
-			{Term: 4, Value: "val4"},
-			{Term: 5, Value: "val5"},
+			{Term: 1, Data: []byte("val1")},
+			{Term: 2, Data: []byte("val2")},
+			{Term: 3, Data: []byte("val3")},
+			{Term: 4, Data: []byte("val4")},
+			{Term: 5, Data: []byte("val5")},
 		},
 	}
 
@@ -533,11 +533,11 @@ func TestWithers(t *testing.T) {
 func TestWithDeleteLogsFrom(t *testing.T) {
 	state := state{
 		machineLogs: []LogEntry{
-			{Term: 1, Value: "val1"},
-			{Term: 2, Value: "val2"},
-			{Term: 3, Value: "val3"},
-			{Term: 4, Value: "val4"},
-			{Term: 5, Value: "val5"},
+			{Term: 1, Data: []byte("val1")},
+			{Term: 2, Data: []byte("val2")},
+			{Term: 3, Data: []byte("val3")},
+			{Term: 4, Data: []byte("val4")},
+			{Term: 5, Data: []byte("val5")},
 		},
 	}
 

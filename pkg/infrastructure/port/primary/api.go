@@ -21,10 +21,11 @@ func NewRpcServerPort(adapter receiver.UseCase) *rpcServerPort {
 func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
 	entries := make([]domain.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
+		logType := domain.LogType(log.Type)
 		entry := domain.LogEntry{
-			Term:  log.Term,
-			Value: log.Value,
-			Type:  log.Type,
+			Term: log.Term,
+			Data: log.Data,
+			Type: logType,
 		}
 		entries = append(entries, entry)
 	}

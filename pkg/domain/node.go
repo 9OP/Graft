@@ -148,14 +148,13 @@ func (n *Node) UpgradeLeader() {
 			withLeader(n.id).
 			withRole(Leader)
 		n.swapState(&newState)
-		// noOp will force logs commit and trigger
-		// ApplyLogs in the entire cluster
-		noop := LogEntry{
-			Term:  n.currentTerm,
-			Type:  "ADMIN",
-			Value: "NO_OP",
-		}
-		n.AppendLogs(n.lastLogIndex(), noop)
+		n.AppendLogs(
+			n.lastLogIndex(),
+			LogEntry{
+				Term: n.currentTerm,
+				Type: LogNoop,
+			},
+		)
 		n.shiftRole()
 		n.resetLeaderTicker()
 		return
@@ -257,7 +256,7 @@ func (n *Node) ApplyLogs() {
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := n.Log(lastApplied); err == nil {
-			if log.Type != "COMMAND" {
+			if log.Type != LogCommand {
 				continue
 			}
 			// res := c.evalFsm(log.Value, "COMMAND")

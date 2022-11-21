@@ -1,6 +1,6 @@
 package domain
 
-type Role uint16
+type Role uint8
 
 const (
 	Undefined Role = iota
