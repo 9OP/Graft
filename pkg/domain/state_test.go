@@ -1,27 +1,25 @@
-package statenew
+package domain
 
 import (
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
-
-	"graft/pkg/domain"
 )
 
 func TestHasLeader(t *testing.T) {
-	peer := domain.Peer{}
+	peer := Peer{}
 	res := []struct {
 		// state
 		leaderId string
-		peers    domain.Peers
+		peers    Peers
 		// output
 		hasLeader bool
 	}{
-		{"leaderId", domain.Peers{}, false},
-		{"leaderId", domain.Peers{"leaderId": peer}, true},
-		{"leaderId", domain.Peers{"id": peer}, false},
-		{"", domain.Peers{"leaderId": peer}, false},
+		{"leaderId", Peers{}, false},
+		{"leaderId", Peers{"leaderId": peer}, true},
+		{"leaderId", Peers{"id": peer}, false},
+		{"", Peers{"leaderId": peer}, false},
 	}
 	for _, tt := range res {
 		t.Run(tt.leaderId, func(t *testing.T) {
@@ -38,18 +36,18 @@ func TestWithInitializeLeader(t *testing.T) {
 }
 
 func TestQuorum(t *testing.T) {
-	p := domain.Peer{}
+	p := Peer{}
 	res := []struct {
 		// state
-		peers domain.Peers
+		peers Peers
 		// output
 		quorum int
 	}{
-		{domain.Peers{"peer1": p, "peer2": p}, 2},                         // tolerate 1 failure
-		{domain.Peers{"peer1": p, "peer2": p, "peer3": p}, 3},             // tolerate 1 failure
-		{domain.Peers{"peer1": p, "peer2": p, "peer3": p, "peer4": p}, 3}, // tolerate 2 failures
-		{domain.Peers{"peer1": p}, 2},                                     // tolerate 0 failure
-		{domain.Peers{}, 1},                                               // tolerate 0 failure
+		{Peers{"peer1": p, "peer2": p}, 2},                         // tolerate 1 failure
+		{Peers{"peer1": p, "peer2": p, "peer3": p}, 3},             // tolerate 1 failure
+		{Peers{"peer1": p, "peer2": p, "peer3": p, "peer4": p}, 3}, // tolerate 2 failures
+		{Peers{"peer1": p}, 2},                                     // tolerate 0 failure
+		{Peers{}, 1},                                               // tolerate 0 failure
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.peers), func(t *testing.T) {
@@ -65,34 +63,34 @@ func TestQuorum(t *testing.T) {
 func TestIsLogUpToDate(t *testing.T) {
 	res := []struct {
 		// state
-		logs []domain.LogEntry
+		logs []LogEntry
 		// input
 		lastLogIndex uint32
 		lastLogTerm  uint32
 		// output
 		upToDate bool
 	}{
-		{[]domain.LogEntry{}, 0, 0, true},
-		{[]domain.LogEntry{}, 1, 0, true},
-		{[]domain.LogEntry{}, 0, 1, true},
-		{[]domain.LogEntry{}, 1, 1, true},
+		{[]LogEntry{}, 0, 0, true},
+		{[]LogEntry{}, 1, 0, true},
+		{[]LogEntry{}, 0, 1, true},
+		{[]LogEntry{}, 1, 1, true},
 
-		{[]domain.LogEntry{{Term: 1}}, 0, 0, false},
-		{[]domain.LogEntry{{Term: 1}}, 1, 0, false},
-		{[]domain.LogEntry{{Term: 1}}, 1, 1, true},
-		{[]domain.LogEntry{{Term: 1}}, 1, 2, true},
-		{[]domain.LogEntry{{Term: 1}}, 2, 0, false},
-		{[]domain.LogEntry{{Term: 1}}, 2, 1, true},
-		{[]domain.LogEntry{{Term: 1}}, 2, 2, true},
+		{[]LogEntry{{Term: 1}}, 0, 0, false},
+		{[]LogEntry{{Term: 1}}, 1, 0, false},
+		{[]LogEntry{{Term: 1}}, 1, 1, true},
+		{[]LogEntry{{Term: 1}}, 1, 2, true},
+		{[]LogEntry{{Term: 1}}, 2, 0, false},
+		{[]LogEntry{{Term: 1}}, 2, 1, true},
+		{[]LogEntry{{Term: 1}}, 2, 2, true},
 
-		{[]domain.LogEntry{{Term: 1}, {Term: 1}}, 1, 1, false},
-		{[]domain.LogEntry{{Term: 1}, {Term: 1}}, 2, 1, true},
-		{[]domain.LogEntry{{Term: 1}, {Term: 1}}, 2, 2, true},
-		{[]domain.LogEntry{{Term: 1}, {Term: 2}}, 2, 2, true},
-		{[]domain.LogEntry{{Term: 1}, {Term: 3}}, 2, 2, false},
+		{[]LogEntry{{Term: 1}, {Term: 1}}, 1, 1, false},
+		{[]LogEntry{{Term: 1}, {Term: 1}}, 2, 1, true},
+		{[]LogEntry{{Term: 1}, {Term: 1}}, 2, 2, true},
+		{[]LogEntry{{Term: 1}, {Term: 2}}, 2, 2, true},
+		{[]LogEntry{{Term: 1}, {Term: 3}}, 2, 2, false},
 
-		{[]domain.LogEntry{{Term: 1}, {Term: 2}}, 10, 2, true},
-		{[]domain.LogEntry{{Term: 1}, {Term: 2}}, 10, 1, false},
+		{[]LogEntry{{Term: 1}, {Term: 2}}, 10, 2, true},
+		{[]LogEntry{{Term: 1}, {Term: 2}}, 10, 1, false},
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.logs), func(t *testing.T) {
@@ -124,7 +122,7 @@ func TestCanGrantVote(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", tt.votedFor), func(t *testing.T) {
 			state := state{
 				votedFor: tt.votedFor,
-				peers:    domain.Peers{"peerId": domain.Peer{}},
+				peers:    Peers{"peerId": Peer{}},
 			}
 			canGrantVote := state.CanGrantVote(tt.peerId)
 			if canGrantVote != tt.canGrantVote {
@@ -136,7 +134,7 @@ func TestCanGrantVote(t *testing.T) {
 
 func TestAppendEntriesInput(t *testing.T) {
 	var currenTerm uint32 = 9
-	logs := []domain.LogEntry{
+	logs := []LogEntry{
 		{Term: 1, Value: "val1"},
 		{Term: 2, Value: "val2"},
 		{Term: 3, Value: "val3"},
@@ -161,33 +159,33 @@ func TestAppendEntriesInput(t *testing.T) {
 		// input
 		peerId string
 		// output
-		out domain.AppendEntriesInput
+		out AppendEntriesInput
 	}{
-		{"peer1", domain.AppendEntriesInput{
+		{"peer1", AppendEntriesInput{
 			Term:         currenTerm,
 			PrevLogIndex: 5,
 			PrevLogTerm:  5,
-			Entries:      []domain.LogEntry{},
+			Entries:      []LogEntry{},
 		}},
-		{"peer2", domain.AppendEntriesInput{
+		{"peer2", AppendEntriesInput{
 			Term:         currenTerm,
 			PrevLogIndex: 0,
 			PrevLogTerm:  0,
 			Entries:      logs,
 		}},
-		{"peer3", domain.AppendEntriesInput{
+		{"peer3", AppendEntriesInput{
 			Term:         currenTerm,
 			PrevLogIndex: 5,
 			PrevLogTerm:  5,
-			Entries:      []domain.LogEntry{},
+			Entries:      []LogEntry{},
 		}},
-		{"peer4", domain.AppendEntriesInput{
+		{"peer4", AppendEntriesInput{
 			Term:         currenTerm,
 			PrevLogIndex: 6,
 			PrevLogTerm:  currenTerm,
-			Entries:      []domain.LogEntry{},
+			Entries:      []LogEntry{},
 		}},
-		{"peer5", domain.AppendEntriesInput{
+		{"peer5", AppendEntriesInput{
 			Term:         currenTerm,
 			PrevLogIndex: 3,
 			PrevLogTerm:  3,
@@ -197,7 +195,7 @@ func TestAppendEntriesInput(t *testing.T) {
 	for _, tt := range res {
 		t.Run(tt.peerId, func(t *testing.T) {
 			state := state{
-				peers:       domain.Peers{"peerId": domain.Peer{}},
+				peers:       Peers{"peerId": Peer{}},
 				matchIndex:  matchIndex,
 				nextIndex:   nextIndex,
 				currentTerm: currenTerm,
@@ -212,7 +210,7 @@ func TestAppendEntriesInput(t *testing.T) {
 }
 
 func TestComputeNewCommitIndex(t *testing.T) {
-	logs := []domain.LogEntry{
+	logs := []LogEntry{
 		{Term: 1, Value: "val1"},
 		{Term: 1, Value: "val2"},
 		{Term: 3, Value: "val3"},
@@ -221,8 +219,8 @@ func TestComputeNewCommitIndex(t *testing.T) {
 		{Term: 10, Value: "val6"},
 	}
 	// 4 + 1 nodes cluster
-	p := domain.Peer{}
-	peers := domain.Peers{
+	p := Peer{}
+	peers := Peers{
 		"peer1": p,
 		"peer2": p,
 		"peer3": p,
@@ -357,7 +355,7 @@ func TestLastLogIndex(t *testing.T) {
 	// Last log index should be len(p.machineLogs) as logs
 	// index start at 1 and not 0
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2},
 			{Term: 3, Value: "val3", Type: "ADMIN"},
@@ -371,7 +369,7 @@ func TestLastLogIndex(t *testing.T) {
 
 func TestLastLog(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2},
 			{Term: 3, Value: "val3", Type: "ADMIN"},
@@ -402,7 +400,7 @@ func TestLastLog(t *testing.T) {
 
 func TestMachineLog(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2},
 			{Term: 3, Value: "val3", Type: "ADMIN"},
@@ -411,13 +409,13 @@ func TestMachineLog(t *testing.T) {
 
 	res := []struct {
 		in  uint32
-		out domain.LogEntry
+		out LogEntry
 		err error
 	}{
-		{0, domain.LogEntry{}, nil},
-		{1, domain.LogEntry{Term: 1, Value: "val1"}, nil},
-		{3, domain.LogEntry{Term: 3, Value: "val3", Type: "ADMIN"}, nil},
-		{4, domain.LogEntry{}, errIndexOutOfRange},
+		{0, LogEntry{}, nil},
+		{1, LogEntry{Term: 1, Value: "val1"}, nil},
+		{3, LogEntry{Term: 3, Value: "val3", Type: "ADMIN"}, nil},
+		{4, LogEntry{}, errIndexOutOfRange},
 	}
 
 	for _, tt := range res {
@@ -440,7 +438,7 @@ func TestMachineLog(t *testing.T) {
 
 func TestMachineLogs(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2},
 			{Term: 3, Value: "val3", Type: "ADMIN"},
@@ -461,7 +459,7 @@ func TestMachineLogs(t *testing.T) {
 
 func TestMachineLogsFrom(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2, Value: "val2"},
 			{Term: 3, Value: "val3"},
@@ -472,7 +470,7 @@ func TestMachineLogsFrom(t *testing.T) {
 
 	res := []struct {
 		in  uint32
-		out []domain.LogEntry
+		out []LogEntry
 		len int
 	}{
 		{0, state.machineLogs, 5},
@@ -480,7 +478,7 @@ func TestMachineLogsFrom(t *testing.T) {
 		{3, state.machineLogs[2:], 3},
 		{4, state.machineLogs[3:], 2},
 		{5, state.machineLogs[4:], 1},
-		{6, []domain.LogEntry{}, 0},
+		{6, []LogEntry{}, 0},
 	}
 
 	for _, tt := range res {
@@ -534,7 +532,7 @@ func TestWithers(t *testing.T) {
 
 func TestWithDeleteLogsFrom(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1, Value: "val1"},
 			{Term: 2, Value: "val2"},
 			{Term: 3, Value: "val3"},
@@ -545,12 +543,12 @@ func TestWithDeleteLogsFrom(t *testing.T) {
 
 	res := []struct {
 		in      uint32
-		out     []domain.LogEntry
+		out     []LogEntry
 		len     int
 		changed bool
 	}{
-		{0, []domain.LogEntry{}, 0, true},
-		{1, []domain.LogEntry{}, 0, true},
+		{0, []LogEntry{}, 0, true},
+		{1, []LogEntry{}, 0, true},
 		{3, state.machineLogs[:2], 2, true},
 		{4, state.machineLogs[:3], 3, true},
 		{5, state.machineLogs[:4], 4, true},
@@ -586,30 +584,30 @@ func TestWithDeleteLogsFrom(t *testing.T) {
 
 func TestWithAppendLogsFrom(t *testing.T) {
 	state := state{
-		machineLogs: []domain.LogEntry{
+		machineLogs: []LogEntry{
 			{Term: 1},
 			{Term: 2},
 			{Term: 3},
 		},
 	}
-	entries := []domain.LogEntry{
+	entries := []LogEntry{
 		{Term: 4},
 		{Term: 5},
 	}
 	res := []struct {
 		prevLogIndex uint32
-		entries      []domain.LogEntry
-		logs         []domain.LogEntry
+		entries      []LogEntry
+		logs         []LogEntry
 		len          int
 		changed      bool
 	}{
-		{3, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 4}, {Term: 5}}, 5, true},
-		{2, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 5}}, 4, true},
-		{1, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
-		{0, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
-		{4, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
-		{5, entries, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
-		{2, []domain.LogEntry{}, []domain.LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{3, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 4}, {Term: 5}}, 5, true},
+		{2, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}, {Term: 5}}, 4, true},
+		{1, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{0, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{4, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{5, entries, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
+		{2, []LogEntry{}, []LogEntry{{Term: 1}, {Term: 2}, {Term: 3}}, 3, false},
 	}
 
 	for _, tt := range res {

@@ -2,15 +2,14 @@ package receiver
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
 	"graft/pkg/utils"
 )
 
 type service struct {
-	clusterNode *state.ClusterNode
+	clusterNode *domain.Node
 }
 
-func NewService(clusterNode *state.ClusterNode) *service {
+func NewService(clusterNode *domain.Node) *service {
 	return &service{clusterNode}
 }
 
@@ -28,7 +27,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 		node.DowngradeFollower(input.Term)
 	}
 
-	node.SetClusterLeader(input.LeaderId)
+	node.SetLeader(input.LeaderId)
 	node.Heartbeat()
 
 	localPrevLog, err := node.Log(input.PrevLogIndex)
@@ -61,7 +60,7 @@ func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVo
 		node.DowngradeFollower(input.Term)
 	}
 
-	isUpToDate := node.IsUpToDate(input.LastLogIndex, input.LastLogTerm)
+	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
 	canGrantVote := node.CanGrantVote(input.CandidateId)
 
 	if canGrantVote && isUpToDate {
@@ -82,7 +81,7 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	}
 
 	hasLeader := node.HasLeader()
-	isUpToDate := node.IsUpToDate(input.LastLogIndex, input.LastLogTerm)
+	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
 
 	if !hasLeader && isUpToDate {
 		output.VoteGranted = true

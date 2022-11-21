@@ -1,11 +1,9 @@
-package statenew
+package domain
 
 import (
 	"sync"
 	"sync/atomic"
 	"unsafe"
-
-	"graft/pkg/domain"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -72,7 +70,7 @@ type Node struct {
 
 func NewNode(
 	id string,
-	peers domain.Peers,
+	peers Peers,
 	persistent PersistentState,
 ) *Node {
 	return &Node{
@@ -103,9 +101,8 @@ func (n Node) GetState() state {
 
 func (n *Node) DowngradeFollower(term uint32) {
 	log.Infof("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
-	newRole := domain.Follower
 	newState := n.
-		WithRole(newRole).
+		WithRole(Follower).
 		WithCurrentTerm(term).
 		WithVotedFor("")
 	n.swapState(&newState)
@@ -114,7 +111,7 @@ func (n *Node) DowngradeFollower(term uint32) {
 }
 
 func (n *Node) IncrementCandidateTerm() {
-	if n.Role() == domain.Candidate {
+	if n.Role() == Candidate {
 		term := n.CurrentTerm() + 1
 		log.Debugf("INCREMENT CANDIDATE TERM %d\n", term)
 		newState := n.
@@ -128,11 +125,10 @@ func (n *Node) IncrementCandidateTerm() {
 }
 
 func (n *Node) UpgradeCandidate() {
-	if n.Role() == domain.Follower {
+	if n.Role() == Follower {
 		log.Info("UPGRADE TO CANDIDATE")
-		newRole := domain.Candidate
 		newState := n.
-			WithRole(newRole).
+			WithRole(Candidate).
 			WithLeader("")
 		n.swapState(&newState)
 		n.shiftRole()
@@ -143,22 +139,21 @@ func (n *Node) UpgradeCandidate() {
 }
 
 func (n *Node) UpgradeLeader() {
-	if n.Role() == domain.Candidate {
+	if n.Role() == Candidate {
 		log.Infof("UPGRADE TO LEADER TERM %d\n", n.CurrentTerm())
-		newRole := domain.Leader
 		newState := n.
 			WithLeaderInitialization().
 			WithLeader(n.id).
-			WithRole(newRole)
+			WithRole(Leader)
 		n.swapState(&newState)
 		// noOp will force logs commit and trigger
 		// ApplyLogs in the entire cluster
-		// noOp := domain.LogEntry{
-		// 	Term:  n.CurrentTerm(),
-		// 	Type:  "ADMIN",
-		// 	Value: "NO_OP",
-		// }
-		// n.AppendLogs(n.LastLogIndex(), noOp)
+		noop := LogEntry{
+			Term:  n.CurrentTerm(),
+			Type:  "ADMIN",
+			Value: "NO_OP",
+		}
+		n.AppendLogs(n.LastLogIndex(), noop)
 		n.shiftRole()
 		n.resetLeaderTicker()
 		return
@@ -170,11 +165,11 @@ func (n Node) Heartbeat() {
 	n.resetTimeout()
 }
 
-func (n Node) Broadcast(fn func(p domain.Peer)) {
+func (n Node) Broadcast(fn func(p Peer)) {
 	var wg sync.WaitGroup
 	for _, peer := range n.Peers() {
 		wg.Add(1)
-		go func(p domain.Peer, w *sync.WaitGroup) {
+		go func(p Peer, w *sync.WaitGroup) {
 			defer w.Done()
 			fn(p)
 		}(peer, &wg)
@@ -189,7 +184,7 @@ func (n *Node) DeleteLogsFrom(index uint32) {
 	}
 }
 
-func (n *Node) AppendLogs(prevLogIndex uint32, entries ...domain.LogEntry) {
+func (n *Node) AppendLogs(prevLogIndex uint32, entries ...LogEntry) {
 	if newState, changed := n.WithAppendLogs(prevLogIndex, entries...); changed {
 		log.Debug("APPEND LOGS", prevLogIndex)
 		n.swapState(&newState)
@@ -232,6 +227,35 @@ func (n *Node) DecrementNextIndex(peerId string) {
 func (n *Node) GrantVote(peerId string) {
 	if n.VotedFor() != peerId {
 		newState := n.WithVotedFor(peerId)
+		n.swapState(&newState)
+	}
+}
+
+func (n *Node) ApplyLogs() {
+	commitIndex := n.CommitIndex()
+	lastApplied := n.LastApplied()
+
+	for lastApplied < commitIndex {
+		// if lastApplied == 0 {
+		// 	c.initFsm()
+		// }
+		// Increment last applied first
+		// because lastApplied = 0 is not a valid logEntry
+		lastApplied += 1
+		if log, err := n.Log(lastApplied); err == nil {
+			if log.Type != "COMMAND" {
+				continue
+			}
+			// res := c.evalFsm(log.Value, "COMMAND")
+			// if log.C != nil {
+			// 	log.C <- res
+			// }
+		}
+	}
+
+	// Swap only once
+	if lastApplied > n.LastApplied() {
+		newState := n.WithLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
 }

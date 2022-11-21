@@ -2,14 +2,13 @@ package cluster
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
 )
 
 type service struct {
-	clusterNode *state.ClusterNode
+	clusterNode *domain.Node
 }
 
-func NewService(clusterNode *state.ClusterNode) *service {
+func NewService(clusterNode *domain.Node) *service {
 	return &service{clusterNode}
 }
 
@@ -22,8 +21,9 @@ func (s *service) ExecuteCommand(command string) ([]byte, error) {
 		return nil, domain.NewUnknownLeaderError()
 	}
 
-	res := <-s.clusterNode.ExecuteCommand(command)
-	return res.Out, res.Err
+	// res := <-s.clusterNode.ExecuteCommand(command)
+	// return res.Out, res.Err
+	return nil, nil
 }
 
 func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, error) {
@@ -41,6 +41,7 @@ func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, erro
 	//	Should get a quorum before returning value to client
 	// If not leader:
 	// 	Should get same commit index as knwown leader
-	res := <-s.clusterNode.ExecuteQuery(query)
-	return res.Out, res.Err
+	// res := <-s.clusterNode.ExecuteQuery(query)
+	// return res.Out, res.Err
+	return nil, nil
 }

@@ -2,7 +2,6 @@ package runner
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
 )
 
 type repository interface {
@@ -12,7 +11,7 @@ type repository interface {
 }
 
 type persister interface {
-	Load() (*state.PersistentState, error)
+	Load() (domain.PersistentState, error)
 	Save(currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error
 }
 

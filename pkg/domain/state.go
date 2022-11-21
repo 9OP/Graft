@@ -1,18 +1,17 @@
-package statenew
+package domain
 
 import (
 	"errors"
 	"math"
 
-	"graft/pkg/domain"
 	"graft/pkg/utils"
 )
 
 type state struct {
 	id       string
 	leaderId string
-	peers    domain.Peers
-	role     domain.Role
+	peers    Peers
+	role     Role
 
 	commitIndex uint32
 	lastApplied uint32
@@ -21,22 +20,28 @@ type state struct {
 
 	currentTerm uint32
 	votedFor    string
-	machineLogs []domain.LogEntry
+	machineLogs []LogEntry
 }
 
 type peerIndex map[string]uint32
 
 type PersistentState struct {
-	CurrentTerm uint32            `json:"current_term"`
-	VotedFor    string            `json:"voted_for"`
-	MachineLogs []domain.LogEntry `json:"machine_logs"`
+	CurrentTerm uint32     `json:"current_term"`
+	VotedFor    string     `json:"voted_for"`
+	MachineLogs []LogEntry `json:"machine_logs"`
 }
 
-func newState(id string, peers domain.Peers, persistent PersistentState) *state {
+var DEFAULT_PERSISTENT_STATE = PersistentState{
+	CurrentTerm: 0,
+	VotedFor:    "",
+	MachineLogs: []LogEntry{},
+}
+
+func newState(id string, peers Peers, persistent PersistentState) *state {
 	return &state{
 		id:    id,
 		peers: peers,
-		role:  domain.Follower,
+		role:  Follower,
 
 		commitIndex: 0,
 		lastApplied: 0,
@@ -53,7 +58,7 @@ func (s state) Id() string {
 	return s.id
 }
 
-func (s state) Leader() domain.Peer {
+func (s state) Leader() Peer {
 	return s.peers[s.leaderId]
 }
 
@@ -84,7 +89,7 @@ func (s state) WithLeaderInitialization() state {
 	return s
 }
 
-func (s state) Peers() domain.Peers {
+func (s state) Peers() Peers {
 	return utils.CopyMap(s.peers)
 }
 
@@ -96,11 +101,11 @@ func (s state) Quorum() int {
 	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 
-func (s state) Role() domain.Role {
+func (s state) Role() Role {
 	return s.role
 }
 
-func (s state) WithRole(role domain.Role) state {
+func (s state) WithRole(role Role) state {
 	s.role = role
 	return s
 }
@@ -219,18 +224,18 @@ func (s state) CanGrantVote(peerId string) bool {
 
 var errIndexOutOfRange = errors.New("index out of range")
 
-func (s state) Log(index uint32) (domain.LogEntry, error) {
+func (s state) Log(index uint32) (LogEntry, error) {
 	if index == 0 {
-		return domain.LogEntry{}, nil
+		return LogEntry{}, nil
 	}
 	if index <= s.LastLogIndex() {
 		return s.machineLogs[index-1], nil
 	}
-	return domain.LogEntry{}, errIndexOutOfRange
+	return LogEntry{}, errIndexOutOfRange
 }
 
-func (s state) Logs() []domain.LogEntry {
-	machineLogs := make([]domain.LogEntry, len(s.machineLogs))
+func (s state) Logs() []LogEntry {
+	machineLogs := make([]LogEntry, len(s.machineLogs))
 	copy(machineLogs, s.machineLogs)
 	return machineLogs
 }
@@ -239,12 +244,12 @@ func (s state) LastLogIndex() uint32 {
 	return uint32(len(s.machineLogs))
 }
 
-func (s state) LastLog() domain.LogEntry {
+func (s state) LastLog() LogEntry {
 	lastLog, _ := s.Log(s.LastLogIndex())
 	return lastLog
 }
 
-func (s state) LogsFrom(index uint32) []domain.LogEntry {
+func (s state) LogsFrom(index uint32) []LogEntry {
 	logs := s.Logs()
 	if index == 0 {
 		return logs
@@ -252,7 +257,7 @@ func (s state) LogsFrom(index uint32) []domain.LogEntry {
 	if index <= s.LastLogIndex() {
 		return logs[index-1:]
 	}
-	return []domain.LogEntry{}
+	return []LogEntry{}
 }
 
 // IsUpToDate from the caller point of view
@@ -276,7 +281,7 @@ func (s state) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
 
 func (s state) WithDeleteLogsFrom(index uint32) (state, bool) {
 	if index == 0 {
-		s.machineLogs = []domain.LogEntry{}
+		s.machineLogs = []LogEntry{}
 		return s, true
 	}
 	logs := s.Logs()
@@ -288,7 +293,7 @@ func (s state) WithDeleteLogsFrom(index uint32) (state, bool) {
 	return s, false
 }
 
-func (s state) WithAppendLogs(prevLogIndex uint32, entries ...domain.LogEntry) (state, bool) {
+func (s state) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) (state, bool) {
 	// Should append only new entries
 	changed := false
 	if len(entries) == 0 {
@@ -332,7 +337,7 @@ func (s state) WithAppendLogs(prevLogIndex uint32, entries ...domain.LogEntry) (
 	}
 
 	// Copy existings logs
-	logs := make([]domain.LogEntry, lastLogIndex, lenEntries+lastLogIndex)
+	logs := make([]LogEntry, lastLogIndex, lenEntries+lastLogIndex)
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
@@ -342,19 +347,19 @@ func (s state) WithAppendLogs(prevLogIndex uint32, entries ...domain.LogEntry) (
 	return s, changed
 }
 
-func (s state) AppendEntriesInput(peerId string) domain.AppendEntriesInput {
+func (s state) AppendEntriesInput(peerId string) AppendEntriesInput {
 	matchIndex := s.MatchIndexForPeer(peerId)
 	nextIndex := s.NextIndexForPeer(peerId)
 
 	var prevLogTerm uint32
 	var prevLogIndex uint32
-	var entries []domain.LogEntry
+	var entries []LogEntry
 
 	// When peer has commitIndex matching
 	// leader lastLogIndex, there is no need to send
 	// new entries.
 	if matchIndex == s.LastLogIndex() {
-		entries = []domain.LogEntry{}
+		entries = []LogEntry{}
 		prevLogIndex = s.LastLogIndex()
 		prevLogTerm = s.LastLog().Term
 	} else {
@@ -373,7 +378,7 @@ func (s state) AppendEntriesInput(peerId string) domain.AppendEntriesInput {
 		}
 	}
 
-	return domain.AppendEntriesInput{
+	return AppendEntriesInput{
 		LeaderId:     s.Id(),
 		Term:         s.CurrentTerm(),
 		LeaderCommit: s.CommitIndex(),
@@ -383,8 +388,8 @@ func (s state) AppendEntriesInput(peerId string) domain.AppendEntriesInput {
 	}
 }
 
-func (s state) RequestVoteInput() domain.RequestVoteInput {
-	return domain.RequestVoteInput{
+func (s state) RequestVoteInput() RequestVoteInput {
+	return RequestVoteInput{
 		CandidateId:  s.Id(),
 		Term:         s.CurrentTerm(),
 		LastLogIndex: s.LastLogIndex(),

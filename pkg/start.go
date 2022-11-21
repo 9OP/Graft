@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
+
 	primaryAdapter "graft/pkg/infrastructure/adapter/primary"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
 	primaryPort "graft/pkg/infrastructure/port/primary"
@@ -38,7 +38,7 @@ func Start(
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	node := state.NewClusterNode(id, peers, fsmInit, fsmEval, persistent)
+	node := domain.NewNode(id, peers, persistent)
 
 	// Services
 	runnerUsecase := runner.NewService(node, rpcClientPort, persisterPort, electionTimeout, heartbeatTimeout)

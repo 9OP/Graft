@@ -4,22 +4,9 @@ import (
 	"sync/atomic"
 
 	"graft/pkg/domain"
-	"graft/pkg/domain/state"
 
 	log "github.com/sirupsen/logrus"
 )
-
-type binaryLock struct {
-	c uint32
-}
-
-func (l *binaryLock) Lock() bool {
-	return atomic.CompareAndSwapUint32(&l.c, 0, 1)
-}
-
-func (l *binaryLock) Unlock() {
-	atomic.StoreUint32(&l.c, 0)
-}
 
 type synchronise struct {
 	running    binaryLock
@@ -28,7 +15,7 @@ type synchronise struct {
 }
 
 type service struct {
-	clusterNode *state.ClusterNode
+	clusterNode *domain.Node
 	timeout     *timeout
 	repo        repository
 	persist     persister
@@ -36,7 +23,7 @@ type service struct {
 }
 
 func NewService(
-	clusterNode *state.ClusterNode,
+	clusterNode *domain.Node,
 	repository repository,
 	persister persister,
 	electionDuration int,
@@ -172,7 +159,6 @@ func (s *service) runLeader() {
 func (s *service) commit() {
 	if s.sync.committing.Lock() {
 		defer s.sync.committing.Unlock()
-
 		s.clusterNode.ApplyLogs()
 	}
 }
@@ -180,7 +166,6 @@ func (s *service) commit() {
 func (s *service) saveState() {
 	if s.sync.saving.Lock() {
 		defer s.sync.saving.Unlock()
-
 		s.persist.Save(
 			s.clusterNode.CurrentTerm(),
 			s.clusterNode.VotedFor(),
@@ -267,7 +252,6 @@ func (s *service) synchronizeLogs() bool {
 				s.clusterNode.DowngradeFollower(res.Term)
 				return
 			}
-
 			if res.Success {
 				// newPeerLastLogIndex is always the sum of len(entries) and prevLogIndex
 				// Even if peer was send logs it already has, because prevLogIndex is the number
