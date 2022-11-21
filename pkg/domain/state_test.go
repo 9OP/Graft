@@ -250,7 +250,7 @@ func TestComputeNewCommitIndex(t *testing.T) {
 				currentTerm: tt.currentTerm,
 				machineLogs: logs,
 			}
-			newCommitIndex := state.ComputeNewCommitIndex()
+			newCommitIndex := state.computeNewCommitIndex()
 			if tt.newCommitIndex != newCommitIndex {
 				t.Errorf("ComputeNewCommitIndex got %v, want %v", newCommitIndex, tt.newCommitIndex)
 			}
@@ -274,11 +274,11 @@ func TestNextMatchIndexForPeer(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(tt.in, func(t *testing.T) {
-			idx := state.NextIndexForPeer(tt.in)
+			idx := state.nextIndexForPeer(tt.in)
 			if idx != tt.idx {
 				t.Errorf("got %v, want %v", idx, tt.idx)
 			}
-			idx = state.MatchIndexForPeer(tt.in)
+			idx = state.matchIndexForPeer(tt.in)
 			if idx != tt.idx {
 				t.Errorf("got %v, want %v", idx, tt.idx)
 			}
@@ -303,11 +303,11 @@ func TestWithNextMatchIndex(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(tt.peerId, func(t *testing.T) {
-			out := state.WithNextIndex(tt.peerId, tt.idx)
+			out := state.withNextIndex(tt.peerId, tt.idx)
 			if !reflect.DeepEqual(out.nextIndex, tt.out) {
 				t.Errorf("got %v, want %v", out.nextIndex, tt.out)
 			}
-			out = state.WithMatchIndex(tt.peerId, tt.idx)
+			out = state.withMatchIndex(tt.peerId, tt.idx)
 			if !reflect.DeepEqual(out.matchIndex, tt.out) {
 				t.Errorf("got %v, want %v", out.matchIndex, tt.out)
 			}
@@ -315,7 +315,7 @@ func TestWithNextMatchIndex(t *testing.T) {
 	}
 
 	// Mutate
-	newState := state.WithNextIndex("peerId", 2).WithMatchIndex("peerId", 2)
+	newState := state.withNextIndex("peerId", 2).withMatchIndex("peerId", 2)
 	state.nextIndex["peerId"] += 1
 	state.matchIndex["peerId"] += 1
 
@@ -343,7 +343,7 @@ func TestWithDecrementNextIndex(t *testing.T) {
 	}
 	for _, tt := range res {
 		t.Run(tt.peerId, func(t *testing.T) {
-			out := st.WithDecrementNextIndex(tt.peerId)
+			out := st.withDecrementNextIndex(tt.peerId)
 			if !reflect.DeepEqual(out.nextIndex[tt.peerId], tt.out) {
 				t.Errorf("got %v, want %v", out.nextIndex[tt.peerId], tt.out)
 			}
@@ -362,8 +362,8 @@ func TestLastLogIndex(t *testing.T) {
 		},
 	}
 
-	if state.LastLogIndex() != 3 {
-		t.Fatalf("state.LastLogIndex() = %v, want %v", state.LastLogIndex(), 3)
+	if state.lastLogIndex() != 3 {
+		t.Fatalf("state.lastLogIndex() = %v, want %v", state.lastLogIndex(), 3)
 	}
 }
 
@@ -376,7 +376,7 @@ func TestLastLog(t *testing.T) {
 		},
 	}
 
-	lastLog := state.LastLog()
+	lastLog := state.lastLog()
 	if lastLog != state.machineLogs[2] {
 		t.Fatalf("state.LastLog() = %v, want %v", state.machineLogs[2], lastLog)
 	}
@@ -388,7 +388,7 @@ func TestLastLog(t *testing.T) {
 	state.machineLogs[2].Term = 1
 	state.machineLogs[2].Value = "val1"
 
-	updatedLastLog := state.LastLog()
+	updatedLastLog := state.lastLog()
 
 	if lastLog == updatedLastLog {
 		t.Fatalf("state.LastLog() = %v, dont want %v", updatedLastLog, lastLog)
@@ -445,7 +445,7 @@ func TestMachineLogs(t *testing.T) {
 		},
 	}
 
-	res := state.Logs()
+	res := state.logs()
 	if !reflect.DeepEqual(res, state.machineLogs) {
 		t.Errorf("got %v, want %v", res, state.machineLogs)
 	}
@@ -483,7 +483,7 @@ func TestMachineLogsFrom(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
-			out := state.LogsFrom(tt.in)
+			out := state.logsFrom(tt.in)
 
 			if !reflect.DeepEqual(out, tt.out) {
 				t.Errorf("got %v, want %v", out, tt.out)
@@ -496,7 +496,7 @@ func TestMachineLogsFrom(t *testing.T) {
 	}
 
 	// Mutate state
-	log := state.LogsFrom(0)[0]
+	log := state.logsFrom(0)[0]
 	state.machineLogs[0].Term += 1
 	if reflect.DeepEqual(log, state.machineLogs[0]) {
 		t.Error("mutate copy")
@@ -505,8 +505,8 @@ func TestMachineLogsFrom(t *testing.T) {
 
 func TestWithers(t *testing.T) {
 	st := state{votedFor: "", currentTerm: 0}
-	stateWithTerm := st.WithCurrentTerm(10)
-	stateWithVotedFor := st.WithVotedFor("id")
+	stateWithTerm := st.withCurrentTerm(10)
+	stateWithVotedFor := st.withVotedFor("id")
 
 	// Does not mutate input
 	if st.currentTerm != 0 {
@@ -523,7 +523,7 @@ func TestWithers(t *testing.T) {
 	}
 
 	// Can chain mutation
-	newState := st.WithCurrentTerm(10).WithVotedFor("id")
+	newState := st.withCurrentTerm(10).withVotedFor("id")
 	expect := state{votedFor: "id", currentTerm: 10}
 	if !reflect.DeepEqual(newState, expect) {
 		t.Errorf("newState got %v, want %v", newState, expect)
@@ -558,7 +558,7 @@ func TestWithDeleteLogsFrom(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%d", tt.in), func(t *testing.T) {
-			out, changed := state.WithDeleteLogsFrom(tt.in)
+			out, changed := state.withDeleteLogsFrom(tt.in)
 
 			if !reflect.DeepEqual(out.machineLogs, tt.out) {
 				t.Errorf("got %v, want %v", out.machineLogs, tt.out)
@@ -575,7 +575,7 @@ func TestWithDeleteLogsFrom(t *testing.T) {
 	}
 
 	// Mutate
-	newState, _ := state.WithDeleteLogsFrom(10)
+	newState, _ := state.withDeleteLogsFrom(10)
 	state.machineLogs[0].Term += 1
 	if reflect.DeepEqual(newState.machineLogs, state.machineLogs) {
 		t.Error("mutate copy")
@@ -612,7 +612,7 @@ func TestWithAppendLogsFrom(t *testing.T) {
 
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%d", tt.prevLogIndex), func(t *testing.T) {
-			out, changed := state.WithAppendLogs(tt.prevLogIndex, tt.entries...)
+			out, changed := state.withAppendLogs(tt.prevLogIndex, tt.entries...)
 
 			if !reflect.DeepEqual(out.machineLogs, tt.logs) {
 				t.Errorf("got %v, want %v", out.machineLogs, tt.logs)

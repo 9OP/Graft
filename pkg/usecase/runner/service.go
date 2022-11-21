@@ -166,11 +166,7 @@ func (s *service) commit() {
 func (s *service) saveState() {
 	if s.sync.saving.Lock() {
 		defer s.sync.saving.Unlock()
-		s.persist.Save(
-			s.clusterNode.CurrentTerm(),
-			s.clusterNode.VotedFor(),
-			s.clusterNode.Logs(),
-		)
+		s.persist.Save(s.clusterNode.ToPersistent())
 	}
 }
 
@@ -232,9 +228,7 @@ func (s *service) heartbeat() bool {
 	quorumReached := s.synchronizeLogs()
 
 	if s.clusterNode.Role() == domain.Leader {
-		s.clusterNode.SetCommitIndex(
-			s.clusterNode.ComputeNewCommitIndex(),
-		)
+		s.clusterNode.UpdateNewCommitIndex()
 	}
 
 	return quorumReached

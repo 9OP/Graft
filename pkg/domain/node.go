@@ -5,6 +5,8 @@ import (
 	"sync/atomic"
 	"unsafe"
 
+	"graft/pkg/utils"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -102,9 +104,9 @@ func (n Node) GetState() state {
 func (n *Node) DowngradeFollower(term uint32) {
 	log.Infof("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
 	newState := n.
-		WithRole(Follower).
-		WithCurrentTerm(term).
-		WithVotedFor("")
+		withRole(Follower).
+		withCurrentTerm(term).
+		withVotedFor("")
 	n.swapState(&newState)
 	n.shiftRole()
 	n.resetTimeout()
@@ -112,11 +114,11 @@ func (n *Node) DowngradeFollower(term uint32) {
 
 func (n *Node) IncrementCandidateTerm() {
 	if n.Role() == Candidate {
-		term := n.CurrentTerm() + 1
+		term := n.currentTerm + 1
 		log.Debugf("INCREMENT CANDIDATE TERM %d\n", term)
 		newState := n.
-			WithCurrentTerm(term).
-			WithVotedFor(n.Id())
+			withCurrentTerm(term).
+			withVotedFor(n.id)
 		n.swapState(&newState)
 		n.resetTimeout()
 		return
@@ -128,8 +130,8 @@ func (n *Node) UpgradeCandidate() {
 	if n.Role() == Follower {
 		log.Info("UPGRADE TO CANDIDATE")
 		newState := n.
-			WithRole(Candidate).
-			WithLeader("")
+			withRole(Candidate).
+			withLeader("")
 		n.swapState(&newState)
 		n.shiftRole()
 		n.resetTimeout()
@@ -140,20 +142,20 @@ func (n *Node) UpgradeCandidate() {
 
 func (n *Node) UpgradeLeader() {
 	if n.Role() == Candidate {
-		log.Infof("UPGRADE TO LEADER TERM %d\n", n.CurrentTerm())
+		log.Infof("UPGRADE TO LEADER TERM %d\n", n.currentTerm)
 		newState := n.
-			WithLeaderInitialization().
-			WithLeader(n.id).
-			WithRole(Leader)
+			withLeaderInitialization().
+			withLeader(n.id).
+			withRole(Leader)
 		n.swapState(&newState)
 		// noOp will force logs commit and trigger
 		// ApplyLogs in the entire cluster
 		noop := LogEntry{
-			Term:  n.CurrentTerm(),
+			Term:  n.currentTerm,
 			Type:  "ADMIN",
 			Value: "NO_OP",
 		}
-		n.AppendLogs(n.LastLogIndex(), noop)
+		n.AppendLogs(n.lastLogIndex(), noop)
 		n.shiftRole()
 		n.resetLeaderTicker()
 		return
@@ -167,7 +169,7 @@ func (n Node) Heartbeat() {
 
 func (n Node) Broadcast(fn func(p Peer)) {
 	var wg sync.WaitGroup
-	for _, peer := range n.Peers() {
+	for _, peer := range n.peers {
 		wg.Add(1)
 		go func(p Peer, w *sync.WaitGroup) {
 			defer w.Done()
@@ -178,14 +180,14 @@ func (n Node) Broadcast(fn func(p Peer)) {
 }
 
 func (n *Node) DeleteLogsFrom(index uint32) {
-	if newState, changed := n.WithDeleteLogsFrom(index); changed {
+	if newState, changed := n.withDeleteLogsFrom(index); changed {
 		log.Debug("DELETE LOGS", index)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) AppendLogs(prevLogIndex uint32, entries ...LogEntry) {
-	if newState, changed := n.WithAppendLogs(prevLogIndex, entries...); changed {
+	if newState, changed := n.withAppendLogs(prevLogIndex, entries...); changed {
 		log.Debug("APPEND LOGS", prevLogIndex)
 		n.swapState(&newState)
 	}
@@ -194,46 +196,58 @@ func (n *Node) AppendLogs(prevLogIndex uint32, entries ...LogEntry) {
 func (n *Node) SetLeader(leaderId string) {
 	if n.Leader().Id != leaderId {
 		log.Debug("SET LEADER", leaderId)
-		newState := n.WithLeader(leaderId)
+		newState := n.withLeader(leaderId)
 		n.swapState(&newState)
 	}
 }
 
-func (n *Node) SetCommitIndex(index uint32) {
-	if n.CommitIndex() != index {
+func (n *Node) setCommitIndex(index uint32) {
+	if n.commitIndex != index {
 		log.Debug("SET COMMIT INDEX", index)
-		newState := n.WithCommitIndex(index)
+		newState := n.withCommitIndex(index)
 		n.swapState(&newState)
 		n.commit()
 	}
 }
 
+func (n *Node) UpdateLeaderCommitIndex(leaderCommitIndex uint32) {
+	if leaderCommitIndex > n.commitIndex {
+		newIndex := utils.Min(n.lastLogIndex(), leaderCommitIndex)
+		n.setCommitIndex(newIndex)
+	}
+}
+
+func (n *Node) UpdateNewCommitIndex() {
+	newCommitIndex := n.computeNewCommitIndex()
+	n.setCommitIndex(newCommitIndex)
+}
+
 func (n *Node) SetNextMatchIndex(peerId string, index uint32) {
-	if n.NextIndexForPeer(peerId) != index || n.MatchIndexForPeer(peerId) != index {
+	if n.nextIndexForPeer(peerId) != index || n.matchIndexForPeer(peerId) != index {
 		newState := n.
-			WithNextIndex(peerId, index).
-			WithMatchIndex(peerId, index)
+			withNextIndex(peerId, index).
+			withMatchIndex(peerId, index)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) DecrementNextIndex(peerId string) {
-	if n.NextIndexForPeer(peerId) > 0 {
-		newState := n.WithDecrementNextIndex(peerId)
+	if n.nextIndexForPeer(peerId) > 0 {
+		newState := n.withDecrementNextIndex(peerId)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) GrantVote(peerId string) {
-	if n.VotedFor() != peerId {
-		newState := n.WithVotedFor(peerId)
+	if n.votedFor != peerId {
+		newState := n.withVotedFor(peerId)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) ApplyLogs() {
-	commitIndex := n.CommitIndex()
-	lastApplied := n.LastApplied()
+	commitIndex := n.commitIndex
+	lastApplied := n.lastApplied
 
 	for lastApplied < commitIndex {
 		// if lastApplied == 0 {
@@ -254,8 +268,8 @@ func (n *Node) ApplyLogs() {
 	}
 
 	// Swap only once
-	if lastApplied > n.LastApplied() {
-		newState := n.WithLastApplied(lastApplied)
+	if lastApplied > n.lastApplied {
+		newState := n.withLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
 }

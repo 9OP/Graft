@@ -2,7 +2,6 @@ package receiver
 
 import (
 	"graft/pkg/domain"
-	"graft/pkg/utils"
 )
 
 type service struct {
@@ -38,10 +37,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 		node.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
-	if input.LeaderCommit > node.CommitIndex() {
-		newIndex := utils.Min(node.LastLogIndex(), input.LeaderCommit)
-		node.SetCommitIndex(newIndex)
-	}
+	node.UpdateLeaderCommitIndex(input.LeaderCommit)
 
 	return output, nil
 }

@@ -31,6 +31,14 @@ type PersistentState struct {
 	MachineLogs []LogEntry `json:"machine_logs"`
 }
 
+func (n Node) ToPersistent() PersistentState {
+	return PersistentState{
+		CurrentTerm: n.currentTerm,
+		VotedFor:    n.votedFor,
+		MachineLogs: n.logs(),
+	}
+}
+
 var DEFAULT_PERSISTENT_STATE = PersistentState{
 	CurrentTerm: 0,
 	VotedFor:    "",
@@ -54,10 +62,6 @@ func newState(id string, peers Peers, persistent PersistentState) *state {
 	}
 }
 
-func (s state) Id() string {
-	return s.id
-}
-
 func (s state) Leader() Peer {
 	return s.peers[s.leaderId]
 }
@@ -71,13 +75,13 @@ func (s state) IsLeader() bool {
 	return s.id == s.leaderId
 }
 
-func (s state) WithLeader(leaderId string) state {
+func (s state) withLeader(leaderId string) state {
 	s.leaderId = leaderId
 	return s
 }
 
-func (s state) WithLeaderInitialization() state {
-	defaultNextIndex := s.LastLogIndex()
+func (s state) withLeaderInitialization() state {
+	defaultNextIndex := s.lastLogIndex()
 	nextIndex := make(map[string]uint32, len(s.peers))
 	matchIndex := make(map[string]uint32, len(s.peers))
 	for _, peer := range s.peers {
@@ -87,10 +91,6 @@ func (s state) WithLeaderInitialization() state {
 	s.nextIndex = nextIndex
 	s.matchIndex = matchIndex
 	return s
-}
-
-func (s state) Peers() Peers {
-	return utils.CopyMap(s.peers)
 }
 
 // Quorum is defined as the absolute majority of nodes:
@@ -105,16 +105,12 @@ func (s state) Role() Role {
 	return s.role
 }
 
-func (s state) WithRole(role Role) state {
+func (s state) withRole(role Role) state {
 	s.role = role
 	return s
 }
 
-func (s state) CommitIndex() uint32 {
-	return s.commitIndex
-}
-
-func (s state) WithCommitIndex(index uint32) state {
+func (s state) withCommitIndex(index uint32) state {
 	s.commitIndex = index
 	return s
 }
@@ -123,9 +119,9 @@ func (s state) WithCommitIndex(index uint32) state {
 // - N > commitIndex,
 // - a majority of matchIndex[i] ≥ N
 // - log[N].term == currentTerm
-func (s state) ComputeNewCommitIndex() uint32 {
+func (s state) computeNewCommitIndex() uint32 {
 	quorum := s.Quorum()
-	lastLogIndex := s.LastLogIndex() // Upper value of N
+	lastLogIndex := s.lastLogIndex() // Upper value of N
 	commitIndex := s.commitIndex     // Lower value of N
 
 	for N := lastLogIndex; N > commitIndex; N-- {
@@ -144,23 +140,19 @@ func (s state) ComputeNewCommitIndex() uint32 {
 	return commitIndex
 }
 
-func (s state) LastApplied() uint32 {
-	return s.lastApplied
-}
-
-func (s state) WithLastApplied(lastApplied uint32) state {
+func (s state) withLastApplied(lastApplied uint32) state {
 	s.lastApplied = lastApplied
 	return s
 }
 
-func (s state) NextIndexForPeer(peerId string) uint32 {
+func (s state) nextIndexForPeer(peerId string) uint32 {
 	if idx, ok := s.nextIndex[peerId]; ok {
 		return idx
 	}
 	return 0
 }
 
-func (s state) WithNextIndex(peerId string, index uint32) state {
+func (s state) withNextIndex(peerId string, index uint32) state {
 	if idx, ok := s.nextIndex[peerId]; (idx == index && ok) || !ok {
 		return s
 	}
@@ -170,21 +162,21 @@ func (s state) WithNextIndex(peerId string, index uint32) state {
 	return s
 }
 
-func (s state) WithDecrementNextIndex(peerId string) state {
+func (s state) withDecrementNextIndex(peerId string) state {
 	if idx, ok := s.nextIndex[peerId]; ok && idx > 0 {
-		return s.WithNextIndex(peerId, idx-1)
+		return s.withNextIndex(peerId, idx-1)
 	}
 	return s
 }
 
-func (s state) MatchIndexForPeer(peerId string) uint32 {
+func (s state) matchIndexForPeer(peerId string) uint32 {
 	if idx, ok := s.matchIndex[peerId]; ok {
 		return idx
 	}
 	return 0
 }
 
-func (s state) WithMatchIndex(peerId string, index uint32) state {
+func (s state) withMatchIndex(peerId string, index uint32) state {
 	if idx, ok := s.matchIndex[peerId]; (idx == index && ok) || !ok {
 		return s
 	}
@@ -198,16 +190,12 @@ func (s state) CurrentTerm() uint32 {
 	return s.currentTerm
 }
 
-func (s state) WithCurrentTerm(term uint32) state {
+func (s state) withCurrentTerm(term uint32) state {
 	s.currentTerm = term
 	return s
 }
 
-func (s state) VotedFor() string {
-	return s.votedFor
-}
-
-func (s state) WithVotedFor(vote string) state {
+func (s state) withVotedFor(vote string) state {
 	s.votedFor = vote
 	return s
 }
@@ -217,8 +205,7 @@ func (s state) CanGrantVote(peerId string) bool {
 	if _, ok := s.peers[peerId]; !ok {
 		return false
 	}
-	votedFor := s.VotedFor()
-	voteAvailable := votedFor == "" || votedFor == peerId
+	voteAvailable := s.votedFor == "" || s.votedFor == peerId
 	return voteAvailable
 }
 
@@ -228,33 +215,33 @@ func (s state) Log(index uint32) (LogEntry, error) {
 	if index == 0 {
 		return LogEntry{}, nil
 	}
-	if index <= s.LastLogIndex() {
+	if index <= s.lastLogIndex() {
 		return s.machineLogs[index-1], nil
 	}
 	return LogEntry{}, errIndexOutOfRange
 }
 
-func (s state) Logs() []LogEntry {
+func (s state) logs() []LogEntry {
 	machineLogs := make([]LogEntry, len(s.machineLogs))
 	copy(machineLogs, s.machineLogs)
 	return machineLogs
 }
 
-func (s state) LastLogIndex() uint32 {
+func (s state) lastLogIndex() uint32 {
 	return uint32(len(s.machineLogs))
 }
 
-func (s state) LastLog() LogEntry {
-	lastLog, _ := s.Log(s.LastLogIndex())
+func (s state) lastLog() LogEntry {
+	lastLog, _ := s.Log(s.lastLogIndex())
 	return lastLog
 }
 
-func (s state) LogsFrom(index uint32) []LogEntry {
-	logs := s.Logs()
+func (s state) logsFrom(index uint32) []LogEntry {
+	logs := s.logs()
 	if index == 0 {
 		return logs
 	}
-	if index <= s.LastLogIndex() {
+	if index <= s.lastLogIndex() {
 		return logs[index-1:]
 	}
 	return []LogEntry{}
@@ -270,22 +257,22 @@ func (s state) LogsFrom(index uint32) []LogEntry {
 // end with the same term, then whichever log is longer is
 // more up-to-date.
 func (s state) IsLogUpToDate(lastLogIndex uint32, lastLogTerm uint32) bool {
-	log := s.LastLog()
+	log := s.lastLog()
 
 	if log.Term == lastLogTerm {
-		return lastLogIndex >= s.LastLogIndex()
+		return lastLogIndex >= s.lastLogIndex()
 	}
 
 	return lastLogTerm >= log.Term
 }
 
-func (s state) WithDeleteLogsFrom(index uint32) (state, bool) {
+func (s state) withDeleteLogsFrom(index uint32) (state, bool) {
 	if index == 0 {
 		s.machineLogs = []LogEntry{}
 		return s, true
 	}
-	logs := s.Logs()
-	if index <= s.LastLogIndex() && index >= 1 {
+	logs := s.logs()
+	if index <= s.lastLogIndex() && index >= 1 {
 		s.machineLogs = logs[:index-1]
 		return s, true
 	}
@@ -293,7 +280,7 @@ func (s state) WithDeleteLogsFrom(index uint32) (state, bool) {
 	return s, false
 }
 
-func (s state) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) (state, bool) {
+func (s state) withAppendLogs(prevLogIndex uint32, entries ...LogEntry) (state, bool) {
 	// Should append only new entries
 	changed := false
 	if len(entries) == 0 {
@@ -320,7 +307,7 @@ func (s state) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) (state, 
 		entries argument, relative to s.Logs
 	*/
 
-	lastLogIndex := s.LastLogIndex()
+	lastLogIndex := s.lastLogIndex()
 	lenEntries := uint32(len(entries))
 
 	// Find index of newLogs
@@ -341,15 +328,15 @@ func (s state) WithAppendLogs(prevLogIndex uint32, entries ...LogEntry) (state, 
 
 	// Append new logs
 	logs = append(logs, entries[newLogsFromIndex:]...)
-	copy(logs, s.Logs())
+	copy(logs, s.logs())
 
 	s.machineLogs = logs
 	return s, changed
 }
 
 func (s state) AppendEntriesInput(peerId string) AppendEntriesInput {
-	matchIndex := s.MatchIndexForPeer(peerId)
-	nextIndex := s.NextIndexForPeer(peerId)
+	matchIndex := s.matchIndexForPeer(peerId)
+	nextIndex := s.nextIndexForPeer(peerId)
 
 	var prevLogTerm uint32
 	var prevLogIndex uint32
@@ -358,12 +345,12 @@ func (s state) AppendEntriesInput(peerId string) AppendEntriesInput {
 	// When peer has commitIndex matching
 	// leader lastLogIndex, there is no need to send
 	// new entries.
-	if matchIndex == s.LastLogIndex() {
+	if matchIndex == s.lastLogIndex() {
 		entries = []LogEntry{}
-		prevLogIndex = s.LastLogIndex()
-		prevLogTerm = s.LastLog().Term
+		prevLogIndex = s.lastLogIndex()
+		prevLogTerm = s.lastLog().Term
 	} else {
-		entries = s.LogsFrom(nextIndex + 1)
+		entries = s.logsFrom(nextIndex + 1)
 		prevLogIndex = nextIndex
 
 		// When prevLogIndex >= lastLogIndex, prevLogTerm
@@ -372,16 +359,16 @@ func (s state) AppendEntriesInput(peerId string) AppendEntriesInput {
 		// prevLogTerm == log(prevLogIndex).Term
 		prevLog, err := s.Log(prevLogIndex)
 		if err == errIndexOutOfRange {
-			prevLogTerm = s.CurrentTerm()
+			prevLogTerm = s.currentTerm
 		} else {
 			prevLogTerm = prevLog.Term
 		}
 	}
 
 	return AppendEntriesInput{
-		LeaderId:     s.Id(),
-		Term:         s.CurrentTerm(),
-		LeaderCommit: s.CommitIndex(),
+		LeaderId:     s.id,
+		Term:         s.currentTerm,
+		LeaderCommit: s.commitIndex,
 		PrevLogIndex: prevLogIndex,
 		PrevLogTerm:  prevLogTerm,
 		Entries:      entries,
@@ -390,9 +377,9 @@ func (s state) AppendEntriesInput(peerId string) AppendEntriesInput {
 
 func (s state) RequestVoteInput() RequestVoteInput {
 	return RequestVoteInput{
-		CandidateId:  s.Id(),
-		Term:         s.CurrentTerm(),
-		LastLogIndex: s.LastLogIndex(),
-		LastLogTerm:  s.LastLog().Term,
+		CandidateId:  s.id,
+		Term:         s.currentTerm,
+		LastLogIndex: s.lastLogIndex(),
+		LastLogTerm:  s.lastLog().Term,
 	}
 }

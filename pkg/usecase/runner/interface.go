@@ -12,7 +12,7 @@ type repository interface {
 
 type persister interface {
 	Load() (domain.PersistentState, error)
-	Save(currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error
+	Save(domain.PersistentState) error
 }
 
 type UseCase interface {
