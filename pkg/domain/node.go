@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -305,9 +306,11 @@ func (n *Node) ApplyLogs() {
 		newState := n.withLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
+
+	fmt.Println(n.peers)
 }
 
-func (n Node) ExecuteCommand(cmd ApiCommand) chan EvalResult {
+func (n *Node) ExecuteCommand(cmd ApiCommand) chan EvalResult {
 	result := make(chan EvalResult, 1)
 	newEntry := LogEntry{
 		Index: uint64(n.lastLogIndex()),

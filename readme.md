@@ -123,3 +123,6 @@ TODO:
 - Leadership transfer execution
 
 ```
+
+TODO:
+- design adding workflows adding new nodes, starting,/running nodes

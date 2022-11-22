@@ -13,17 +13,14 @@ import (
 )
 
 func AddMember(peer domain.Peer, addr net.IP, port uint16) {
-	// Take first peer and seed dummy request
-	resp, err := http.Get(fmt.Sprintf("http://%v:%v/query", addr, port))
+	// Take first peer and seed dummy query
+	resp, err := http.Get(fmt.Sprintf("http://%v:%v/query/", addr, port))
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// Get Leader addr
-	location, err := resp.Location()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	leaderAddr := resp.Header.Get("Graft-Leader")
 
 	// Create body
 	data, _ := json.Marshal(&domain.ConfigurationUpdate{
@@ -35,8 +32,9 @@ func AddMember(peer domain.Peer, addr net.IP, port uint16) {
 		Data: data,
 	})
 
-	// Send request
-	resp, err = http.Post(location.String(), "application/json", bytes.NewBuffer(body))
+	// Send command AddPeer
+	url := fmt.Sprintf("http://%s/command/", leaderAddr)
+	resp, err = http.Post(url, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -51,6 +49,8 @@ func AddMember(peer domain.Peer, addr net.IP, port uint16) {
 	} else {
 		log.Fatalln(resp.Status)
 	}
+
+	// Send command ActivatePeer
 }
 
 func RemoveMember(peerId string, addr net.IP, port uint16) {

@@ -57,14 +57,15 @@ func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch e := err.(type) {
 		case *domain.NotLeaderError:
-			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
+			w.Header().Set("Graft-Leader", e.Leader.TargetApi())
+			http.Error(w, err.Error(), http.StatusTemporaryRedirect)
 		default:
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
 	}
 
-	// w.Header().Set("Location", r.Host)
+	w.Header().Set("Graft-Leader", r.Host)
 	render(w, data)
 }
 
@@ -80,6 +81,7 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	defer r.Body.Close()
 
 	var cmd domain.ApiCommand
 	err = json.Unmarshal(payload, &cmd)
@@ -89,17 +91,19 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data, err := s.repository.ExecuteCommand(cmd)
+	fmt.Println("data", data, err)
 	if err != nil {
 		switch e := err.(type) {
 		case *domain.NotLeaderError:
-			http.Redirect(w, r, e.Leader.TargetApi(), http.StatusTemporaryRedirect)
+			w.Header().Set("Graft-Leader", e.Leader.TargetApi())
+			http.Error(w, err.Error(), http.StatusTemporaryRedirect)
 		default:
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 		return
 	}
 
-	// w.Header().Set("Location", r.Host)
+	w.Header().Set("Graft-Leader", r.Host)
 	render(w, data)
 }
 
