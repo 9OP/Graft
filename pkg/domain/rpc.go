@@ -26,6 +26,7 @@ type RequestVoteOutput struct {
 	VoteGranted bool
 }
 
+// TODO add Date value
 type LogEntry struct {
 	Index uint64          `json:"index"`
 	Term  uint32          `json:"term"`
@@ -43,6 +44,7 @@ type LogType uint8
 
 const (
 	LogCommand LogType = iota
+	LogQuery
 	LogNoop
 	LogConfiguration
 )
@@ -51,6 +53,8 @@ func (lt LogType) String() string {
 	switch lt {
 	case LogCommand:
 		return "LogCommand"
+	case LogQuery:
+		return "LogQuery"
 	case LogNoop:
 		return "LogNoop"
 	case LogConfiguration:
@@ -60,16 +64,21 @@ func (lt LogType) String() string {
 	}
 }
 
-type ConfigurationUpdateType uint8
+type ApiCommand struct {
+	Type LogType
+	Data []byte
+}
+
+type ConfigurationType uint8
 
 const (
-	ConfigurationAddPeer ConfigurationUpdateType = iota
-	ConfigurationActivatePeer
-	ConfigurationDeactivatePeer
-	ConfigurationRemovePeer
+	ConfAddPeer ConfigurationType = iota
+	ConfActivatePeer
+	ConfDeactivatePeer
+	ConfRemovePeer
 )
 
 type ConfigurationUpdate struct {
-	ConfigurationUpdateType
+	Type ConfigurationType
 	Peer
 }

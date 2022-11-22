@@ -307,6 +307,30 @@ func (n *Node) ApplyLogs() {
 	}
 }
 
+func (n Node) ExecuteCommand(cmd ApiCommand) chan EvalResult {
+	result := make(chan EvalResult, 1)
+	newEntry := LogEntry{
+		Index: uint64(n.lastLogIndex()),
+		Term:  n.currentTerm,
+		Type:  cmd.Type,
+		Data:  cmd.Data,
+		C:     result,
+	}
+
+	go (func() {
+		n.AppendLogs(n.lastLogIndex(), newEntry)
+		n.synchronizeLogs()
+	})()
+
+	return result
+}
+
+// func (c ClusterNode) ExecuteQuery(query string) chan domain.EvalResult {
+// 	result := make(chan domain.EvalResult, 1)
+// 	go (func() { result <- c.evalFsm(query, "QUERY") })()
+// 	return result
+// }
+
 var (
 	errPeerAlreadyExists = errors.New("peer already exists")
 	errPeerDoesNotExist  = errors.New("peer does not exist")
@@ -321,34 +345,38 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res EvalResult) 
 	var peers Peers
 	peer := config.Peer
 
-	switch config.ConfigurationUpdateType {
-	case ConfigurationAddPeer:
+	switch config.Type {
+	case ConfAddPeer:
 		if p, ok := n.peers[peer.Id]; ok && p.Active {
 			res.Err = errPeerAlreadyExists
 			return
 		}
+		log.Info("configuration update: add peer", peer.Id)
 		peer.Active = false
 		peers = n.peers.addPeer(peer)
 
-	case ConfigurationActivatePeer:
+	case ConfActivatePeer:
 		if _, ok := n.peers[peer.Id]; !ok {
 			res.Err = errPeerDoesNotExist
 			return
 		}
+		log.Info("configuration update: activate peer", peer.Id)
 		peers = n.peers.activatePeer(peer.Id)
 
-	case ConfigurationDeactivatePeer:
+	case ConfDeactivatePeer:
 		if _, ok := n.peers[peer.Id]; !ok {
 			res.Err = errPeerDoesNotExist
 			return
 		}
+		log.Info("configuration update: deactivate peer", peer.Id)
 		peers = n.peers.deactivatePeer(peer.Id)
 
-	case ConfigurationRemovePeer:
+	case ConfRemovePeer:
 		if _, ok := n.peers[peer.Id]; !ok {
 			res.Err = errPeerDoesNotExist
 			return
 		}
+		log.Info("configuration update: remove peer", peer.Id)
 		peers = n.peers.removePeer(peer.Id)
 
 	default:

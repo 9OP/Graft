@@ -12,7 +12,7 @@ func NewService(clusterNode *domain.Node) *service {
 	return &service{clusterNode}
 }
 
-func (s *service) ExecuteCommand(command string) ([]byte, error) {
+func (s *service) ExecuteCommand(command domain.ApiCommand) ([]byte, error) {
 	if !s.clusterNode.IsLeader() {
 		if s.clusterNode.HasLeader() {
 			leader := s.clusterNode.Leader()
@@ -21,9 +21,8 @@ func (s *service) ExecuteCommand(command string) ([]byte, error) {
 		return nil, domain.NewUnknownLeaderError()
 	}
 
-	// res := <-s.clusterNode.ExecuteCommand(command)
-	// return res.Out, res.Err
-	return nil, nil
+	res := <-s.clusterNode.ExecuteCommand(command)
+	return res.Out, res.Err
 }
 
 func (s *service) ExecuteQuery(query string, weakConsistency bool) ([]byte, error) {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,6 +64,7 @@ func (s clusterServer) query(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// w.Header().Set("Location", r.Host)
 	render(w, data)
 }
 
@@ -73,15 +75,20 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := io.ReadAll(r.Body)
+	payload, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	commandEntry := string(b)
+	var cmd domain.ApiCommand
+	err = json.Unmarshal(payload, &cmd)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	data, err := s.repository.ExecuteCommand(commandEntry)
+	data, err := s.repository.ExecuteCommand(cmd)
 	if err != nil {
 		switch e := err.(type) {
 		case *domain.NotLeaderError:
@@ -92,6 +99,7 @@ func (s clusterServer) command(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// w.Header().Set("Location", r.Host)
 	render(w, data)
 }
 

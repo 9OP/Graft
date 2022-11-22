@@ -1,8 +1,6 @@
 package secondaryPort
 
 import (
-	"fmt"
-
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	adapter "graft/pkg/infrastructure/adapter/secondary"
@@ -74,7 +72,7 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 		LastLogTerm:  input.LastLogTerm,
 	})
 	if err != nil {
-		fmt.Println(err)
+		// fmt.Println(err)
 		return nil, err
 	}
 

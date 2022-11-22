@@ -2,15 +2,22 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"regexp"
 	"strings"
 
+	"graft/pkg"
 	"graft/pkg/domain"
 
 	"github.com/spf13/cobra"
 )
 
-var peer domain.Peer
+var (
+	peer         domain.Peer
+	addr         net.IP
+	port         uint16
+	updateConfig bool
+)
 
 var membershipCmd = &cobra.Command{
 	Use:   "membership",
@@ -21,14 +28,14 @@ var membershipCmd = &cobra.Command{
 }
 
 var addMemberCmd = &cobra.Command{
-	Use:   "add ['id|port|p2p-port|api-port']",
+	Use:   "add ['id|host|p2p-port|api-port']",
 	Short: "Add new node to cluster",
 	Long: `
 Add new node to cluster:
 
 	Add new node to cluster configuration
 	Peer is first added as inactive. When all the other nodes are aware of the
-	configuration change, then peer is marked as active.
+	configuration change, then node is marked as active.
 	`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -36,18 +43,20 @@ Add new node to cluster:
 		}
 
 		// format: <id>|<ip>|<p2p-port>|<api-port>
-		re := regexp.MustCompile(`^(^[a-z-A-Z][a-z-A-Z-0-9]*)\|([0-9]{1,3}.){3}.([0-9]{1,3})\|[0-9]{1,5}\|[0-9]{1,5}$`)
-		match := strings.Split(string(re.Find([]byte(args[0]))), "|")
-		if len(match) == 0 {
-			return fmt.Errorf("\n\tpeer format unknown %v, should use format: <id>|<ip>|<p2p-port>|<api-port>", args[0])
+		re := regexp.MustCompile(`^(^[a-z-A-Z][a-z-A-Z-0-9]*)\|(.*)?\|[0-9]{1,5}\|[0-9]{1,5}$`)
+		match := re.Find([]byte(args[0]))
+		if match == nil {
+			return fmt.Errorf("\n\node format unknown %v, should use format: <id>|<host>|<p2p-port>|<api-port>", args[0])
 		}
 
+		v := strings.Split(args[0], "|")
+
 		newPeer, err := domain.NewPeer(
-			match[0],
+			v[0],
 			false,
-			match[1],
-			match[2],
-			match[3],
+			v[1],
+			v[2],
+			v[3],
 		)
 		if err != nil {
 			return err
@@ -58,20 +67,19 @@ Add new node to cluster:
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("add node", peer)
-		// pkg.addMember(peer)
+		pkg.AddMember(peer, addr, port)
 	},
 }
 
 var removeMemberCmd = &cobra.Command{
-	Use:   "remove [peer-id]",
+	Use:   "remove [node-id]",
 	Short: "Remove old node from cluster",
 	Long: `
 Remove old node from cluster:
 
-	Remove peer-id from cluster configuration.
+	Remove node-id from cluster configuration.
 	Peer-id is first marked as inactive. When all the other nodes are aware of the
-	configuration change, then peer-id is removed from the configuration.
+	configuration change, then node-id is removed from the configuration.
 	`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -81,13 +89,17 @@ Remove old node from cluster:
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		id := args[0]
-		fmt.Println("remove node", id)
-		// pkg.removeMember(id)
+		pkg.RemoveMember(id, addr, port)
 	},
 }
 
 func init() {
-	// startCmd.Flags().BoolVarP(&updateConfig, "change", "c", false, "Update configuration file")
+	membershipCmd.PersistentFlags().BoolVarP(&updateConfig, "change", "c", false, "Update configuration file")
+	membershipCmd.PersistentFlags().IPVarP(&addr, "addr", "a", nil, "Host of a running cluster node")
+	membershipCmd.PersistentFlags().Uint16VarP(&port, "port", "p", 8080, "Port of a running cluster node")
+
+	membershipCmd.MarkPersistentFlagRequired("addr")
+
 	membershipCmd.AddCommand(addMemberCmd)
 	membershipCmd.AddCommand(removeMemberCmd)
 	rootCmd.AddCommand(membershipCmd)

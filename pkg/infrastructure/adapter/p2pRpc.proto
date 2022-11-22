@@ -7,8 +7,9 @@ option go_package = "./p2pRpc";
 message LogEntry {
     enum LogType {
         LogCommand = 0;
-        LogNoop = 1;
-        LogConfiguration = 2;
+        LogQuery = 1;
+        LogNoop = 2;
+        LogConfiguration = 3;
     }
     uint64 index = 1;
     uint32 term = 2;

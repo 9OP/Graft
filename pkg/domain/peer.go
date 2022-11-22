@@ -75,9 +75,9 @@ func (p Peers) deactivatePeer(peerId string) Peers {
 }
 
 func (p Peer) TargetP2p() string {
-	return fmt.Sprintf("%s:%s", p.Host, p.Ports.P2p)
+	return fmt.Sprintf("http://%s:%s", p.Host, p.Ports.P2p)
 }
 
 func (p Peer) TargetApi() string {
-	return fmt.Sprintf("%s:%s", p.Host, p.Ports.Api)
+	return fmt.Sprintf("http://%s:%s", p.Host, p.Ports.Api)
 }

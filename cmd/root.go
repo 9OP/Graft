@@ -20,8 +20,8 @@ var (
 )
 
 func Execute() {
+	rootCmd.Flags().SortFlags = false
 	if err := rootCmd.Execute(); err != nil {
-		// fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
