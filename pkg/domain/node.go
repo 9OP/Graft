@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -287,7 +288,9 @@ func (n *Node) ApplyLogs() {
 			case LogConfiguration:
 				var config ConfigurationUpdate
 				if err := json.Unmarshal(log.Data, &config); err == nil {
-					n.configurationUpdate(config)
+					if res := n.configurationUpdate(config); log.C != nil {
+						log.C <- res
+					}
 				}
 			case LogNoop:
 				continue
@@ -304,22 +307,48 @@ func (n *Node) ApplyLogs() {
 	}
 }
 
-func (n *Node) configurationUpdate(config ConfigurationUpdate) {
+var (
+	errPeerAlreadyExists = errors.New("peer already exists")
+	errPeerDoesNotExist  = errors.New("peer does not exist")
+)
+
+func (n *Node) configurationUpdate(config ConfigurationUpdate) (res EvalResult) {
+	res = EvalResult{
+		Out: nil,
+		Err: nil,
+	}
+
 	var peers Peers
 	peer := config.Peer
 
 	switch config.ConfigurationUpdateType {
 	case ConfigurationAddPeer:
+		if p, ok := n.peers[peer.Id]; ok && p.Active {
+			res.Err = errPeerAlreadyExists
+			return
+		}
 		peer.Active = false
 		peers = n.peers.addPeer(peer)
 
 	case ConfigurationActivatePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
 		peers = n.peers.activatePeer(peer.Id)
 
 	case ConfigurationDeactivatePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
 		peers = n.peers.deactivatePeer(peer.Id)
 
 	case ConfigurationRemovePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
 		peers = n.peers.removePeer(peer.Id)
 
 	default:
@@ -328,4 +357,5 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) {
 
 	newState := n.withPeers(peers)
 	n.swapState(&newState)
+	return
 }
