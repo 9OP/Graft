@@ -96,6 +96,10 @@ func (s state) withLeaderInitialization() state {
 	return s
 }
 
+func (s state) Peers() Peers {
+	return utils.CopyMap(s.peers)
+}
+
 func (s state) withPeers(peers Peers) state {
 	s.peers = peers
 	return s

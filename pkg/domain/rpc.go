@@ -69,16 +69,22 @@ type ApiCommand struct {
 	Data []byte
 }
 
-type ConfigurationType uint8
+type ConfigurationUpdateType uint8
 
 const (
-	ConfAddPeer ConfigurationType = iota
+	ConfAddPeer ConfigurationUpdateType = iota
 	ConfActivatePeer
 	ConfDeactivatePeer
 	ConfRemovePeer
 )
 
 type ConfigurationUpdate struct {
-	Type ConfigurationType
+	Type ConfigurationUpdateType
 	Peer
+}
+
+type ClusterConfiguration struct {
+	ElectionTimeout int
+	LeaderHeartbeat int
+	Peers           []Peer
 }

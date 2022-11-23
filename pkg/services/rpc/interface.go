@@ -8,4 +8,7 @@ type UseCase interface {
 	AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error)
 	RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 	PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
+	//
+	Execute(input *domain.ApiCommand) (*domain.EvalResult, error)
+	ClusterConfiguration() (*domain.ClusterConfiguration, error)
 }

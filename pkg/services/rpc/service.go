@@ -12,7 +12,7 @@ func NewService(clusterNode *domain.Node) *service {
 	return &service{clusterNode}
 }
 
-func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
+func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	node := s.clusterNode
 
 	output := &domain.AppendEntriesOutput{
@@ -42,7 +42,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 	return output, nil
 }
 
-func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.clusterNode
 
 	output := &domain.RequestVoteOutput{
@@ -68,7 +68,7 @@ func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVo
 	return output, nil
 }
 
-func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.clusterNode
 
 	output := &domain.RequestVoteOutput{
@@ -88,4 +88,21 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	}
 
 	return output, nil
+}
+
+func (s service) Execute(input *domain.ApiCommand) (*domain.EvalResult, error) {
+	return nil, nil
+}
+
+func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
+	var peers []domain.Peer
+	for _, peer := range s.clusterNode.Peers() {
+		peers = append(peers, peer)
+	}
+
+	return &domain.ClusterConfiguration{
+		ElectionTimeout: 300,
+		LeaderHeartbeat: 30,
+		Peers:           peers,
+	}, nil
 }

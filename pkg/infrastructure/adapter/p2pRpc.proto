@@ -4,13 +4,14 @@ package p2pRpc;
 
 option go_package = "./p2pRpc";
 
+enum LogType {
+    LogCommand = 0;
+    LogQuery = 1;
+    LogNoop = 2;
+    LogConfiguration = 3;
+}
+
 message LogEntry {
-    enum LogType {
-        LogCommand = 0;
-        LogQuery = 1;
-        LogNoop = 2;
-        LogConfiguration = 3;
-    }
     uint64 index = 1;
     uint32 term = 2;
     bytes data = 3;
@@ -68,7 +69,8 @@ service Rpc {
 }
 
 message ExecuteInput {
-
+    LogType type = 1;
+    bytes data = 2;
 }
 
 message ExecuteOutput {
@@ -78,7 +80,7 @@ message ExecuteOutput {
 message Peer {
     string id = 1;
     string host = 2;
-    uint32 port = 3;
+    bool active = 3;
 }
 
 message ClusterConfigurationInput {}
@@ -86,7 +88,7 @@ message ClusterConfigurationInput {}
 message ClusterConfigurationOutput {
     uint32 electionTimeout = 1;
     uint32 leaderHeartbeat = 2;
-    repeated Peer peer = 3;
+    repeated Peer peers = 3;
 }
 
 

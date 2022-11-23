@@ -1,6 +1,8 @@
 package secondaryPort
 
 import (
+	"net/netip"
+
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	adapter "graft/pkg/infrastructure/adapter/secondary"
@@ -17,7 +19,7 @@ func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
-		logType := p2pRpc.LogEntry_LogType(p2pRpc.LogEntry_LogType_value[log.Type.String()])
+		logType := p2pRpc.LogType(p2pRpc.LogType_value[log.Type.String()])
 		entry := &p2pRpc.LogEntry{
 			Index: log.Index,
 			Term:  log.Term,
@@ -76,5 +78,28 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 	return &domain.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
+	}, nil
+}
+
+func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
+	output, err := p.adapter.ClusterConfiguration(peer.Target(), &p2pRpc.ClusterConfigurationInput{})
+	if err != nil {
+		return nil, err
+	}
+
+	var peers []domain.Peer
+	for _, peer := range output.Peers {
+		addr, _ := netip.ParseAddrPort(peer.Host)
+		peers = append(peers, domain.Peer{
+			Id:     peer.Id,
+			Addr:   addr,
+			Active: peer.Active,
+		})
+	}
+
+	return &domain.ClusterConfiguration{
+		ElectionTimeout: int(output.ElectionTimeout),
+		LeaderHeartbeat: int(output.LeaderHeartbeat),
+		Peers:           peers,
 	}, nil
 }

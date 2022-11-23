@@ -15,10 +15,13 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
+// Try to remove, may be not used, I think this is unecessary
 type UseCaseGrpcClient interface {
 	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
 	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	//
+	ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
 }
 
 type grpcClient struct{}
@@ -48,7 +51,10 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(config), nil
 }
 
-func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
+func withClient[K *p2pRpc.AppendEntriesOutput |
+	*p2pRpc.RequestVoteOutput |
+	*p2pRpc.ClusterConfigurationOutput](target string, fn func(c p2pRpc.RpcClient) (K, error),
+) (K, error) {
 	// Dial options
 	creds, err := loadTLSCredentials()
 	if err != nil {
@@ -95,5 +101,16 @@ func (r *grpcClient) PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
 			return c.PreVote(ctx, input)
+		})
+}
+
+func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.ClusterConfigurationOutput, error) {
+			return c.ClusterConfiguration(ctx, input)
 		})
 }

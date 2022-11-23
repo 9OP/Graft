@@ -6,8 +6,6 @@ import (
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	"graft/pkg/services/rpc"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type rpcServerPort struct {
@@ -38,7 +36,6 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 		LeaderCommit: input.LeaderCommit,
 	})
 	if err != nil {
-		log.Errorf("RPC RESP APPEND_ENTRIES %s\n", input.LeaderId)
 		return nil, err
 	}
 
@@ -56,7 +53,6 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 		LastLogTerm:  input.LastLogTerm,
 	})
 	if err != nil {
-		log.Errorf("RPC RESP REQUEST_VOTE %s\n", input.CandidateId)
 		return nil, err
 	}
 
@@ -74,12 +70,45 @@ func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteIn
 		LastLogTerm:  input.LastLogTerm,
 	})
 	if err != nil {
-		log.Errorf("RPC RESP PRE_VOTE %s\n", input.CandidateId)
 		return nil, err
 	}
 
 	return &p2pRpc.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
+	}, nil
+}
+
+func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
+	_, err := p.adapter.Execute(&domain.ApiCommand{
+		Type: domain.LogType(input.Type),
+		Data: input.Data,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
+	output, err := p.adapter.ClusterConfiguration()
+	if err != nil {
+		return nil, err
+	}
+
+	var peers []*p2pRpc.Peer
+	for _, peer := range output.Peers {
+		peers = append(peers, &p2pRpc.Peer{
+			Id:     peer.Id,
+			Host:   peer.Target(),
+			Active: peer.Active,
+		})
+	}
+
+	return &p2pRpc.ClusterConfigurationOutput{
+		ElectionTimeout: uint32(output.ElectionTimeout),
+		LeaderHeartbeat: uint32(output.LeaderHeartbeat),
+		Peers:           peers,
 	}, nil
 }
