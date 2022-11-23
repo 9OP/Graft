@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
-	"net"
+	"graft/pkg"
+	"graft/pkg/domain"
 	"net/netip"
+	"os"
 
 	"github.com/spf13/cobra"
+	yaml "gopkg.in/yaml.v3"
 )
-
-// rename start
 
 /*
 usage:
@@ -23,28 +26,41 @@ graft cluster add [host] --rpc-port <rpc-port> --api-port <api-port> --node
 */
 
 var (
-	rpcPort uint16
-	cfPath  string
+	level   = INFO
+	config  string
 	cluster ipAddr
 )
 
-type ipAddr struct{ netip.AddrPort }
-
-func (i ipAddr) String() string {
-	return fmt.Sprintf("%v:%v", i.Addr(), i.Port())
+type configuration struct {
+	Fsm struct {
+		Eval string `yaml:"eval"`
+		Init string `yaml:"init"`
+	}
+	Timeouts struct {
+		Election  int `yaml:"election"`
+		Heartbeat int `yaml:"heartbeat"`
+	}
 }
 
-func (i ipAddr) Set(v string) error {
-	_, err := netip.ParseAddrPort(v)
-	return err
+func loadConfiguration(path string) (*configuration, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var cfg configuration
+	decoder := yaml.NewDecoder(f)
+	err = decoder.Decode(&cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
 }
 
-func (i ipAddr) Type() string {
-	return "ipAddr"
-}
-
-var mainCmd = &cobra.Command{
-	Use:   "main",
+var startCmd = &cobra.Command{
+	Use:   "start",
 	Short: "Start a cluster node",
 	Long: `Start a cluster node:
 
@@ -57,26 +73,58 @@ var mainCmd = &cobra.Command{
 			return err
 		}
 
-		if ip := net.ParseIP(args[0]); ip == nil {
-			return fmt.Errorf("invalid host (IPv4|IPv6) %s", args[0])
+		if _, err := netip.ParseAddrPort(args[0]); err != nil {
+			return err
 		}
 
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
-		// If cluster is given:
-		// start as node and ignore config
+	RunE: func(cmd *cobra.Command, args []string) error {
+		isClusterProvided := cmd.Flags().Changed("cluster")
 
-		cmd.Help()
+		host, err := netip.ParseAddrPort(args[0])
+		if err != nil {
+			return err
+		}
+
+		if isClusterProvided {
+			fmt.Println("add node to cluster")
+			// Get cluster config:
+			// - timeouts
+			// - peers
+			// Update cluster config
+			// Start peer
+		} else {
+			config, _ := cmd.Flags().GetString("config")
+
+			cf, err := loadConfiguration(config)
+			if err != nil {
+				return err
+			}
+
+			hasher := sha1.New()
+			hasher.Write([]byte(host.String()))
+			id := hex.EncodeToString(hasher.Sum(nil))
+
+			pkg.Start(
+				id,
+				host,
+				domain.Peers{},
+				fmt.Sprintf("conf/%s.json", id), // persistent location
+				cf.Timeouts.Election,
+				cf.Timeouts.Heartbeat,
+				level.String(),
+			)
+		}
+
+		return nil
 	},
 }
 
 func init() {
-	mainCmd.Flags().VarP(&cluster, "cluster", "l", "Cluster addr")
-	mainCmd.Flags().Uint16VarP(&rpcPort, "port", "p", 8080, "Node port")
-	mainCmd.Flags().StringVarP(&cfPath, "config", "c", "conf/graft-config.yml", "Configuration file path")
+	startCmd.Flags().Var(&cluster, "cluster", "Cluster addr")
+	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
+	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
 
-	// Add log-level
-
-	rootCmd.AddCommand(mainCmd)
+	rootCmd.AddCommand(startCmd)
 }

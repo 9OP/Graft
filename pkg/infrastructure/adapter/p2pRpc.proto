@@ -56,9 +56,39 @@ message InstallSnapshotOutput {
     uint32 term = 1;
 }
 
+
 service Rpc {
     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
+    // Move to different service
+    rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
+    rpc ClusterConfiguration(ClusterConfigurationInput) returns (ClusterConfigurationOutput) {}
 }
+
+message ExecuteInput {
+
+}
+
+message ExecuteOutput {
+
+}
+
+message Peer {
+    string id = 1;
+    string host = 2;
+    uint32 port = 3;
+}
+
+message ClusterConfigurationInput {}
+
+message ClusterConfigurationOutput {
+    uint32 electionTimeout = 1;
+    uint32 leaderHeartbeat = 2;
+    repeated Peer peer = 3;
+}
+
+
+// service Api {
+// }

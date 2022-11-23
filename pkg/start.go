@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"graft/pkg/domain"
+	"net/netip"
 
 	primaryAdapter "graft/pkg/infrastructure/adapter/primary"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -9,7 +10,6 @@ import (
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 	"graft/pkg/infrastructure/server"
 
-	"graft/pkg/services/api"
 	"graft/pkg/services/core"
 	"graft/pkg/services/rpc"
 	"graft/pkg/utils"
@@ -17,14 +17,11 @@ import (
 
 func Start(
 	id string,
+	host netip.AddrPort,
 	peers domain.Peers,
 	persistentLocation string,
 	electionTimeout int,
 	heartbeatTimeout int,
-	rpcPort string,
-	apiPort string,
-	fsmInit string,
-	fsmEval string,
 	logLevel string,
 ) {
 	utils.ConfigureLogger(logLevel)
@@ -38,12 +35,12 @@ func Start(
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	node := domain.NewNode(id, peers, persistent)
+	node := domain.NewNode(id, host, peers, persistent)
 
 	// Services
 	coreService := core.NewService(node, rpcClientPort, persisterPort, electionTimeout, heartbeatTimeout)
 	rpcService := rpc.NewService(node)
-	apiService := api.NewService(node)
+	// apiService := api.NewService(node)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(rpcService)
@@ -52,10 +49,10 @@ func Start(
 	// Infrastructure
 	runnerServer := server.NewRunner(coreService)
 	grpcServer := server.NewRpc(grpcServerAdapter)
-	clusterServer := server.NewClusterServer(apiService)
+	// clusterServer := server.NewClusterServer(apiService)
 
 	// Start servers: p2p rpc, API and runner
-	go grpcServer.Start(rpcPort)
-	go clusterServer.Start(apiPort)
+	go grpcServer.Start(host.Port())
+	// go clusterServer.Start(apiPort)
 	runnerServer.Start()
 }

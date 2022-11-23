@@ -21,7 +21,7 @@ func NewRpc(apis ...p2pRpc.RpcServer) *rpcServer {
 	return &rpcServer{apis}
 }
 
-func (r *rpcServer) Start(port string) {
+func (r *rpcServer) Start(port uint16) {
 	grpcServer := createGrpcServer(r.apis...)
 	lis := getListennerOrFail(port)
 	serveOrFail(grpcServer, lis)
@@ -43,8 +43,8 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(config), nil
 }
 
-func getListennerOrFail(port string) net.Listener {
-	addr := fmt.Sprintf("%s:%s", "127.0.0.1", port)
+func getListennerOrFail(port uint16) net.Listener {
+	addr := fmt.Sprintf("%s:%v", "127.0.0.1", port)
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("FAILED TO LISTEN\n\t%v\n", err)

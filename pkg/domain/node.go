@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -75,11 +76,12 @@ type Node struct {
 
 func NewNode(
 	id string,
+	host netip.AddrPort,
 	peers Peers,
 	persistent PersistentState,
 ) *Node {
 	return &Node{
-		state:   newState(id, peers, persistent),
+		state:   newState(id, host, peers, persistent),
 		signals: newSignals(),
 	}
 }

@@ -15,7 +15,6 @@ func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
 }
 
 func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
-	target := peer.TargetP2p()
 	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
 		logType := p2pRpc.LogEntry_LogType(p2pRpc.LogEntry_LogType_value[log.Type.String()])
@@ -27,7 +26,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 		}
 		entries = append(entries, entry)
 	}
-	output, err := p.adapter.AppendEntries(target, &p2pRpc.AppendEntriesInput{
+	output, err := p.adapter.AppendEntries(peer.Target(), &p2pRpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
@@ -46,8 +45,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 }
 
 func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	target := peer.TargetP2p()
-	output, err := p.adapter.RequestVote(target, &p2pRpc.RequestVoteInput{
+	output, err := p.adapter.RequestVote(peer.Target(), &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
@@ -64,8 +62,7 @@ func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteI
 }
 
 func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	target := peer.TargetP2p()
-	output, err := p.adapter.PreVote(target, &p2pRpc.RequestVoteInput{
+	output, err := p.adapter.PreVote(peer.Target(), &p2pRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
