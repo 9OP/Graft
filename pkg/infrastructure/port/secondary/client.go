@@ -8,6 +8,8 @@ import (
 	adapter "graft/pkg/infrastructure/adapter/secondary"
 )
 
+// TODO: refactor should use target string instead of peer in input parameter
+
 type rpcClientPort struct {
 	adapter adapter.UseCaseGrpcClient
 }

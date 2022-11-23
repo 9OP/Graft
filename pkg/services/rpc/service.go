@@ -95,14 +95,6 @@ func (s service) Execute(input *domain.ApiCommand) (*domain.EvalResult, error) {
 }
 
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
-	var peers []domain.Peer
-	for _, peer := range s.clusterNode.Peers() {
-		peers = append(peers, peer)
-	}
-
-	return &domain.ClusterConfiguration{
-		ElectionTimeout: 300,
-		LeaderHeartbeat: 30,
-		Peers:           peers,
-	}, nil
+	configuration := s.clusterNode.GetClusterConfiguration()
+	return &configuration, nil
 }

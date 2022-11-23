@@ -86,6 +86,23 @@ func NewNode(
 	}
 }
 
+func (n *Node) GetClusterConfiguration() ClusterConfiguration {
+	var peers []Peer
+	for _, peer := range n.Peers() {
+		peers = append(peers, peer)
+	}
+	peers = append(peers, Peer{
+		Id:     n.id,
+		Addr:   n.host,
+		Active: true,
+	})
+	return ClusterConfiguration{
+		ElectionTimeout: 300,
+		LeaderHeartbeat: 30,
+		Peers:           peers,
+	}
+}
+
 func (n *Node) swapState(s interface{}) {
 	var addr *unsafe.Pointer
 	var new unsafe.Pointer

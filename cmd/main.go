@@ -4,10 +4,13 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"graft/pkg"
-	"graft/pkg/domain"
 	"net/netip"
 	"os"
+
+	"graft/pkg"
+	"graft/pkg/domain"
+	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
+	secondaryPort "graft/pkg/infrastructure/port/secondary"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -88,15 +91,21 @@ var startCmd = &cobra.Command{
 		}
 
 		if isClusterProvided {
-			fmt.Println("add node to cluster")
+			clusterPeer := domain.Peer{
+				Addr: cluster.AddrPort,
+			}
+
+			// move into separate function
+			rpcClientPort := secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
+			c, err := rpcClientPort.ClusterConfiguration(clusterPeer)
+			fmt.Println("add node to cluster", c, err)
+
 			// Get cluster config:
 			// - timeouts
 			// - peers
 			// Update cluster config
 			// Start peer
 		} else {
-			config, _ := cmd.Flags().GetString("config")
-
 			cf, err := loadConfiguration(config)
 			if err != nil {
 				return err
