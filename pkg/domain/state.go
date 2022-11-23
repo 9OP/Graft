@@ -98,6 +98,13 @@ func (s state) withPeers(peers Peers) state {
 	return s
 }
 
+func (s state) IsActivePeer(peerId string) bool {
+	if peer, ok := s.peers[peerId]; ok {
+		return peer.Active
+	}
+	return false
+}
+
 func (s state) activePeers() Peers {
 	activePeers := make(Peers, len(s.peers))
 	for peerId, peer := range s.peers {

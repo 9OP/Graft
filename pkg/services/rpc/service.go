@@ -19,7 +19,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 		Term:    node.CurrentTerm(),
 		Success: false,
 	}
-	if input.Term < node.CurrentTerm() {
+	if input.Term < node.CurrentTerm() || !s.clusterNode.IsActivePeer(input.LeaderId) {
 		return output, nil
 	}
 	if input.Term > node.CurrentTerm() {
@@ -49,7 +49,7 @@ func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVo
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
-	if input.Term < node.CurrentTerm() {
+	if input.Term < node.CurrentTerm() || !s.clusterNode.IsActivePeer(input.CandidateId) {
 		return output, nil
 	}
 	if input.Term > node.CurrentTerm() {
@@ -74,6 +74,10 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
+	}
+
+	if !s.clusterNode.IsActivePeer(input.CandidateId) {
+		return output, nil
 	}
 
 	hasLeader := node.HasLeader()

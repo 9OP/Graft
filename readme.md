@@ -126,3 +126,54 @@ TODO:
 
 TODO:
 - design adding workflows adding new nodes, starting,/running nodes
+
+Problems:
+- Existing cluster config should be sent to joining node
+- Start a node remotely
+- Send cluster configuration to node
+- Update cluster configuration
+
+I think we can achieve all above use case with a single CLI command.
+
+```sh
+# Start a node by id from the cluster config
+graft start [node-id] -c <cluster-config-path>
+
+# Update cluster config
+graft membership -a ... -p ... add [node-definition]
+graft membership -a ... -p ... remove [node-id]
+
+# When you want to add a new node to the cluster:
+# 1. start node with existing cluster config
+# 2. update cluster config
+```
+
+OR:
+```yaml
+# Config:
+---
+fsm:
+  eval: conf/fsm_eval.py
+  init: conf/fsm_init.py
+timeouts:
+  election: 300 # ms
+  heartbeat: 30 # ms
+```
+
+```sh
+# Start cluster, stay in follower mode / idle as long as there are no peers
+graft start [name|ip|port|port] -c <config>
+
+# Add nodes to the cluster -a -p are addr and port of an existing cluster node
+graft membership -a ... -p ... add [name|ip|port|port]
+graft membership -a ... -p ... add [name|ip|port|port]
+graft membership -a ... -p ... add [name|ip|port|port]
+
+# Config is sent by the existing node to the others
+```
+May be we can merge start and membership add into the same command
+because both actually start a cluster node
+
+we should have 2 commands:
+- start (start first or any node)
+- shutdown (stop any node)
