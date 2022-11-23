@@ -15,15 +15,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-// Try to remove, may be not used, I think this is unecessary
-type UseCaseGrpcClient interface {
-	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
-	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	//
-	ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
-}
-
 type grpcClient struct{}
 
 func NewGrpcClient() *grpcClient {

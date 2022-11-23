@@ -2,17 +2,21 @@ package secondaryPort
 
 import (
 	"graft/pkg/domain"
-	adapter "graft/pkg/infrastructure/adapter/secondary"
 
 	log "github.com/sirupsen/logrus"
 )
 
+type AdapterPersister interface {
+	Load(location string) (*domain.PersistentState, error)
+	Save(location string, currentTerm uint32, votedFor string, machineLogs []domain.LogEntry) error
+}
+
 type persisterPort struct {
-	adapter  adapter.UseCaseJsonPersisterAdapter
+	adapter  AdapterPersister
 	location string
 }
 
-func NewPersisterPort(location string, adapter adapter.UseCaseJsonPersisterAdapter) *persisterPort {
+func NewPersisterPort(location string, adapter AdapterPersister) *persisterPort {
 	return &persisterPort{
 		adapter:  adapter,
 		location: location,
@@ -20,17 +24,12 @@ func NewPersisterPort(location string, adapter adapter.UseCaseJsonPersisterAdapt
 }
 
 func (p persisterPort) Load() (domain.PersistentState, error) {
-	ps, err := p.adapter.Load(p.location)
+	state, err := p.adapter.Load(p.location)
 	if err != nil {
 		log.Warn("CANNOT LOAD PERSISTENT STATE, USING DEFAULT")
 		return domain.DEFAULT_PERSISTENT_STATE, err
 	}
-	res := domain.PersistentState{
-		CurrentTerm: ps.CurrentTerm,
-		VotedFor:    ps.VotedFor,
-		MachineLogs: ps.Logs,
-	}
-	return res, nil
+	return *state, nil
 }
 
 func (p persisterPort) Save(state domain.PersistentState) error {

@@ -5,16 +5,21 @@ import (
 
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
-	adapter "graft/pkg/infrastructure/adapter/secondary"
 )
 
-// TODO: refactor should use target string instead of peer in input parameter
-
-type rpcClientPort struct {
-	adapter adapter.UseCaseGrpcClient
+type ClientAdapter interface {
+	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
+	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	//
+	ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
 }
 
-func NewRpcClientPort(adapter adapter.UseCaseGrpcClient) *rpcClientPort {
+type rpcClientPort struct {
+	adapter ClientAdapter
+}
+
+func NewRpcClientPort(adapter ClientAdapter) *rpcClientPort {
 	return &rpcClientPort{adapter}
 }
 

@@ -8,6 +8,15 @@ import (
 	"graft/pkg/services/rpc"
 )
 
+type ServerAdapter interface {
+	AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
+	RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	//
+	Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
+	ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
+}
+
 type rpcServerPort struct {
 	adapter rpc.UseCase
 }

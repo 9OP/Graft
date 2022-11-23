@@ -14,15 +14,15 @@ import (
 )
 
 type rpcServer struct {
-	apis []p2pRpc.RpcServer
+	api p2pRpc.RpcServer
 }
 
-func NewRpc(apis ...p2pRpc.RpcServer) *rpcServer {
-	return &rpcServer{apis}
+func NewRpc(api p2pRpc.RpcServer) *rpcServer {
+	return &rpcServer{api}
 }
 
 func (r *rpcServer) Start(port uint16) {
-	grpcServer := createGrpcServer(r.apis...)
+	grpcServer := createGrpcServer(r.api)
 	lis := getListennerOrFail(port)
 	serveOrFail(grpcServer, lis)
 }

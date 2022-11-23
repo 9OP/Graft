@@ -45,6 +45,7 @@ func Start(
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(rpcService)
 	grpcServerAdapter := primaryAdapter.NewGrpcApi(rpcServerPort)
+	//grpcServerAdapter.AppendEntries()
 
 	// Infrastructure
 	runnerServer := server.NewRunner(coreService)

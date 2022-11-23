@@ -58,13 +58,15 @@ message InstallSnapshotOutput {
 }
 
 
+// Rename service P2P
 service Rpc {
     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
-    // Move to different service
+    // Move to different service named Cluster
     rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
+    // Rename Configuration
     rpc ClusterConfiguration(ClusterConfigurationInput) returns (ClusterConfigurationOutput) {}
 }
 
