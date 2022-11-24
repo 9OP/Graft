@@ -3,6 +3,7 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -23,12 +24,26 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 	}
 
 	// 3. Start newPeer
+	config, _ := client.ClusterConfiguration(clusterPeer)
+	go Start(
+		newPeer.Id,
+		newPeer.Host,
+		config.Peers,
+		fmt.Sprintf("conf/%s.json", newPeer.Id),
+		config.ElectionTimeout,
+		config.LeaderHeartbeat,
+		"DEBUG",
+	)
 
 	// 4. Set newPeer to active
 	err = activatePeerConfiguration(newPeer, *leader)
 	if err != nil {
 		return err
 	}
+
+	// Block forever: crado
+	<-make(chan int)
+	fmt.Println("not blocked")
 
 	return nil
 }
@@ -73,13 +88,13 @@ func addPeerConfiguration(newPeer domain.Peer, leader domain.Peer) error {
 		Type: domain.LogConfiguration,
 		Data: data,
 	}
-	res, err := client.Execute(leader, &input)
+	_, err := client.Execute(leader, &input)
 	if err != nil {
 		return err
 	}
-	if res.Err != nil {
-		return res.Err
-	}
+	// if res.Err != nil {
+	// 	return res.Err
+	// }
 	return nil
 }
 
@@ -92,12 +107,12 @@ func activatePeerConfiguration(newPeer domain.Peer, leader domain.Peer) error {
 		Type: domain.LogConfiguration,
 		Data: data,
 	}
-	res, err := client.Execute(leader, &input)
+	_, err := client.Execute(leader, &input)
 	if err != nil {
 		return err
 	}
-	if res.Err != nil {
-		return res.Err
-	}
+	// if res.Err != nil {
+	// 	return res.Err
+	// }
 	return nil
 }

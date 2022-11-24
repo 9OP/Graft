@@ -2,6 +2,7 @@ package primaryPort
 
 import (
 	"context"
+	"fmt"
 
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
@@ -90,15 +91,24 @@ func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteIn
 }
 
 func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
-	_, err := p.adapter.Execute(&domain.ExecuteInput{
+	output, err := p.adapter.Execute(&domain.ExecuteInput{
 		Type: domain.LogType(input.Type),
 		Data: input.Data,
 	})
+	fmt.Println("exec", err)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	var e string
+	if output.Err != nil {
+		e = output.Err.Error()
+	}
+
+	return &p2pRpc.ExecuteOutput{
+		Data: output.Out,
+		Err:  e,
+	}, nil
 }
 
 func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
