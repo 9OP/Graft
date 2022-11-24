@@ -91,16 +91,19 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 }
 
 func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
-	// return error if not leader
+	// TODO: implements consistency
+	if !s.node.IsLeader() {
+		return nil, domain.ErrNotLeader
+	}
 
 	res := <-s.node.ExecuteCommand(*input)
+
+	// Should we separate res.Err and error ? arent they the same ?
 
 	return &res, nil
 }
 
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
-	// Should return configuration only on leader
-
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }

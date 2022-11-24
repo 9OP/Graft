@@ -54,6 +54,7 @@ func Start(
 	rpc := server.NewRpc(grpcServerAdapter)
 
 	// Start servers
+	// TODO: servers should return err
 	go rpc.Start(host.Port())
 	go core.Start()
 

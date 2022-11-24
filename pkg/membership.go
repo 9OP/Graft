@@ -59,7 +59,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		// only if unknown
 		newPeerFromLeader, newPeerIsKnown := config.Peers[newPeer.Id]
 		if !newPeerIsKnown {
-			err = addPeerConfiguration(newPeer, *leader)
+			err = executeConfigurationUpdate(domain.ConfAddPeer, newPeer, *leader)
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		// 4. Set newPeer to active
 		// only if peer is unknown or inactive
 		if !newPeerIsKnown || !newPeerFromLeader.Active {
-			err = activatePeerConfiguration(newPeer, *leader)
+			err = executeConfigurationUpdate(domain.ConfActivatePeer, newPeer, *leader)
 			if err != nil {
 				return err
 			}
@@ -91,7 +91,29 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 	return nil
 }
 
-func RemoveClusterPeer() {}
+func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
+	// 1. Get cluster leader
+	leader, err := getClusterLeader(clusterPeer)
+	if err != nil {
+		return err
+	}
+
+	// 2. Set peer as inactive
+	err = executeConfigurationUpdate(domain.ConfDeactivatePeer, oldPeer, *leader)
+	if err != nil {
+		return err
+	}
+
+	// 3. Remove peer
+	err = executeConfigurationUpdate(domain.ConfRemovePeer, oldPeer, *leader)
+	if err != nil {
+		return err
+	}
+
+	// 4. Shutdown peer
+
+	return nil
+}
 
 var (
 	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
@@ -130,40 +152,15 @@ func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 	return nil, errLeaderNotFound
 }
 
-func addPeerConfiguration(newPeer domain.Peer, leader domain.Peer) error {
+func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.Peer, leader domain.Peer) error {
 	data, _ := json.Marshal(&domain.ConfigurationUpdate{
-		Type: domain.ConfAddPeer,
-		Peer: domain.Peer{Id: newPeer.Id, Host: newPeer.Host, Active: false},
+		Type: tp,
+		Peer: peer,
 	})
 	input := domain.ExecuteInput{
 		Type: domain.LogConfiguration,
 		Data: data,
 	}
 	_, err := client.Execute(leader, &input)
-	if err != nil {
-		return err
-	}
-	// if res.Err != nil {
-	// 	return res.Err
-	// }
-	return nil
-}
-
-func activatePeerConfiguration(newPeer domain.Peer, leader domain.Peer) error {
-	data, _ := json.Marshal(&domain.ConfigurationUpdate{
-		Type: domain.ConfActivatePeer,
-		Peer: domain.Peer{Id: newPeer.Id, Host: newPeer.Host, Active: true},
-	})
-	input := domain.ExecuteInput{
-		Type: domain.LogConfiguration,
-		Data: data,
-	}
-	_, err := client.Execute(leader, &input)
-	if err != nil {
-		return err
-	}
-	// if res.Err != nil {
-	// 	return res.Err
-	// }
-	return nil
+	return err
 }

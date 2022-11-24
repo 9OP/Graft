@@ -98,6 +98,7 @@ curl  -X GET  -H 'Content-Type: text/plain' --data "SELECT * FROM users;" http:/
 ```
 TODO:
 - Client command (support for leader redirection)
+  - quit/shutdown rpc
 - FSM execution bindings
 - API error sanitization
 - API (command/query) TLS
@@ -118,8 +119,9 @@ DONE:
 - Pre vote
 
 TODO:
-- Log compaction
 - Membership change
+  - remove node
+- Log compaction
 - Leadership transfer execution
 
 ```
@@ -171,9 +173,3 @@ graft membership -a ... -p ... add [name|ip|port|port]
 
 # Config is sent by the existing node to the others
 ```
-May be we can merge start and membership add into the same command
-because both actually start a cluster node
-
-we should have 2 commands:
-- start (start first or any node)
-- shutdown (stop any node)
