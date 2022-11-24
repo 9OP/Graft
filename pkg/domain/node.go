@@ -3,7 +3,6 @@ package domain
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -293,10 +292,12 @@ func (n *Node) GrantVote(peerId string) {
 }
 
 func (n *Node) ApplyLogs() {
+	hasApply := false
 	commitIndex := n.commitIndex
 	lastApplied := n.lastApplied
 
 	for lastApplied < commitIndex {
+		hasApply = true
 		// if lastApplied == 0 {
 		// 	c.initFsm()
 		// }
@@ -305,6 +306,8 @@ func (n *Node) ApplyLogs() {
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := n.Log(lastApplied); err == nil {
+			// fmt.Println("apply log", log)
+
 			switch log.Type {
 			case LogCommand:
 				// do command
@@ -313,6 +316,7 @@ func (n *Node) ApplyLogs() {
 				// 	log.C <- res
 				// }
 			case LogConfiguration:
+
 				var config ConfigurationUpdate
 				if err := json.Unmarshal(log.Data, &config); err == nil {
 					if res := n.configurationUpdate(config); log.C != nil {
@@ -328,12 +332,10 @@ func (n *Node) ApplyLogs() {
 	}
 
 	// Swap only once
-	if lastApplied > n.lastApplied {
+	if hasApply {
 		newState := n.withLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
-
-	fmt.Println(n.peers)
 }
 
 func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {

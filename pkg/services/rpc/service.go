@@ -1,8 +1,6 @@
 package rpc
 
 import (
-	"fmt"
-
 	"graft/pkg/domain"
 )
 
@@ -95,12 +93,9 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
 	// return error if not leader
 
-	fmt.Println("execute", input)
+	res := <-s.node.ExecuteCommand(*input)
 
-	return &domain.ExecuteOutput{
-		Out: []byte("ok"),
-		Err: nil,
-	}, nil
+	return &res, nil
 }
 
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {

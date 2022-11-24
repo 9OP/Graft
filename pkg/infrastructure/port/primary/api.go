@@ -2,7 +2,6 @@ package primaryPort
 
 import (
 	"context"
-	"fmt"
 
 	"graft/pkg/domain"
 	"graft/pkg/infrastructure/adapter/p2pRpc"
@@ -95,7 +94,6 @@ func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput)
 		Type: domain.LogType(input.Type),
 		Data: input.Data,
 	})
-	fmt.Println("exec", err)
 	if err != nil {
 		return nil, err
 	}
