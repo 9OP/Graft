@@ -21,7 +21,7 @@ func Start(
 	peers domain.Peers,
 	persistentLocation string,
 	electionTimeout int,
-	heartbeatTimeout int,
+	leaderHeartbeat int,
 	logLevel string,
 ) {
 	utils.ConfigureLogger(logLevel)
@@ -35,10 +35,16 @@ func Start(
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	node := domain.NewNode(id, host, peers, persistent)
+	config := domain.NodeConfig{
+		Id:              id,
+		Host:            host,
+		ElectionTimeout: electionTimeout,
+		LeaderHeartbeat: leaderHeartbeat,
+	}
+	node := domain.NewNode(config, peers, persistent)
 
 	// Services
-	coreService := core.NewService(node, rpcClientPort, persisterPort, electionTimeout, heartbeatTimeout)
+	coreService := core.NewService(node, rpcClientPort, persisterPort, electionTimeout, leaderHeartbeat)
 	rpcService := rpc.NewService(node)
 	// apiService := api.NewService(node)
 

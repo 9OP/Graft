@@ -5,21 +5,21 @@ import (
 )
 
 type service struct {
-	clusterNode *domain.Node
+	node *domain.Node
 }
 
-func NewService(clusterNode *domain.Node) *service {
-	return &service{clusterNode}
+func NewService(node *domain.Node) *service {
+	return &service{node}
 }
 
 func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
-	node := s.clusterNode
+	node := s.node
 
 	output := &domain.AppendEntriesOutput{
 		Term:    node.CurrentTerm(),
 		Success: false,
 	}
-	if input.Term < node.CurrentTerm() || !s.clusterNode.IsActivePeer(input.LeaderId) {
+	if input.Term < node.CurrentTerm() || !s.node.IsActivePeer(input.LeaderId) {
 		return output, nil
 	}
 	if input.Term > node.CurrentTerm() {
@@ -43,13 +43,13 @@ func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Append
 }
 
 func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	node := s.clusterNode
+	node := s.node
 
 	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
-	if input.Term < node.CurrentTerm() || !s.clusterNode.IsActivePeer(input.CandidateId) {
+	if input.Term < node.CurrentTerm() || !s.node.IsActivePeer(input.CandidateId) {
 		return output, nil
 	}
 	if input.Term > node.CurrentTerm() {
@@ -69,14 +69,14 @@ func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVot
 }
 
 func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	node := s.clusterNode
+	node := s.node
 
 	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
 		VoteGranted: false,
 	}
 
-	if !s.clusterNode.IsActivePeer(input.CandidateId) {
+	if !s.node.IsActivePeer(input.CandidateId) {
 		return output, nil
 	}
 
@@ -97,6 +97,8 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 }
 
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
-	configuration := s.clusterNode.GetClusterConfiguration()
+	// Should return configuration only on leader
+
+	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }

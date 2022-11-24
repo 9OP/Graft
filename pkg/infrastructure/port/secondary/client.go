@@ -1,6 +1,7 @@
 package secondaryPort
 
 import (
+	"errors"
 	"net/netip"
 
 	"graft/pkg/domain"
@@ -12,6 +13,7 @@ type ClientAdapter interface {
 	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 	//
+	Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
 	ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
 }
 
@@ -35,6 +37,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 		}
 		entries = append(entries, entry)
 	}
+
 	output, err := p.adapter.AppendEntries(peer.Target(), &p2pRpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
@@ -78,7 +81,6 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 		LastLogTerm:  input.LastLogTerm,
 	})
 	if err != nil {
-		// fmt.Println(err)
 		return nil, err
 	}
 
@@ -88,25 +90,41 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 	}, nil
 }
 
+func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+	output, err := p.adapter.Execute(peer.Target(), &p2pRpc.ExecuteInput{
+		Type: p2pRpc.LogType(input.Type),
+		Data: input.Data,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.ExecuteOutput{
+		Out: output.Data,
+		Err: errors.New(output.Err),
+	}, nil
+}
+
 func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
 	output, err := p.adapter.ClusterConfiguration(peer.Target(), &p2pRpc.ClusterConfigurationInput{})
 	if err != nil {
 		return nil, err
 	}
 
-	var peers []domain.Peer
+	peers := make(domain.Peers, len(output.Peers))
 	for _, peer := range output.Peers {
-		addr, _ := netip.ParseAddrPort(peer.Host)
-		peers = append(peers, domain.Peer{
+		host, _ := netip.ParseAddrPort(peer.Host)
+		peers[peer.Id] = domain.Peer{
 			Id:     peer.Id,
-			Addr:   addr,
+			Host:   host,
 			Active: peer.Active,
-		})
+		}
 	}
 
 	return &domain.ClusterConfiguration{
+		Peers:           peers,
+		LeaderId:        output.LeaderId,
 		ElectionTimeout: int(output.ElectionTimeout),
 		LeaderHeartbeat: int(output.LeaderHeartbeat),
-		Peers:           peers,
 	}, nil
 }

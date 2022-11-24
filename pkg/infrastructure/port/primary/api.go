@@ -30,9 +30,10 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 	for _, log := range input.Entries {
 		logType := domain.LogType(log.Type)
 		entry := domain.LogEntry{
-			Term: log.Term,
-			Data: log.Data,
-			Type: logType,
+			Index: log.Index,
+			Term:  log.Term,
+			Data:  log.Data,
+			Type:  logType,
 		}
 		entries = append(entries, entry)
 	}
@@ -106,18 +107,19 @@ func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.
 		return nil, err
 	}
 
-	var peers []*p2pRpc.Peer
+	peers := make(map[string]*p2pRpc.Peer, len(output.Peers))
 	for _, peer := range output.Peers {
-		peers = append(peers, &p2pRpc.Peer{
+		peers[peer.Id] = &p2pRpc.Peer{
 			Id:     peer.Id,
 			Host:   peer.Target(),
 			Active: peer.Active,
-		})
+		}
 	}
 
 	return &p2pRpc.ClusterConfigurationOutput{
+		Peers:           peers,
+		LeaderId:        output.LeaderId,
 		ElectionTimeout: uint32(output.ElectionTimeout),
 		LeaderHeartbeat: uint32(output.LeaderHeartbeat),
-		Peers:           peers,
 	}, nil
 }

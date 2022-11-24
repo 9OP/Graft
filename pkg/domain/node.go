@@ -69,37 +69,28 @@ func (s signals) resetTimeout() {
 	s.ResetElectionTimer <- struct{}{}
 }
 
+type NodeConfig struct {
+	Id              string
+	Host            netip.AddrPort
+	ElectionTimeout int
+	LeaderHeartbeat int
+}
+
 type Node struct {
 	*state
 	signals
+	config NodeConfig
 }
 
 func NewNode(
-	id string,
-	host netip.AddrPort,
+	config NodeConfig,
 	peers Peers,
 	persistent PersistentState,
 ) *Node {
 	return &Node{
-		state:   newState(id, host, peers, persistent),
+		state:   newState(config.Id, peers, persistent),
 		signals: newSignals(),
-	}
-}
-
-func (n *Node) GetClusterConfiguration() ClusterConfiguration {
-	var peers []Peer
-	for _, peer := range n.Peers() {
-		peers = append(peers, peer)
-	}
-	peers = append(peers, Peer{
-		Id:     n.id,
-		Addr:   n.host,
-		Active: true,
-	})
-	return ClusterConfiguration{
-		ElectionTimeout: 300,
-		LeaderHeartbeat: 30,
-		Peers:           peers,
+		config:  config,
 	}
 }
 
@@ -121,6 +112,22 @@ func (n *Node) swapState(s interface{}) {
 
 func (n Node) GetState() state {
 	return *n.state
+}
+
+func (n Node) GetClusterConfiguration() ClusterConfiguration {
+	peers := n.Peers()
+	peers[n.id] = Peer{
+		Id:   n.id,
+		Host: n.config.Host,
+		// Should Active be true ? A node cannot know its own Active state
+		Active: true,
+	}
+	return ClusterConfiguration{
+		Peers:           peers,
+		LeaderId:        n.leaderId,
+		ElectionTimeout: n.config.ElectionTimeout,
+		LeaderHeartbeat: n.config.LeaderHeartbeat,
+	}
 }
 
 func (n *Node) DowngradeFollower(term uint32) {

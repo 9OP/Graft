@@ -84,7 +84,7 @@ type ConfigurationUpdate struct {
 }
 
 type ClusterConfiguration struct {
-	Peers           []Peer
+	Peers           Peers
 	LeaderId        string
 	ElectionTimeout int
 	LeaderHeartbeat int

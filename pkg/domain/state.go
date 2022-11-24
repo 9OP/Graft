@@ -3,14 +3,12 @@ package domain
 import (
 	"errors"
 	"math"
-	"net/netip"
 
 	"graft/pkg/utils"
 )
 
 type state struct {
 	id       string
-	host     netip.AddrPort
 	leaderId string
 	peers    Peers
 	role     Role
@@ -47,10 +45,9 @@ var DEFAULT_PERSISTENT_STATE = PersistentState{
 	MachineLogs: []LogEntry{},
 }
 
-func newState(id string, host netip.AddrPort, peers Peers, persistent PersistentState) *state {
+func newState(id string, peers Peers, persistent PersistentState) *state {
 	return &state{
 		id:    id,
-		host:  host,
 		peers: peers,
 		role:  Follower,
 

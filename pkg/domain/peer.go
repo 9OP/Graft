@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"net/netip"
 
 	"graft/pkg/utils"
@@ -8,8 +9,12 @@ import (
 
 type Peer struct {
 	Id     string
-	Addr   netip.AddrPort
+	Host   netip.AddrPort
 	Active bool
+}
+
+func (p Peer) Target() string {
+	return fmt.Sprintf("%v:%v", p.Host.Addr(), p.Host.Port())
 }
 
 type Peers map[string]Peer
@@ -42,8 +47,4 @@ func (p Peers) activatePeer(peerId string) Peers {
 
 func (p Peers) deactivatePeer(peerId string) Peers {
 	return p.setPeerStatus(peerId, false)
-}
-
-func (p Peer) Target() string {
-	return p.Addr.String()
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"os"
@@ -98,17 +99,32 @@ var startCmd = &cobra.Command{
 		isClusterProvided := cmd.Flags().Changed("cluster")
 
 		if isClusterProvided {
-			clusterPeer := domain.Peer{Addr: cluster.AddrPort}
+			client := secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
 
 			// TODO: move into separate function
-			// Get cluster config
-			rpcClientPort := secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
-			c, err := rpcClientPort.ClusterConfiguration(clusterPeer)
-			fmt.Println("add node to cluster", c, err)
+			// 1. Get cluster leader
 
-			// Add peer to configuration
-			// Start peer
-			// Set peer as active
+			// 2. Get cluster config
+			clusterPeer := domain.Peer{Host: cluster.AddrPort}
+			c, _ := client.ClusterConfiguration(clusterPeer)
+
+			// 3. Add peer to cluster configuration
+			data, _ := json.Marshal(&domain.ConfigurationUpdate{
+				Type: domain.ConfAddPeer,
+				Peer: domain.Peer{
+					Id:     id,
+					Host:   host,
+					Active: false,
+				},
+			})
+			input := domain.ExecuteInput{
+				Type: domain.LogConfiguration,
+				Data: data,
+			}
+			res, err := client.Execute(clusterPeer, &input)
+
+			// 4. Start peer
+			// 5. Set peer as active
 		} else {
 			cf, err := loadConfiguration(config)
 			if err != nil {
