@@ -9,6 +9,6 @@ type UseCase interface {
 	RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 	PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 	//
-	Execute(input *domain.ApiCommand) (*domain.EvalResult, error)
+	Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error)
 	ClusterConfiguration() (*domain.ClusterConfiguration, error)
 }

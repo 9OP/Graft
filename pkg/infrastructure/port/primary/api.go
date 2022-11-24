@@ -89,7 +89,7 @@ func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteIn
 }
 
 func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
-	_, err := p.adapter.Execute(&domain.ApiCommand{
+	_, err := p.adapter.Execute(&domain.ExecuteInput{
 		Type: domain.LogType(input.Type),
 		Data: input.Data,
 	})

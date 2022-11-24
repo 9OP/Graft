@@ -12,7 +12,7 @@ func NewService(clusterNode *domain.Node) *service {
 	return &service{clusterNode}
 }
 
-func (s *service) ExecuteCommand(command domain.ApiCommand) ([]byte, error) {
+func (s *service) ExecuteCommand(command domain.ExecuteInput) ([]byte, error) {
 	if !s.clusterNode.IsLeader() {
 		if s.clusterNode.HasLeader() {
 			leader := s.clusterNode.Leader()

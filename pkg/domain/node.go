@@ -329,8 +329,8 @@ func (n *Node) ApplyLogs() {
 	fmt.Println(n.peers)
 }
 
-func (n *Node) ExecuteCommand(cmd ApiCommand) chan EvalResult {
-	result := make(chan EvalResult, 1)
+func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
+	result := make(chan ExecuteOutput, 1)
 	newEntry := LogEntry{
 		Index: uint64(n.lastLogIndex()),
 		Term:  n.currentTerm,
@@ -347,8 +347,8 @@ func (n *Node) ExecuteCommand(cmd ApiCommand) chan EvalResult {
 	return result
 }
 
-// func (c ClusterNode) ExecuteQuery(query string) chan domain.EvalResult {
-// 	result := make(chan domain.EvalResult, 1)
+// func (c ClusterNode) ExecuteQuery(query string) chan domain.ExecuteOutput {
+// 	result := make(chan domain.ExecuteOutput, 1)
 // 	go (func() { result <- c.evalFsm(query, "QUERY") })()
 // 	return result
 // }
@@ -358,8 +358,8 @@ var (
 	errPeerDoesNotExist  = errors.New("peer does not exist")
 )
 
-func (n *Node) configurationUpdate(config ConfigurationUpdate) (res EvalResult) {
-	res = EvalResult{
+func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutput) {
+	res = ExecuteOutput{
 		Out: nil,
 		Err: nil,
 	}

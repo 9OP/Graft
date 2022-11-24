@@ -27,7 +27,7 @@ func AddMember(peer domain.Peer, addr net.IP, port uint16) {
 		Type: domain.ConfAddPeer,
 		Peer: peer,
 	})
-	body, _ := json.Marshal(&domain.ApiCommand{
+	body, _ := json.Marshal(&domain.ExecuteInput{
 		Type: domain.LogConfiguration,
 		Data: data,
 	})

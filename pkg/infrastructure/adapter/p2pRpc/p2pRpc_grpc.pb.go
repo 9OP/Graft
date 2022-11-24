@@ -8,7 +8,6 @@ package p2pRpc
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -27,8 +26,9 @@ type RpcClient interface {
 	RequestVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
 	PreVote(ctx context.Context, in *RequestVoteInput, opts ...grpc.CallOption) (*RequestVoteOutput, error)
 	InstallSnapshot(ctx context.Context, in *InstallSnapshotInput, opts ...grpc.CallOption) (*InstallSnapshotOutput, error)
-	// Move to different service
+	// Move to different service named Cluster
 	Execute(ctx context.Context, in *ExecuteInput, opts ...grpc.CallOption) (*ExecuteOutput, error)
+	// Rename Configuration
 	ClusterConfiguration(ctx context.Context, in *ClusterConfigurationInput, opts ...grpc.CallOption) (*ClusterConfigurationOutput, error)
 }
 
@@ -102,35 +102,32 @@ type RpcServer interface {
 	RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
 	PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error)
 	InstallSnapshot(context.Context, *InstallSnapshotInput) (*InstallSnapshotOutput, error)
-	// Move to different service
+	// Move to different service named Cluster
 	Execute(context.Context, *ExecuteInput) (*ExecuteOutput, error)
+	// Rename Configuration
 	ClusterConfiguration(context.Context, *ClusterConfigurationInput) (*ClusterConfigurationOutput, error)
 	mustEmbedUnimplementedRpcServer()
 }
 
 // UnimplementedRpcServer must be embedded to have forward compatible implementations.
-type UnimplementedRpcServer struct{}
+type UnimplementedRpcServer struct {
+}
 
 func (UnimplementedRpcServer) AppendEntries(context.Context, *AppendEntriesInput) (*AppendEntriesOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AppendEntries not implemented")
 }
-
 func (UnimplementedRpcServer) RequestVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestVote not implemented")
 }
-
 func (UnimplementedRpcServer) PreVote(context.Context, *RequestVoteInput) (*RequestVoteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PreVote not implemented")
 }
-
 func (UnimplementedRpcServer) InstallSnapshot(context.Context, *InstallSnapshotInput) (*InstallSnapshotOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InstallSnapshot not implemented")
 }
-
 func (UnimplementedRpcServer) Execute(context.Context, *ExecuteInput) (*ExecuteOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Execute not implemented")
 }
-
 func (UnimplementedRpcServer) ClusterConfiguration(context.Context, *ClusterConfigurationInput) (*ClusterConfigurationOutput, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ClusterConfiguration not implemented")
 }

@@ -90,7 +90,9 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 	return output, nil
 }
 
-func (s service) Execute(input *domain.ApiCommand) (*domain.EvalResult, error) {
+func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+	// return error if not leader
+
 	return nil, nil
 }
 

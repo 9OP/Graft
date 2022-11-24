@@ -26,18 +26,23 @@ type RequestVoteOutput struct {
 	VoteGranted bool
 }
 
-// TODO add Date value
-type LogEntry struct {
-	Index uint64          `json:"index"`
-	Term  uint32          `json:"term"`
-	Data  []byte          `json:"value"`
-	Type  LogType         `json:"type"`
-	C     chan EvalResult `json:"-"`
+type ExecuteInput struct {
+	Type LogType
+	Data []byte
 }
 
-type EvalResult struct {
+type ExecuteOutput struct {
 	Out []byte
 	Err error
+}
+
+// TODO add Date value
+type LogEntry struct {
+	Index uint64             `json:"index"`
+	Term  uint32             `json:"term"`
+	Data  []byte             `json:"value"`
+	Type  LogType            `json:"type"`
+	C     chan ExecuteOutput `json:"-"`
 }
 
 type LogType uint8
@@ -64,11 +69,6 @@ func (lt LogType) String() string {
 	}
 }
 
-type ApiCommand struct {
-	Type LogType
-	Data []byte
-}
-
 type ConfigurationUpdateType uint8
 
 const (
@@ -84,7 +84,8 @@ type ConfigurationUpdate struct {
 }
 
 type ClusterConfiguration struct {
+	Peers           []Peer
+	LeaderId        string
 	ElectionTimeout int
 	LeaderHeartbeat int
-	Peers           []Peer
 }

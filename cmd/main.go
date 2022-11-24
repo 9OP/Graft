@@ -62,6 +62,12 @@ func loadConfiguration(path string) (*configuration, error) {
 	return &cfg, nil
 }
 
+func hashString(str string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(str))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start a cluster node",
@@ -83,37 +89,31 @@ var startCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		isClusterProvided := cmd.Flags().Changed("cluster")
-
 		host, err := netip.ParseAddrPort(args[0])
 		if err != nil {
 			return err
 		}
+		id := hashString(host.String())
+
+		isClusterProvided := cmd.Flags().Changed("cluster")
 
 		if isClusterProvided {
-			clusterPeer := domain.Peer{
-				Addr: cluster.AddrPort,
-			}
+			clusterPeer := domain.Peer{Addr: cluster.AddrPort}
 
-			// move into separate function
+			// TODO: move into separate function
+			// Get cluster config
 			rpcClientPort := secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
 			c, err := rpcClientPort.ClusterConfiguration(clusterPeer)
 			fmt.Println("add node to cluster", c, err)
 
-			// Get cluster config:
-			// - timeouts
-			// - peers
-			// Update cluster config
+			// Add peer to configuration
 			// Start peer
+			// Set peer as active
 		} else {
 			cf, err := loadConfiguration(config)
 			if err != nil {
 				return err
 			}
-
-			hasher := sha1.New()
-			hasher.Write([]byte(host.String()))
-			id := hex.EncodeToString(hasher.Sum(nil))
 
 			pkg.Start(
 				id,

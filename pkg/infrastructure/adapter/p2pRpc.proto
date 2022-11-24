@@ -76,7 +76,8 @@ message ExecuteInput {
 }
 
 message ExecuteOutput {
-
+    bytes data = 1;
+    string err = 2;
 }
 
 message Peer {
@@ -90,7 +91,8 @@ message ClusterConfigurationInput {}
 message ClusterConfigurationOutput {
     uint32 electionTimeout = 1;
     uint32 leaderHeartbeat = 2;
-    repeated Peer peers = 3;
+    string leaderId = 3;
+    map<string, Peer> peers = 4;
 }
 
 

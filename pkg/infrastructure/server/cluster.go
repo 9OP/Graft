@@ -83,7 +83,7 @@ package server
 // 	}
 // 	defer r.Body.Close()
 
-// 	var cmd domain.ApiCommand
+// 	var cmd domain.ExecuteInput
 // 	err = json.Unmarshal(payload, &cmd)
 // 	if err != nil {
 // 		http.Error(w, err.Error(), http.StatusBadRequest)
