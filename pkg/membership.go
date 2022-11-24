@@ -9,7 +9,7 @@ import (
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 )
 
-func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
+func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan struct{}) error {
 	// 1. Get cluster leader
 	leaderNotFound := false
 	leader, err := getClusterLeader(clusterPeer)
@@ -48,6 +48,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 			config.Peers,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
+			quit,
 		)
 
 	} else {
@@ -71,6 +72,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 			config.Peers,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
+			quit,
 		)
 
 		// 4. Set newPeer to active

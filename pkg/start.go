@@ -22,6 +22,7 @@ func Start(
 	peers domain.Peers,
 	electionTimeout int,
 	leaderHeartbeat int,
+	quit chan struct{},
 ) {
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
@@ -54,5 +55,7 @@ func Start(
 
 	// Start servers: p2p rpc, API and runner
 	go rpc.Start(host.Port())
-	core.Start()
+	go core.Start()
+
+	<-quit
 }

@@ -82,6 +82,7 @@ var startCmd = &cobra.Command{
 			return err
 		}
 		id := hashString(host.String())
+		quit := make(chan struct{})
 
 		isClusterProvided := cmd.Flags().Changed("cluster")
 
@@ -89,7 +90,7 @@ var startCmd = &cobra.Command{
 			clusterPeer := domain.Peer{Host: cluster.AddrPort}
 			newPeer := domain.Peer{Id: id, Host: host, Active: false}
 
-			return pkg.AddClusterPeer(newPeer, clusterPeer)
+			return pkg.AddClusterPeer(newPeer, clusterPeer, quit)
 		} else {
 			cf, err := loadConfiguration(config)
 			if err != nil {
@@ -102,6 +103,7 @@ var startCmd = &cobra.Command{
 				domain.Peers{},
 				cf.Timeouts.Election,
 				cf.Timeouts.Heartbeat,
+				quit,
 			)
 
 			return nil
