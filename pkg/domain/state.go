@@ -93,10 +93,6 @@ func (s state) withLeaderInitialization() state {
 	return s
 }
 
-func (s state) Peers() Peers {
-	return utils.CopyMap(s.peers)
-}
-
 func (s state) withPeers(peers Peers) state {
 	s.peers = peers
 	return s
@@ -123,7 +119,9 @@ func (s state) activePeers() Peers {
 // (N + 1) / 2, where N is the number of nodes in the cluster
 // which can recover from up to (N - 1) / 2 failures
 func (s state) Quorum() int {
-	numberNodes := float64(len(s.activePeers()) + 1) // add self
+	activePeers := s.activePeers()
+	delete(activePeers, s.id)
+	numberNodes := float64(len(activePeers) + 1) // add self
 	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 

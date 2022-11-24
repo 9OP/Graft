@@ -53,7 +53,7 @@ func Start(
 	core := server.NewRunner(coreService)
 	rpc := server.NewRpc(grpcServerAdapter)
 
-	// Start servers: p2p rpc, API and runner
+	// Start servers
 	go rpc.Start(host.Port())
 	go core.Start()
 

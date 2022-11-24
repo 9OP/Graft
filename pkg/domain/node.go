@@ -114,15 +114,15 @@ func (n Node) GetState() state {
 }
 
 func (n Node) GetClusterConfiguration() ClusterConfiguration {
-	peers := n.Peers()
-	peers[n.id] = Peer{
-		Id:   n.id,
-		Host: n.config.Host,
-		// Should Active be true ? A node cannot know its own Active state
-		Active: true,
-	}
+	// peers :=
+	// peers[n.id] = Peer{
+	// 	Id:   n.id,
+	// 	Host: n.config.Host,
+	// 	// Should Active be true ? A node cannot know its own Active state
+	// 	Active: true,
+	// }
 	return ClusterConfiguration{
-		Peers:           peers,
+		Peers:           utils.CopyMap(n.peers),
 		LeaderId:        n.leaderId,
 		ElectionTimeout: n.config.ElectionTimeout,
 		LeaderHeartbeat: n.config.LeaderHeartbeat,
@@ -208,12 +208,15 @@ func (n Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
 
 	switch broadcastType {
 	case BroadcastAll:
-		peers = n.peers
+		peers = utils.CopyMap(n.peers)
 	case BroadcastActive:
 		peers = n.activePeers()
 	default:
 		peers = Peers{}
 	}
+
+	// Prevent sending requests to itself
+	delete(peers, n.id)
 
 	for _, peer := range peers {
 		wg.Add(1)

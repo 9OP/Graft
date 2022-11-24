@@ -97,10 +97,18 @@ var startCmd = &cobra.Command{
 				return err
 			}
 
+			peers := domain.Peers{
+				id: domain.Peer{
+					Id:     id,
+					Host:   host,
+					Active: true,
+				},
+			}
+
 			pkg.Start(
 				id,
 				host,
-				domain.Peers{},
+				peers,
 				cf.Timeouts.Election,
 				cf.Timeouts.Heartbeat,
 				quit,

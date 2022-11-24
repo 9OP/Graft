@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"graft/pkg/domain"
@@ -189,6 +190,7 @@ func (s *service) preVote() bool {
 	var prevotesGranted uint32 = 1 // vote for self
 
 	preVoteRoutine := func(p domain.Peer) {
+		fmt.Println("peer", p)
 		if res, err := s.repo.PreVote(p, &input); err == nil {
 			if res.VoteGranted {
 				atomic.AddUint32(&prevotesGranted, 1)
