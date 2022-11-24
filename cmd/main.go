@@ -3,31 +3,16 @@ package cmd
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/netip"
 	"os"
 
 	"graft/pkg"
 	"graft/pkg/domain"
-	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
-	secondaryPort "graft/pkg/infrastructure/port/secondary"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
 )
-
-/*
-usage:
-
-# Start a new cluster
-graft start [host] --rpc-port <rpc-port> --api-port <api-port> --config <config-path>
-
-# Add node to existing cluster
-graft cluster add [host] --rpc-port <rpc-port> --api-port <api-port> --node
-
-
-*/
 
 var (
 	level   = INFO
@@ -99,32 +84,10 @@ var startCmd = &cobra.Command{
 		isClusterProvided := cmd.Flags().Changed("cluster")
 
 		if isClusterProvided {
-			client := secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
-
-			// TODO: move into separate function
-			// 1. Get cluster leader
-
-			// 2. Get cluster config
 			clusterPeer := domain.Peer{Host: cluster.AddrPort}
-			c, _ := client.ClusterConfiguration(clusterPeer)
+			newPeer := domain.Peer{Id: id, Host: host, Active: false}
 
-			// 3. Add peer to cluster configuration
-			data, _ := json.Marshal(&domain.ConfigurationUpdate{
-				Type: domain.ConfAddPeer,
-				Peer: domain.Peer{
-					Id:     id,
-					Host:   host,
-					Active: false,
-				},
-			})
-			input := domain.ExecuteInput{
-				Type: domain.LogConfiguration,
-				Data: data,
-			}
-			res, err := client.Execute(clusterPeer, &input)
-
-			// 4. Start peer
-			// 5. Set peer as active
+			return pkg.AddClusterPeer(newPeer, clusterPeer)
 		} else {
 			cf, err := loadConfiguration(config)
 			if err != nil {
@@ -140,9 +103,9 @@ var startCmd = &cobra.Command{
 				cf.Timeouts.Heartbeat,
 				level.String(),
 			)
-		}
 
-		return nil
+			return nil
+		}
 	},
 }
 

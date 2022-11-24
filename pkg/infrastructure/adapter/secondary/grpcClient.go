@@ -44,7 +44,8 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 
 func withClient[K *p2pRpc.AppendEntriesOutput |
 	*p2pRpc.RequestVoteOutput |
-	*p2pRpc.ClusterConfigurationOutput](target string, fn func(c p2pRpc.RpcClient) (K, error),
+	*p2pRpc.ClusterConfigurationOutput |
+	*p2pRpc.ExecuteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error),
 ) (K, error) {
 	// Dial options
 	creds, err := loadTLSCredentials()
@@ -92,6 +93,17 @@ func (r *grpcClient) PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
 			return c.PreVote(ctx, input)
+		})
+}
+
+func (r *grpcClient) Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.ExecuteOutput, error) {
+			return c.Execute(ctx, input)
 		})
 }
 
