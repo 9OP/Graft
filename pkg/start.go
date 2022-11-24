@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"net/netip"
 
 	"graft/pkg/domain"
@@ -13,26 +14,21 @@ import (
 
 	"graft/pkg/services/core"
 	"graft/pkg/services/rpc"
-	"graft/pkg/utils"
 )
 
 func Start(
 	id string,
 	host netip.AddrPort,
 	peers domain.Peers,
-	persistentLocation string,
 	electionTimeout int,
 	leaderHeartbeat int,
-	logLevel string,
 ) {
-	utils.ConfigureLogger(logLevel)
-
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
-	persisterPort := secondaryPort.NewPersisterPort(persistentLocation, jsonPersisterAdapter)
+	persisterPort := secondaryPort.NewPersisterPort(fmt.Sprintf(".%s.json", id), jsonPersisterAdapter)
 
 	// Domain
 	persistent, _ := persisterPort.Load()

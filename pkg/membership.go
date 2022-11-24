@@ -3,7 +3,6 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -47,10 +46,8 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
-			fmt.Sprintf("conf/%s.json", newPeer.Id),
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
-			"DEBUG",
 		)
 
 	} else {
@@ -72,10 +69,8 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
-			fmt.Sprintf("conf/%s.json", newPeer.Id),
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
-			"DEBUG",
 		)
 
 		// 4. Set newPeer to active
@@ -93,6 +88,8 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) error {
 
 	return nil
 }
+
+func RemoveClusterPeer() {}
 
 var (
 	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())

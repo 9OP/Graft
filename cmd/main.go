@@ -3,12 +3,12 @@ package cmd
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"net/netip"
 	"os"
 
 	"graft/pkg"
 	"graft/pkg/domain"
+	"graft/pkg/utils"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
@@ -75,6 +75,8 @@ var startCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
+		utils.ConfigureLogger(level.String())
+
 		host, err := netip.ParseAddrPort(args[0])
 		if err != nil {
 			return err
@@ -98,10 +100,8 @@ var startCmd = &cobra.Command{
 				id,
 				host,
 				domain.Peers{},
-				fmt.Sprintf("conf/%s.json", id), // persistent location
 				cf.Timeouts.Election,
 				cf.Timeouts.Heartbeat,
-				level.String(),
 			)
 
 			return nil
