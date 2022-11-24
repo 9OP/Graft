@@ -15,32 +15,32 @@ type synchronise struct {
 }
 
 type service struct {
-	clusterNode *domain.Node
-	timeout     *timeout
-	repo        repository
-	persist     persister
-	sync        synchronise
+	node    *domain.Node
+	repo    repository
+	persist persister
+
+	timeout *timeout
+	sync    synchronise
 }
 
 func NewService(
-	clusterNode *domain.Node,
+	node *domain.Node,
 	repository repository,
 	persister persister,
-	electionDuration int,
-	leaderHearbeat int,
 ) *service {
-	timeout := newTimeout(electionDuration, leaderHearbeat)
+	config := node.GetClusterConfiguration()
+	timeout := newTimeout(config.ElectionTimeout, config.LeaderHeartbeat)
 	return &service{
-		repo:        repository,
-		timeout:     timeout,
-		clusterNode: clusterNode,
-		persist:     persister,
+		repo:    repository,
+		timeout: timeout,
+		node:    node,
+		persist: persister,
 	}
 }
 
 func (s *service) Run() {
 	for {
-		switch s.clusterNode.Role() {
+		switch s.node.Role() {
 		case domain.Follower:
 			s.runFollower()
 		case domain.Candidate:
@@ -56,9 +56,9 @@ func (s *service) followerFlow() {
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
 
-		s.clusterNode.UpgradeCandidate()
+		s.node.UpgradeCandidate()
 		if wonElection := s.runElection(); wonElection {
-			s.clusterNode.UpgradeLeader()
+			s.node.UpgradeLeader()
 		}
 	}
 }
@@ -69,7 +69,7 @@ func (s *service) candidateFlow() {
 		defer s.sync.running.Unlock()
 
 		if wonElection := s.runElection(); wonElection {
-			s.clusterNode.UpgradeLeader()
+			s.node.UpgradeLeader()
 		}
 	}
 }
@@ -81,76 +81,76 @@ func (s *service) leaderFlow() {
 
 		if quorumReached := s.heartbeat(); !quorumReached {
 			log.Debug("STEP DOWN")
-			s.clusterNode.DowngradeFollower(s.clusterNode.CurrentTerm())
+			s.node.DowngradeFollower(s.node.CurrentTerm())
 		}
 	}
 }
 
 func (s *service) runFollower() {
-	for s.clusterNode.Role() == domain.Follower {
+	for s.node.Role() == domain.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
 			go s.followerFlow()
 
-		case <-s.clusterNode.Commit:
+		case <-s.node.Commit:
 			go s.commit()
 
-		case <-s.clusterNode.ResetElectionTimer:
+		case <-s.node.ResetElectionTimer:
 			go s.timeout.resetElectionTimer()
 
-		case <-s.clusterNode.SaveState:
+		case <-s.node.SaveState:
 			go s.saveState()
 
-		case <-s.clusterNode.ShiftRole:
+		case <-s.node.ShiftRole:
 			return
 		}
 	}
 }
 
 func (s *service) runCandidate() {
-	for s.clusterNode.Role() == domain.Candidate {
+	for s.node.Role() == domain.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
 			go s.candidateFlow()
 
-		case <-s.clusterNode.ResetElectionTimer:
+		case <-s.node.ResetElectionTimer:
 			go s.timeout.resetElectionTimer()
 
-		case <-s.clusterNode.Commit:
+		case <-s.node.Commit:
 			go s.commit()
 
-		case <-s.clusterNode.SaveState:
+		case <-s.node.SaveState:
 			go s.saveState()
 
-		case <-s.clusterNode.ShiftRole:
+		case <-s.node.ShiftRole:
 			return
 		}
 	}
 }
 
 func (s *service) runLeader() {
-	for s.clusterNode.Role() == domain.Leader {
+	for s.node.Role() == domain.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
 			go s.leaderFlow()
 
 		// Should batch execution
-		case <-s.clusterNode.SynchronizeLogs:
+		case <-s.node.SynchronizeLogs:
 			go (func() {
 				s.timeout.resetLeaderTicker()
 				s.leaderFlow()
 			})()
 
-		case <-s.clusterNode.Commit:
+		case <-s.node.Commit:
 			go s.commit()
 
-		case <-s.clusterNode.SaveState:
+		case <-s.node.SaveState:
 			go s.saveState()
 
-		case <-s.clusterNode.ResetLeaderTicker:
+		case <-s.node.ResetLeaderTicker:
 			go s.timeout.resetLeaderTicker()
 
-		case <-s.clusterNode.ShiftRole:
+		case <-s.node.ShiftRole:
 			return
 		}
 	}
@@ -159,14 +159,14 @@ func (s *service) runLeader() {
 func (s *service) commit() {
 	if s.sync.committing.Lock() {
 		defer s.sync.committing.Unlock()
-		s.clusterNode.ApplyLogs()
+		s.node.ApplyLogs()
 	}
 }
 
 func (s *service) saveState() {
 	if s.sync.saving.Lock() {
 		defer s.sync.saving.Unlock()
-		s.persist.Save(s.clusterNode.ToPersistent())
+		s.persist.Save(s.node.ToPersistent())
 	}
 }
 
@@ -178,14 +178,14 @@ func (s *service) runElection() bool {
 		return false
 	}
 
-	s.clusterNode.IncrementCandidateTerm()
+	s.node.IncrementCandidateTerm()
 
 	return s.requestVote()
 }
 
 func (s *service) preVote() bool {
-	input := s.clusterNode.RequestVoteInput()
-	quorum := s.clusterNode.Quorum()
+	input := s.node.RequestVoteInput()
+	quorum := s.node.Quorum()
 	var prevotesGranted uint32 = 1 // vote for self
 
 	preVoteRoutine := func(p domain.Peer) {
@@ -195,21 +195,21 @@ func (s *service) preVote() bool {
 			}
 		}
 	}
-	s.clusterNode.Broadcast(preVoteRoutine, domain.BroadcastActive)
+	s.node.Broadcast(preVoteRoutine, domain.BroadcastActive)
 
 	quorumReached := int(prevotesGranted) >= quorum
 	return quorumReached
 }
 
 func (s *service) requestVote() bool {
-	input := s.clusterNode.RequestVoteInput()
-	quorum := s.clusterNode.Quorum()
+	input := s.node.RequestVoteInput()
+	quorum := s.node.Quorum()
 	var votesGranted uint32 = 1 // vote for self
 
 	gatherVotesRoutine := func(p domain.Peer) {
 		if res, err := s.repo.RequestVote(p, &input); err == nil {
-			if res.Term > s.clusterNode.CurrentTerm() {
-				s.clusterNode.DowngradeFollower(res.Term)
+			if res.Term > s.node.CurrentTerm() {
+				s.node.DowngradeFollower(res.Term)
 				return
 			}
 			if res.VoteGranted {
@@ -217,9 +217,9 @@ func (s *service) requestVote() bool {
 			}
 		}
 	}
-	s.clusterNode.Broadcast(gatherVotesRoutine, domain.BroadcastActive)
+	s.node.Broadcast(gatherVotesRoutine, domain.BroadcastActive)
 
-	isCandidate := s.clusterNode.Role() == domain.Candidate
+	isCandidate := s.node.Role() == domain.Candidate
 	quorumReached := int(votesGranted) >= quorum
 	return isCandidate && quorumReached
 }
@@ -227,23 +227,23 @@ func (s *service) requestVote() bool {
 func (s *service) heartbeat() bool {
 	quorumReached := s.synchronizeLogs()
 
-	if s.clusterNode.Role() == domain.Leader {
-		s.clusterNode.UpdateNewCommitIndex()
+	if s.node.Role() == domain.Leader {
+		s.node.UpdateNewCommitIndex()
 	}
 
 	return quorumReached
 }
 
 func (s *service) synchronizeLogs() bool {
-	quorum := s.clusterNode.Quorum()
+	quorum := s.node.Quorum()
 	var peersAlive uint32 = 1 // self
 
 	synchroniseLogsRoutine := func(p domain.Peer) {
-		input := s.clusterNode.AppendEntriesInput(p.Id)
+		input := s.node.AppendEntriesInput(p.Id)
 		if res, err := s.repo.AppendEntries(p, &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)
-			if res.Term > s.clusterNode.CurrentTerm() {
-				s.clusterNode.DowngradeFollower(res.Term)
+			if res.Term > s.node.CurrentTerm() {
+				s.node.DowngradeFollower(res.Term)
 				return
 			}
 			if res.Success {
@@ -252,13 +252,13 @@ func (s *service) synchronizeLogs() bool {
 				// of logs already contained at least in peer, and len(entries) is the additional
 				// entries accepted.
 				newPeerLastLogIndex := input.PrevLogIndex + uint32(len(input.Entries))
-				s.clusterNode.SetNextMatchIndex(p.Id, newPeerLastLogIndex)
+				s.node.SetNextMatchIndex(p.Id, newPeerLastLogIndex)
 			} else {
-				s.clusterNode.DecrementNextIndex(p.Id)
+				s.node.DecrementNextIndex(p.Id)
 			}
 		}
 	}
-	s.clusterNode.Broadcast(synchroniseLogsRoutine, domain.BroadcastAll)
+	s.node.Broadcast(synchroniseLogsRoutine, domain.BroadcastAll)
 
 	quorumReached := int(peersAlive) >= quorum
 	return quorumReached
