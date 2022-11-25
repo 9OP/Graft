@@ -91,9 +91,9 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 	return nil
 }
 
-func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
+func RemoveClusterPeer(oldPeer domain.Peer) error {
 	// 1. Get cluster leader
-	leader, err := getClusterLeader(clusterPeer)
+	leader, err := getClusterLeader(oldPeer)
 	if err != nil {
 		return err
 	}
