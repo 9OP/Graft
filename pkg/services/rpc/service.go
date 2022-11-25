@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"fmt"
+	"time"
 
 	"graft/pkg/domain"
 )
@@ -112,6 +113,16 @@ func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
 }
 
 func (s service) Shutdown() {
-	fmt.Println("shutdown")
-	close(s.quit)
+	fmt.Println("shutting down in 3s")
+	// Should prepare shutting down properly:
+	// - downgrade follower
+	// - do not become candidate
+	// - do not responde to rpc except appendEntries
+	// - do not apply logs
+	s.node.DowngradeFollower(s.node.CurrentTerm())
+
+	time.AfterFunc(3*time.Second, func() {
+		fmt.Println("shutdown")
+		close(s.quit)
+	})
 }

@@ -10,14 +10,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var removeFromCluster bool
+
 var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop a cluster node",
 	Long: `Stop a cluster node:
 
-	- Mark node as inactive
-	- Remove node from cluster configuration
-	- Shutdown node
+	This command allows to:
+	- Shutdown a cluster node
+	- Shutdown and remove node from cluster configuration
 	`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
@@ -35,8 +37,14 @@ var stopCmd = &cobra.Command{
 		id := hashString(host.String())
 		peer := domain.Peer{Id: id, Host: host}
 
-		if err := pkg.RemoveClusterPeer(peer); err != nil {
-			return fmt.Errorf("did not remove cluster peer %s: %v", host, err.Error())
+		if removeFromCluster {
+			if err := pkg.RemoveClusterPeer(peer); err != nil {
+				return fmt.Errorf("did not remove cluster peer %s: %v", host, err.Error())
+			}
+		} else {
+			if err := pkg.Shutdown(peer); err != nil {
+				return fmt.Errorf("did not shutdown cluster peer %s: %v", host, err.Error())
+			}
 		}
 
 		return nil
@@ -44,5 +52,8 @@ var stopCmd = &cobra.Command{
 }
 
 func init() {
+	stopCmd.Flags().BoolVar(&removeFromCluster, "remove", false, "Remove node from cluster configuration")
+	stopCmd.MarkPersistentFlagRequired("cluster")
+
 	rootCmd.AddCommand(stopCmd)
 }

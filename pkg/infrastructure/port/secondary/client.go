@@ -130,6 +130,7 @@ func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterC
 	}, nil
 }
 
-func (p *rpcClientPort) Shutdown(peer domain.Peer) {
-	p.adapter.Shutdown(peer.Target(), &p2pRpc.Nil{})
+func (p *rpcClientPort) Shutdown(peer domain.Peer) error {
+	_, err := p.adapter.Shutdown(peer.Target(), &p2pRpc.Nil{})
+	return err
 }

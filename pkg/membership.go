@@ -108,7 +108,10 @@ func RemoveClusterPeer(oldPeer domain.Peer) error {
 	}
 
 	// 4. Shutdown peer
-	client.Shutdown(oldPeer)
+	err = Shutdown(oldPeer)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -119,6 +122,10 @@ var (
 	errConfigurationNotFound    = errors.New("cannot fetch cluster configuration")
 	errApplyConfigurationUpdate = errors.New("cannot apply cluster configuration update")
 )
+
+func Shutdown(peer domain.Peer) error {
+	return client.Shutdown(peer)
+}
 
 func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 	config, err := client.ClusterConfiguration(clusterPeer)

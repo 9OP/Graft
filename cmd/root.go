@@ -30,7 +30,6 @@ Commands; todo
 
 func Execute() {
 	rootCmd.PersistentFlags().Var(&cluster, "cluster", "A live cluster peer addr for issuing commands")
-	rootCmd.MarkPersistentFlagRequired("cluster")
 	rootCmd.Flag("cluster").DefValue = "<nil>"
 
 	rootCmd.Flags().SortFlags = false

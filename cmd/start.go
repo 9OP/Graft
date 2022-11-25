@@ -15,8 +15,9 @@ import (
 )
 
 var (
-	level  = INFO
-	config string
+	level       = INFO
+	config      string
+	persistence bool
 )
 
 type configuration struct {
@@ -122,8 +123,12 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
+	startCmd.Flags().BoolVar(&persistence, "persistence", true, "Persist state")
 	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
 	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
+
+	// This is a debug flag to prevent creating persistence
+	startCmd.Flag("persistence").Hidden = true
 
 	rootCmd.AddCommand(startCmd)
 }
