@@ -79,6 +79,7 @@ type Node struct {
 	*state
 	signals
 	config NodeConfig
+	exit   bool
 }
 
 func NewNode(
@@ -90,6 +91,7 @@ func NewNode(
 		state:   newState(config.Id, peers, persistent),
 		signals: newSignals(),
 		config:  config,
+		exit:    false,
 	}
 }
 
@@ -114,19 +116,21 @@ func (n Node) GetState() state {
 }
 
 func (n Node) GetClusterConfiguration() ClusterConfiguration {
-	// peers :=
-	// peers[n.id] = Peer{
-	// 	Id:   n.id,
-	// 	Host: n.config.Host,
-	// 	// Should Active be true ? A node cannot know its own Active state
-	// 	Active: true,
-	// }
 	return ClusterConfiguration{
 		Peers:           utils.CopyMap(n.peers),
 		LeaderId:        n.leaderId,
 		ElectionTimeout: n.config.ElectionTimeout,
 		LeaderHeartbeat: n.config.LeaderHeartbeat,
 	}
+}
+
+func (n *Node) Shutdown() {
+	n.exit = true
+	n.DowngradeFollower(n.currentTerm)
+}
+
+func (n Node) IsShuttingDown() bool {
+	return n.exit
 }
 
 func (n *Node) DowngradeFollower(term uint32) {
@@ -155,6 +159,10 @@ func (n *Node) IncrementCandidateTerm() {
 }
 
 func (n *Node) UpgradeCandidate() {
+	if n.exit {
+		return
+	}
+
 	if n.Role() == Follower {
 		log.Info("UPGRADE TO CANDIDATE")
 		newState := n.
@@ -295,6 +303,10 @@ func (n *Node) GrantVote(peerId string) {
 }
 
 func (n *Node) ApplyLogs() {
+	if n.exit {
+		return
+	}
+
 	hasApply := false
 	commitIndex := n.commitIndex
 	lastApplied := n.lastApplied
@@ -309,8 +321,6 @@ func (n *Node) ApplyLogs() {
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := n.Log(lastApplied); err == nil {
-			// fmt.Println("apply log", log)
-
 			switch log.Type {
 			case LogCommand:
 				// do command

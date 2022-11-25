@@ -48,6 +48,9 @@ func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Append
 
 func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.node
+	if s.node.IsShuttingDown() {
+		return nil, domain.ErrShuttingDown
+	}
 
 	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
@@ -74,6 +77,9 @@ func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVot
 
 func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	node := s.node
+	if s.node.IsShuttingDown() {
+		return nil, domain.ErrShuttingDown
+	}
 
 	output := &domain.RequestVoteOutput{
 		Term:        node.CurrentTerm(),
@@ -95,6 +101,10 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 }
 
 func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+	if s.node.IsShuttingDown() {
+		return nil, domain.ErrShuttingDown
+	}
+
 	// TODO: implements consistency
 	if !s.node.IsLeader() {
 		return nil, domain.ErrNotLeader
@@ -114,12 +124,8 @@ func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
 
 func (s service) Shutdown() {
 	fmt.Println("shutting down in 3s")
-	// Should prepare shutting down properly:
-	// - downgrade follower
-	// - do not become candidate
-	// - do not responde to rpc except appendEntries
-	// - do not apply logs
-	s.node.DowngradeFollower(s.node.CurrentTerm())
+
+	s.node.Shutdown()
 
 	time.AfterFunc(3*time.Second, func() {
 		fmt.Println("shutdown")
