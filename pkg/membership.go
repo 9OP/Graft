@@ -114,14 +114,16 @@ func RemoveClusterPeer(oldPeer domain.Peer) error {
 }
 
 var (
-	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
-	errLeaderNotFound = errors.New("leader not found")
+	client                      = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
+	errLeaderNotFound           = errors.New("leader not found")
+	errConfigurationNotFound    = errors.New("cannot fetch cluster configuration")
+	errApplyConfigurationUpdate = errors.New("cannot apply cluster configuration update")
 )
 
 func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 	config, err := client.ClusterConfiguration(clusterPeer)
 	if err != nil {
-		return nil, err
+		return nil, errConfigurationNotFound
 	}
 
 	// If leader available, return it
@@ -159,6 +161,8 @@ func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.P
 		Type: domain.LogConfiguration,
 		Data: data,
 	}
-	_, err := client.Execute(leader, &input)
-	return err
+	if _, err := client.Execute(leader, &input); err != nil {
+		return errApplyConfigurationUpdate
+	}
+	return nil
 }

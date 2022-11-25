@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/netip"
 
 	"graft/pkg"
@@ -34,7 +35,11 @@ var stopCmd = &cobra.Command{
 		id := hashString(host.String())
 		peer := domain.Peer{Id: id, Host: host}
 
-		return pkg.RemoveClusterPeer(peer)
+		if err := pkg.RemoveClusterPeer(peer); err != nil {
+			return fmt.Errorf("did not remove cluster peer %s: %v", host, err.Error())
+		}
+
+		return nil
 	},
 }
 

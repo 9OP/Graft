@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	level   = INFO
-	config  string
-	cluster ipAddr
+	level  = INFO
+	config string
 )
 
 type configuration struct {
@@ -123,7 +122,6 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	startCmd.Flags().Var(&cluster, "cluster", "Cluster addr")
 	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
 	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
 

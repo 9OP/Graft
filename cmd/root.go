@@ -6,6 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var cluster ipAddr
+
 var (
 	version = "0.0.1"
 	rootCmd = &cobra.Command{
@@ -27,6 +29,10 @@ Commands; todo
 */
 
 func Execute() {
+	rootCmd.PersistentFlags().Var(&cluster, "cluster", "A live cluster peer addr for issuing commands")
+	rootCmd.MarkPersistentFlagRequired("cluster")
+	rootCmd.Flag("cluster").DefValue = "<nil>"
+
 	rootCmd.Flags().SortFlags = false
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
