@@ -11,4 +11,5 @@ type UseCase interface {
 	//
 	Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error)
 	ClusterConfiguration() (*domain.ClusterConfiguration, error)
+	Shutdown()
 }

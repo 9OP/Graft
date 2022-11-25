@@ -42,10 +42,12 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(config), nil
 }
 
-func withClient[K *p2pRpc.AppendEntriesOutput |
-	*p2pRpc.RequestVoteOutput |
-	*p2pRpc.ClusterConfigurationOutput |
-	*p2pRpc.ExecuteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error),
+func withClient[
+	K *p2pRpc.AppendEntriesOutput |
+		*p2pRpc.RequestVoteOutput |
+		*p2pRpc.ClusterConfigurationOutput |
+		*p2pRpc.ExecuteOutput |
+		*p2pRpc.Nil](target string, fn func(c p2pRpc.RpcClient) (K, error),
 ) (K, error) {
 	// Dial options
 	creds, err := loadTLSCredentials()
@@ -107,7 +109,7 @@ func (r *grpcClient) Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc
 		})
 }
 
-func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
+func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
@@ -115,5 +117,16 @@ func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.ClusterCo
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.ClusterConfigurationOutput, error) {
 			return c.ClusterConfiguration(ctx, input)
+		})
+}
+
+func (r *grpcClient) Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+			return c.Shutdown(ctx, input)
 		})
 }

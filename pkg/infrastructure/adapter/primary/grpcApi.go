@@ -2,6 +2,7 @@ package primaryAdapter
 
 import (
 	"context"
+
 	"graft/pkg/infrastructure/adapter/p2pRpc"
 	port "graft/pkg/infrastructure/port/primary"
 )
@@ -33,6 +34,10 @@ func (s *grpcApi) Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2p
 	return s.adapter.Execute(ctx, input)
 }
 
-func (s *grpcApi) ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
+func (s *grpcApi) ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
 	return s.adapter.ClusterConfiguration(ctx, input)
+}
+
+func (s *grpcApi) Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	return s.adapter.Shutdown(ctx, input)
 }

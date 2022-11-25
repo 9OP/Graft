@@ -5,7 +5,6 @@ import (
 
 	"graft/pkg"
 	"graft/pkg/domain"
-	"graft/pkg/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -31,14 +30,8 @@ var stopCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		utils.ConfigureLogger(level.String())
-
-		host, err := netip.ParseAddrPort(args[0])
-		if err != nil {
-			return err
-		}
+		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
-
 		peer := domain.Peer{Id: id, Host: host}
 
 		return pkg.RemoveClusterPeer(peer)

@@ -76,14 +76,9 @@ var startCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		utils.ConfigureLogger(level.String())
-
-		host, err := netip.ParseAddrPort(args[0])
-		if err != nil {
-			return err
-		}
+		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
 		quit := make(chan struct{})
-
 		isClusterProvided := cmd.Flags().Changed("cluster")
 
 		if isClusterProvided {

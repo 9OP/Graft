@@ -14,7 +14,8 @@ type ServerAdapter interface {
 	PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 	//
 	Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
-	ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
+	ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
+	Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
 }
 
 type rpcServerPort struct {
@@ -109,7 +110,7 @@ func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput)
 	}, nil
 }
 
-func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error) {
+func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
 	output, err := p.adapter.ClusterConfiguration()
 	if err != nil {
 		return nil, err
@@ -130,4 +131,9 @@ func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.
 		ElectionTimeout: uint32(output.ElectionTimeout),
 		LeaderHeartbeat: uint32(output.LeaderHeartbeat),
 	}, nil
+}
+
+func (p *rpcServerPort) Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	p.adapter.Shutdown()
+	return &p2pRpc.Nil{}, nil
 }

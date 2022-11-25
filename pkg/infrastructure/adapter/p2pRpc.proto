@@ -67,7 +67,8 @@ service Rpc {
     // Move to different service named Cluster
     rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
     // Rename Configuration
-    rpc ClusterConfiguration(ClusterConfigurationInput) returns (ClusterConfigurationOutput) {}
+    rpc ClusterConfiguration(nil) returns (ClusterConfigurationOutput) {}
+    rpc Shutdown(nil) returns (nil) {}
 }
 
 message ExecuteInput {
@@ -86,7 +87,7 @@ message Peer {
     bool active = 3;
 }
 
-message ClusterConfigurationInput {}
+message nil {}
 
 message ClusterConfigurationOutput {
     uint32 electionTimeout = 1;

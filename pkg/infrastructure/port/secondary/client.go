@@ -14,7 +14,8 @@ type ClientAdapter interface {
 	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
 	//
 	Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
-	ClusterConfiguration(target string, input *p2pRpc.ClusterConfigurationInput) (*p2pRpc.ClusterConfigurationOutput, error)
+	ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
+	Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
 }
 
 type rpcClientPort struct {
@@ -106,7 +107,7 @@ func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*
 }
 
 func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
-	output, err := p.adapter.ClusterConfiguration(peer.Target(), &p2pRpc.ClusterConfigurationInput{})
+	output, err := p.adapter.ClusterConfiguration(peer.Target(), &p2pRpc.Nil{})
 	if err != nil {
 		return nil, err
 	}
@@ -127,4 +128,8 @@ func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterC
 		ElectionTimeout: int(output.ElectionTimeout),
 		LeaderHeartbeat: int(output.LeaderHeartbeat),
 	}, nil
+}
+
+func (p *rpcClientPort) Shutdown(peer domain.Peer) {
+	p.adapter.Shutdown(peer.Target(), &p2pRpc.Nil{})
 }

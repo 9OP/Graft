@@ -111,6 +111,7 @@ func RemoveClusterPeer(oldPeer domain.Peer) error {
 	}
 
 	// 4. Shutdown peer
+	client.Shutdown(oldPeer)
 
 	return nil
 }

@@ -1,15 +1,18 @@
 package rpc
 
 import (
+	"fmt"
+
 	"graft/pkg/domain"
 )
 
 type service struct {
 	node *domain.Node
+	quit chan struct{}
 }
 
-func NewService(node *domain.Node) *service {
-	return &service{node}
+func NewService(node *domain.Node, quit chan struct{}) *service {
+	return &service{node, quit}
 }
 
 func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
@@ -106,4 +109,9 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
+}
+
+func (s service) Shutdown() {
+	fmt.Println("shutdown")
+	close(s.quit)
 }

@@ -162,14 +162,13 @@ timeouts:
   heartbeat: 30 # ms
 ```
 
-```sh
-# Start cluster, stay in follower mode / idle as long as there are no peers
-graft start [name|ip|port|port] -c <config>
+TODO:
+what happen when removing a node ?
+=> create log configuration update logs (deactivate + remove)
+=> if add back, it will also create 2 update logs
 
-# Add nodes to the cluster -a -p are addr and port of an existing cluster node
-graft membership -a ... -p ... add [name|ip|port|port]
-graft membership -a ... -p ... add [name|ip|port|port]
-graft membership -a ... -p ... add [name|ip|port|port]
-
-# Config is sent by the existing node to the others
-```
+But, bug when
+=> start cluster with node
+=> remove node, the node is alone now and cannot give peers info when
+   requested the cluster config. Should not happen because starting a single
+   node cluster is weird.
