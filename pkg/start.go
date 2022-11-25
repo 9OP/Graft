@@ -22,8 +22,9 @@ func Start(
 	peers domain.Peers,
 	electionTimeout int,
 	leaderHeartbeat int,
-	quit chan struct{},
-) {
+) chan struct{} {
+	quit := make(chan struct{})
+
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
@@ -51,12 +52,13 @@ func Start(
 
 	// Infrastructure
 	core := server.NewRunner(coreService)
-	rpc := server.NewRpc(grpcServerAdapter)
+	rpc := server.NewRpc(grpcServerAdapter, host.Port())
 
 	// Start servers
 	// TODO: servers should return err
-	go rpc.Start(host.Port())
+	// Should stop servers when one raise an error
+	go rpc.Start()
 	go core.Start()
 
-	<-quit
+	return quit
 }

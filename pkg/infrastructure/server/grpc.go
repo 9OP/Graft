@@ -4,27 +4,47 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
 
 	"graft/pkg/infrastructure/adapter/p2pRpc"
-
-	log "github.com/sirupsen/logrus"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 type rpcServer struct {
-	api p2pRpc.RpcServer
+	api  p2pRpc.RpcServer
+	port uint16
 }
 
-func NewRpc(api p2pRpc.RpcServer) *rpcServer {
-	return &rpcServer{api}
+func NewRpc(api p2pRpc.RpcServer, port uint16) *rpcServer {
+	return &rpcServer{api, port}
 }
 
-func (r *rpcServer) Start(port uint16) {
-	grpcServer := createGrpcServer(r.api)
-	lis := getListennerOrFail(port)
-	serveOrFail(grpcServer, lis)
+func (r *rpcServer) Start() error {
+	addr, err := netip.ParseAddrPort(fmt.Sprintf("127.0.0.1:%v", r.port))
+	if err != nil {
+		return err
+	}
+
+	creds, err := loadTLSCredentials()
+	if err != nil {
+		return err
+	}
+
+	server := grpc.NewServer(grpc.Creds(creds))
+	p2pRpc.RegisterRpcServer(server, r.api)
+
+	lis, err := net.Listen("tcp", addr.String())
+	if err != nil {
+		return err
+	}
+
+	if err := server.Serve(lis); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func loadTLSCredentials() (credentials.TransportCredentials, error) {
@@ -41,31 +61,4 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	}
 
 	return credentials.NewTLS(config), nil
-}
-
-func getListennerOrFail(port uint16) net.Listener {
-	addr := fmt.Sprintf("%s:%v", "127.0.0.1", port)
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		log.Fatalf("FAILED TO LISTEN\n\t%v\n", err)
-	}
-	return lis
-}
-
-func serveOrFail(server *grpc.Server, lis net.Listener) {
-	if err := server.Serve(lis); err != nil {
-		log.Fatalf("FAILED TO SERVE\n\t%v\n", err)
-	}
-}
-
-func createGrpcServer(apis ...p2pRpc.RpcServer) *grpc.Server {
-	creds, err := loadTLSCredentials()
-	if err != nil {
-		log.Fatalf("Failed to setup TLS: %v", err)
-	}
-	server := grpc.NewServer(grpc.Creds(creds))
-	for _, api := range apis {
-		p2pRpc.RegisterRpcServer(server, api)
-	}
-	return server
 }

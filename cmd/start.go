@@ -78,14 +78,21 @@ var startCmd = &cobra.Command{
 		utils.ConfigureLogger(level.String())
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
-		quit := make(chan struct{})
 		isClusterProvided := cmd.Flags().Changed("cluster")
 
 		if isClusterProvided {
 			clusterPeer := domain.Peer{Host: cluster.AddrPort}
 			newPeer := domain.Peer{Id: id, Host: host, Active: false}
 
-			return pkg.AddClusterPeer(newPeer, clusterPeer, quit)
+			quit, err := pkg.AddClusterPeer(newPeer, clusterPeer)
+			if err != nil {
+				return err
+			}
+
+			// wait
+			<-quit
+			return nil
+
 		} else {
 			cf, err := loadConfiguration(config)
 			if err != nil {
@@ -100,15 +107,16 @@ var startCmd = &cobra.Command{
 				},
 			}
 
-			pkg.Start(
+			quit := pkg.Start(
 				id,
 				host,
 				peers,
 				cf.Timeouts.Election,
 				cf.Timeouts.Heartbeat,
-				quit,
 			)
 
+			// wait
+			<-quit
 			return nil
 		}
 	},

@@ -172,3 +172,9 @@ But, bug when
 => remove node, the node is alone now and cannot give peers info when
    requested the cluster config. Should not happen because starting a single
    node cluster is weird.
+
+  25/11
+  todo
+  - error handling start server
+  - "" rpc execute
+  - execute cmd

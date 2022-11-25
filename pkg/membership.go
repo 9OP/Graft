@@ -9,7 +9,7 @@ import (
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 )
 
-func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan struct{}) error {
+func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}, error) {
 	// 1. Get cluster leader
 	leaderNotFound := false
 	leader, err := getClusterLeader(clusterPeer)
@@ -19,7 +19,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 	case errLeaderNotFound:
 		leaderNotFound = true
 	default:
-		return err
+		return nil, err
 	}
 
 	if leaderNotFound {
@@ -30,7 +30,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		// the cluster configuration is potentially stale
 		config, err := client.ClusterConfiguration(clusterPeer)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// newPeer is unknown to the cluster configuration
@@ -38,18 +38,19 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		// Because leader is not found, we cannot perform
 		// a cluster config update
 		if p, ok := config.Peers[newPeer.Id]; !ok || !p.Active {
-			return errLeaderNotFound
+			return nil, errLeaderNotFound
 		}
 
 		// 2. Start newPeer
-		go Start(
+		quit := Start(
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
-			quit,
 		)
+
+		return quit, nil
 
 	} else {
 		// Cluster configuration is up to date, because it is from the leader
@@ -61,18 +62,17 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		if !newPeerIsKnown {
 			err = executeConfigurationUpdate(domain.ConfAddPeer, newPeer, *leader)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 
 		// 3. Start newPeer
-		go Start(
+		quit := Start(
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
-			quit,
 		)
 
 		// 4. Set newPeer to active
@@ -80,15 +80,12 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer, quit chan stru
 		if !newPeerIsKnown || !newPeerFromLeader.Active {
 			err = executeConfigurationUpdate(domain.ConfActivatePeer, newPeer, *leader)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
+
+		return quit, nil
 	}
-
-	// Block forever: crado
-	<-make(chan int)
-
-	return nil
 }
 
 func RemoveClusterPeer(oldPeer domain.Peer) error {
