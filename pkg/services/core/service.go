@@ -27,10 +27,10 @@ func NewService(
 	node *domain.Node,
 	client client,
 	persister persister,
-) *service {
+) service {
 	config := node.GetClusterConfiguration()
 	timeout := newTimeout(config.ElectionTimeout, config.LeaderHeartbeat)
-	return &service{
+	return service{
 		client:  client,
 		timeout: timeout,
 		node:    node,
@@ -38,7 +38,7 @@ func NewService(
 	}
 }
 
-func (s *service) Run() {
+func (s service) Run() {
 	for {
 		switch s.node.Role() {
 		case domain.Follower:
@@ -51,7 +51,7 @@ func (s *service) Run() {
 	}
 }
 
-func (s *service) followerFlow() {
+func (s service) followerFlow() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
@@ -60,7 +60,7 @@ func (s *service) followerFlow() {
 	}
 }
 
-func (s *service) candidateFlow() {
+func (s service) candidateFlow() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
@@ -71,7 +71,7 @@ func (s *service) candidateFlow() {
 	}
 }
 
-func (s *service) leaderFlow() {
+func (s service) leaderFlow() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
@@ -83,7 +83,7 @@ func (s *service) leaderFlow() {
 	}
 }
 
-func (s *service) runFollower() {
+func (s service) runFollower() {
 	for s.node.Role() == domain.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
@@ -104,7 +104,7 @@ func (s *service) runFollower() {
 	}
 }
 
-func (s *service) runCandidate() {
+func (s service) runCandidate() {
 	for s.node.Role() == domain.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
@@ -125,7 +125,7 @@ func (s *service) runCandidate() {
 	}
 }
 
-func (s *service) runLeader() {
+func (s service) runLeader() {
 	for s.node.Role() == domain.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
@@ -153,21 +153,21 @@ func (s *service) runLeader() {
 	}
 }
 
-func (s *service) commit() {
+func (s service) commit() {
 	if s.sync.committing.Lock() {
 		defer s.sync.committing.Unlock()
 		s.node.ApplyLogs()
 	}
 }
 
-func (s *service) saveState() {
+func (s service) saveState() {
 	if s.sync.saving.Lock() {
 		defer s.sync.saving.Unlock()
 		s.persist.Save(s.node.ToPersistent())
 	}
 }
 
-func (s *service) runElection() bool {
+func (s service) runElection() bool {
 	// Prevent candidate with outdated logs
 	// From running election
 	if !s.preVote() {
@@ -180,7 +180,7 @@ func (s *service) runElection() bool {
 	return s.requestVote()
 }
 
-func (s *service) preVote() bool {
+func (s service) preVote() bool {
 	input := s.node.RequestVoteInput()
 	quorum := s.node.Quorum()
 	var prevotesGranted uint32 = 1 // vote for self
@@ -198,7 +198,7 @@ func (s *service) preVote() bool {
 	return quorumReached
 }
 
-func (s *service) requestVote() bool {
+func (s service) requestVote() bool {
 	input := s.node.RequestVoteInput()
 	quorum := s.node.Quorum()
 	var votesGranted uint32 = 1 // vote for self
@@ -221,7 +221,7 @@ func (s *service) requestVote() bool {
 	return isCandidate && quorumReached
 }
 
-func (s *service) heartbeat() bool {
+func (s service) heartbeat() bool {
 	quorumReached := s.synchronizeLogs()
 
 	if s.node.Role() == domain.Leader {
@@ -231,7 +231,7 @@ func (s *service) heartbeat() bool {
 	return quorumReached
 }
 
-func (s *service) synchronizeLogs() bool {
+func (s service) synchronizeLogs() bool {
 	quorum := s.node.Quorum()
 	var peersAlive uint32 = 1 // self
 
@@ -256,7 +256,6 @@ func (s *service) synchronizeLogs() bool {
 		}
 	}
 	s.node.Broadcast(synchroniseLogsRoutine, domain.BroadcastAll)
-
 	quorumReached := int(peersAlive) >= quorum
 	return quorumReached
 }

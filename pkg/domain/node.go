@@ -111,11 +111,11 @@ func (n *Node) swapState(s interface{}) {
 	n.saveState()
 }
 
-func (n Node) GetState() state {
+func (n *Node) GetState() state {
 	return *n.state
 }
 
-func (n Node) GetClusterConfiguration() ClusterConfiguration {
+func (n *Node) GetClusterConfiguration() ClusterConfiguration {
 	return ClusterConfiguration{
 		Peers:           utils.CopyMap(n.peers),
 		LeaderId:        n.leaderId,
@@ -129,7 +129,7 @@ func (n *Node) Shutdown() {
 	n.DowngradeFollower(n.currentTerm)
 }
 
-func (n Node) IsShuttingDown() bool {
+func (n *Node) IsShuttingDown() bool {
 	return n.exit
 }
 
@@ -198,7 +198,7 @@ func (n *Node) UpgradeLeader() {
 	log.Warn("CANNOT UPGRADE LEADER FOR ", n.Role())
 }
 
-func (n Node) Heartbeat() {
+func (n *Node) Heartbeat() {
 	n.resetTimeout()
 }
 
@@ -210,7 +210,7 @@ const (
 	BroadcastInactive
 )
 
-func (n Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
+func (n *Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
 	var wg sync.WaitGroup
 	var peers Peers
 
@@ -351,7 +351,7 @@ func (n *Node) ApplyLogs() {
 	}
 }
 
-func (n Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
+func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
 	result := make(chan ExecuteOutput, 1)
 	newEntry := LogEntry{
 		Index: uint64(n.lastLogIndex()),
@@ -366,7 +366,7 @@ func (n Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
 	return result
 }
 
-func (n Node) dispatch(entry LogEntry) {
+func (n *Node) dispatch(entry LogEntry) {
 	n.AppendLogs(n.lastLogIndex(), entry)
 	n.synchronizeLogs()
 }

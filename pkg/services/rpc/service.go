@@ -18,7 +18,7 @@ func NewService(node *domain.Node, client client, quit chan struct{}) *service {
 	return &service{node, quit, client}
 }
 
-func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
+func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	if !s.node.IsActivePeer(input.LeaderId) {
 		return nil, domain.ErrNotActive
 	}
@@ -53,7 +53,7 @@ func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.Appen
 	return output, nil
 }
 
-func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
@@ -84,7 +84,7 @@ func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVo
 	return output, nil
 }
 
-func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
@@ -107,7 +107,7 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	return output, nil
 }
 
-func (s *service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
@@ -151,12 +151,12 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 	return nil
 }
 
-func (s *service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
+func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }
 
-func (s *service) Shutdown() {
+func (s service) Shutdown() {
 	fmt.Println("shutting down in 3s")
 
 	s.node.Shutdown()
@@ -167,7 +167,7 @@ func (s *service) Shutdown() {
 	})
 }
 
-func (s *service) Ping() error {
+func (s service) Ping() error {
 	if s.node.IsShuttingDown() {
 		return domain.ErrShuttingDown
 	}
