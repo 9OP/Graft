@@ -45,7 +45,7 @@ func Start(
 
 	// Services
 	coreService := core.NewService(node, rpcClientPort, persisterPort)
-	rpcService := rpc.NewService(node, quit)
+	rpcService := rpc.NewService(node, rpcClientPort, quit)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(rpcService)

@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -8,12 +9,13 @@ import (
 )
 
 type service struct {
-	node *domain.Node
-	quit chan struct{}
+	node   *domain.Node
+	quit   chan struct{}
+	client client
 }
 
-func NewService(node *domain.Node, quit chan struct{}) *service {
-	return &service{node, quit}
+func NewService(node *domain.Node, client client, quit chan struct{}) *service {
+	return &service{node, quit, client}
 }
 
 func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
@@ -86,14 +88,13 @@ func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOu
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
+	if !s.node.IsActivePeer(input.CandidateId) {
+		return nil, domain.ErrNotActive
+	}
 
 	output := &domain.RequestVoteOutput{
 		Term:        s.node.CurrentTerm(),
 		VoteGranted: false,
-	}
-
-	if !s.node.IsActivePeer(input.CandidateId) {
-		return output, nil
 	}
 
 	hasLeader := s.node.HasLeader()
@@ -116,20 +117,38 @@ func (s *service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, er
 		return nil, domain.ErrNotLeader
 	}
 
-	// // Confirm the node is up before activating it.
-	// if entry.Type == LogConfiguration {
-	// 	var config ConfigurationUpdate
-	// 	json.Unmarshal(entry.Data, &config)
-	// 	if config.Type == ConfActivatePeer {
-
-	// 	}
-	// }
+	if err := s.validateExecuteInput(input); err != nil {
+		return nil, err
+	}
 
 	res := <-s.node.ExecuteCommand(*input)
 
 	// Should we separate res.Err and error ? arent they the same ?
 
 	return &res, nil
+}
+
+func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
+	// Before activating a node
+	// We need to confirm that the node is up
+	// And that we can communicate with it.
+	// Example: the new node is behing a NAT and we can connect to it.
+
+	// This is necessary because adding multiple node behing NATs
+	// Could break the cluster by updating the Quorum with unreachable
+	// nodes.
+	if input.Type == domain.LogConfiguration {
+		var config domain.ConfigurationUpdate
+		json.Unmarshal(input.Data, &config)
+
+		if config.Type == domain.ConfActivatePeer {
+			if err := s.client.Ping(config.Peer); err != nil {
+				return domain.ErrUnreachable
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {

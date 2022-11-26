@@ -16,7 +16,7 @@ type synchronise struct {
 
 type service struct {
 	node    *domain.Node
-	repo    repository
+	client  client
 	persist persister
 
 	timeout *timeout
@@ -25,13 +25,13 @@ type service struct {
 
 func NewService(
 	node *domain.Node,
-	repository repository,
+	client client,
 	persister persister,
 ) *service {
 	config := node.GetClusterConfiguration()
 	timeout := newTimeout(config.ElectionTimeout, config.LeaderHeartbeat)
 	return &service{
-		repo:    repository,
+		client:  client,
 		timeout: timeout,
 		node:    node,
 		persist: persister,
@@ -186,7 +186,7 @@ func (s *service) preVote() bool {
 	var prevotesGranted uint32 = 1 // vote for self
 
 	preVoteRoutine := func(p domain.Peer) {
-		if res, err := s.repo.PreVote(p, &input); err == nil {
+		if res, err := s.client.PreVote(p, &input); err == nil {
 			if res.VoteGranted {
 				atomic.AddUint32(&prevotesGranted, 1)
 			}
@@ -204,7 +204,7 @@ func (s *service) requestVote() bool {
 	var votesGranted uint32 = 1 // vote for self
 
 	gatherVotesRoutine := func(p domain.Peer) {
-		if res, err := s.repo.RequestVote(p, &input); err == nil {
+		if res, err := s.client.RequestVote(p, &input); err == nil {
 			if res.Term > s.node.CurrentTerm() {
 				s.node.DowngradeFollower(res.Term)
 				return
@@ -237,7 +237,7 @@ func (s *service) synchronizeLogs() bool {
 
 	synchroniseLogsRoutine := func(p domain.Peer) {
 		input := s.node.AppendEntriesInput(p.Id)
-		if res, err := s.repo.AppendEntries(p, &input); err == nil {
+		if res, err := s.client.AppendEntries(p, &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)
 			if res.Term > s.node.CurrentTerm() {
 				s.node.DowngradeFollower(res.Term)

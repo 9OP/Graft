@@ -14,3 +14,7 @@ type UseCase interface {
 	Shutdown()
 	Ping() error
 }
+
+type client interface {
+	Ping(peer domain.Peer) error
+}
