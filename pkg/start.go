@@ -27,7 +27,7 @@ func Start(
 	quit := make(chan struct{})
 
 	// Driven port/adapter (domain -> infra)
-	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
+	grpcClientAdapter := secondaryAdapter.NewClusterClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)

@@ -5,18 +5,19 @@ import (
 	"net/netip"
 
 	"graft/pkg/domain"
-	"graft/pkg/infrastructure/adapter/p2pRpc"
+	"graft/pkg/infrastructure/adapter/clusterRpc"
 )
 
 type ClientAdapter interface {
-	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
-	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
+	AppendEntries(target string, input *clusterRpc.AppendEntriesInput) (*clusterRpc.AppendEntriesOutput, error)
+	RequestVote(target string, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error)
+	PreVote(target string, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error)
 	//
-	Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
-	ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
-	Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
-	Ping(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
+	Execute(target string, input *clusterRpc.ExecuteInput) (*clusterRpc.ExecuteOutput, error)
+	LeadershipTransfer(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
+	ClusterConfiguration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error)
+	Shutdown(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
+	Ping(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
 }
 
 type rpcClientPort struct {
@@ -28,10 +29,10 @@ func NewRpcClientPort(adapter ClientAdapter) *rpcClientPort {
 }
 
 func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
-	entries := make([]*p2pRpc.LogEntry, 0, len(input.Entries))
+	entries := make([]*clusterRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
-		logType := p2pRpc.LogType(p2pRpc.LogType_value[log.Type.String()])
-		entry := &p2pRpc.LogEntry{
+		logType := clusterRpc.LogType(clusterRpc.LogType_value[log.Type.String()])
+		entry := &clusterRpc.LogEntry{
 			Index: log.Index,
 			Term:  log.Term,
 			Data:  log.Data,
@@ -40,7 +41,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 		entries = append(entries, entry)
 	}
 
-	output, err := p.adapter.AppendEntries(peer.Target(), &p2pRpc.AppendEntriesInput{
+	output, err := p.adapter.AppendEntries(peer.Target(), &clusterRpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
@@ -59,7 +60,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 }
 
 func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	output, err := p.adapter.RequestVote(peer.Target(), &p2pRpc.RequestVoteInput{
+	output, err := p.adapter.RequestVote(peer.Target(), &clusterRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
@@ -76,7 +77,7 @@ func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteI
 }
 
 func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	output, err := p.adapter.PreVote(peer.Target(), &p2pRpc.RequestVoteInput{
+	output, err := p.adapter.PreVote(peer.Target(), &clusterRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
@@ -93,8 +94,8 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 }
 
 func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
-	output, err := p.adapter.Execute(peer.Target(), &p2pRpc.ExecuteInput{
-		Type: p2pRpc.LogType(input.Type),
+	output, err := p.adapter.Execute(peer.Target(), &clusterRpc.ExecuteInput{
+		Type: clusterRpc.LogType(input.Type),
 		Data: input.Data,
 	})
 	if err != nil {
@@ -108,7 +109,7 @@ func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*
 }
 
 func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
-	output, err := p.adapter.ClusterConfiguration(peer.Target(), &p2pRpc.Nil{})
+	output, err := p.adapter.ClusterConfiguration(peer.Target(), &clusterRpc.Nil{})
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +133,11 @@ func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterC
 }
 
 func (p *rpcClientPort) Shutdown(peer domain.Peer) error {
-	_, err := p.adapter.Shutdown(peer.Target(), &p2pRpc.Nil{})
+	_, err := p.adapter.Shutdown(peer.Target(), &clusterRpc.Nil{})
 	return err
 }
 
 func (p *rpcClientPort) Ping(peer domain.Peer) error {
-	_, err := p.adapter.Ping(peer.Target(), &p2pRpc.Nil{})
+	_, err := p.adapter.Ping(peer.Target(), &clusterRpc.Nil{})
 	return err
 }

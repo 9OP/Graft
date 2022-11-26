@@ -11,10 +11,12 @@ type UseCase interface {
 	//
 	Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error)
 	ClusterConfiguration() (*domain.ClusterConfiguration, error)
+	LeadershipTransfer() error
 	Shutdown()
 	Ping() error
 }
 
 type client interface {
+	PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 	Ping(peer domain.Peer) error
 }

@@ -112,7 +112,7 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 }
 
 var (
-	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
+	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
 	errLeaderNotFound = errors.New("leader not found")
 )
 

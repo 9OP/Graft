@@ -3,6 +3,7 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"graft/pkg/domain"
@@ -97,10 +98,9 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 		VoteGranted: false,
 	}
 
-	hasLeader := s.node.HasLeader()
 	isUpToDate := s.node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
 
-	if !hasLeader && isUpToDate {
+	if isUpToDate {
 		output.VoteGranted = true
 	}
 
@@ -149,6 +149,39 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 	}
 
 	return nil
+}
+
+func (s service) LeadershipTransfer() error {
+	if s.node.IsShuttingDown() {
+		return domain.ErrShuttingDown
+	}
+
+	if !s.preVote() {
+		return domain.ErrPreVoteFailed
+	}
+
+	s.node.UpgradeCandidate()
+
+	return nil
+}
+
+// Copied from core/service
+func (s service) preVote() bool {
+	input := s.node.RequestVoteInput()
+	quorum := s.node.Quorum()
+	var prevotesGranted uint32 = 1 // vote for self
+
+	preVoteRoutine := func(p domain.Peer) {
+		if res, err := s.client.PreVote(p, &input); err == nil {
+			if res.VoteGranted {
+				atomic.AddUint32(&prevotesGranted, 1)
+			}
+		}
+	}
+	s.node.Broadcast(preVoteRoutine, domain.BroadcastActive)
+
+	quorumReached := int(prevotesGranted) >= quorum
+	return quorumReached
 }
 
 func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
