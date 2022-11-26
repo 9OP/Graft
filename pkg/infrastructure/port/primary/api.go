@@ -119,7 +119,7 @@ func (p *rpcServerPort) LeadershipTransfer(ctx context.Context, input *clusterRp
 }
 
 func (p *rpcServerPort) Configuration(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
-	output, err := p.adapter.ClusterConfiguration()
+	output, err := p.adapter.Configuration()
 	if err != nil {
 		return nil, err
 	}

@@ -13,17 +13,7 @@ import (
 var stopCmd = &cobra.Command{
 	Use:   "stop [<ip>:<port>]",
 	Short: "Shutdown node",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			return err
-		}
-
-		if _, err := netip.ParseAddrPort(args[0]); err != nil {
-			return err
-		}
-
-		return nil
-	},
+	Args:  argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())

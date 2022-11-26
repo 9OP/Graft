@@ -29,7 +29,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}
 
 		// Fall back to a cluster peer to fetch the configuration
 		// the cluster configuration is potentially stale
-		config, err := client.ClusterConfiguration(clusterPeer)
+		config, err := client.Configuration(clusterPeer)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +55,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}
 
 	} else {
 		// Cluster configuration is up to date, because it is from the leader
-		config, _ := client.ClusterConfiguration(*leader)
+		config, _ := client.Configuration(*leader)
 
 		// 2. Add newPeer to cluster configuration
 		// only if unknown
@@ -111,10 +111,12 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 	return nil
 }
 
-var (
-	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
-	errLeaderNotFound = errors.New("leader not found")
-)
+func LeadeshipTransfer(peer domain.Peer) error {
+	if err := client.LeadershipTransfer(peer); err != nil {
+		return fmt.Errorf("cannot transfer leadership: %w", err)
+	}
+	return nil
+}
 
 func Shutdown(peer domain.Peer) error {
 	if err := client.Shutdown(peer); err != nil {
@@ -129,11 +131,16 @@ func ClusterConfiguration(clusterPeer domain.Peer) (*domain.ClusterConfiguration
 		return nil, err
 	}
 
-	return client.ClusterConfiguration(*leader)
+	return client.Configuration(*leader)
 }
 
+var (
+	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
+	errLeaderNotFound = errors.New("leader not found")
+)
+
 func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
-	config, err := client.ClusterConfiguration(clusterPeer)
+	config, err := client.Configuration(clusterPeer)
 	if err != nil {
 		return nil, fmt.Errorf("cannot load cluster configuration: %w", err)
 	}
@@ -145,7 +152,7 @@ func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 
 	// Otherwise ask known peers about the leader
 	for _, peer := range config.Peers {
-		config, err := client.ClusterConfiguration(peer)
+		config, err := client.Configuration(peer)
 		if err != nil {
 			// No worries, peer might be out
 			// ask the next one for leader info

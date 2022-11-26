@@ -10,7 +10,7 @@ type UseCase interface {
 	PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 	//
 	Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error)
-	ClusterConfiguration() (*domain.ClusterConfiguration, error)
+	Configuration() (*domain.ClusterConfiguration, error)
 	LeadershipTransfer() error
 	Shutdown()
 	Ping() error

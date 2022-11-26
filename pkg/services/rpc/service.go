@@ -161,6 +161,7 @@ func (s service) LeadershipTransfer() error {
 	}
 
 	s.node.UpgradeCandidate()
+	s.node.IncrementCandidateTerm()
 
 	return nil
 }
@@ -184,7 +185,7 @@ func (s service) preVote() bool {
 	return quorumReached
 }
 
-func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
+func (s service) Configuration() (*domain.ClusterConfiguration, error) {
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }

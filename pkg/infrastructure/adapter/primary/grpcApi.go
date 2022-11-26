@@ -38,7 +38,7 @@ func (s *grpcApi) LeadershipTransfer(ctx context.Context, input *clusterRpc.Nil)
 	return s.adapter.LeadershipTransfer(ctx, input)
 }
 
-func (s *grpcApi) ClusterConfiguration(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
+func (s *grpcApi) Configuration(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
 	return s.adapter.Configuration(ctx, input)
 }
 

@@ -15,7 +15,7 @@ type ClientAdapter interface {
 	//
 	Execute(target string, input *clusterRpc.ExecuteInput) (*clusterRpc.ExecuteOutput, error)
 	LeadershipTransfer(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
-	ClusterConfiguration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error)
+	Configuration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error)
 	Shutdown(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
 	Ping(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
 }
@@ -108,8 +108,13 @@ func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*
 	}, nil
 }
 
-func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
-	output, err := p.adapter.ClusterConfiguration(peer.Target(), &clusterRpc.Nil{})
+func (p *rpcClientPort) LeadershipTransfer(peer domain.Peer) error {
+	_, err := p.adapter.LeadershipTransfer(peer.Target(), &clusterRpc.Nil{})
+	return err
+}
+
+func (p *rpcClientPort) Configuration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
+	output, err := p.adapter.Configuration(peer.Target(), &clusterRpc.Nil{})
 	if err != nil {
 		return nil, err
 	}

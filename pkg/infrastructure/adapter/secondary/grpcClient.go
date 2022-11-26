@@ -120,7 +120,7 @@ func (r *clusterClient) LeadershipTransfer(target string, input *clusterRpc.Nil)
 		})
 }
 
-func (r *clusterClient) ClusterConfiguration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
+func (r *clusterClient) Configuration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 

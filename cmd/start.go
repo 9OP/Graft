@@ -56,17 +56,7 @@ func hashString(str string) string {
 var startCmd = &cobra.Command{
 	Use:   "start [<ip>:<port>]",
 	Short: "Start a new cluster",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			return err
-		}
-
-		if _, err := netip.ParseAddrPort(args[0]); err != nil {
-			return err
-		}
-
-		return nil
-	},
+	Args:  argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		utils.ConfigureLogger(level.String())
 		host, _ := netip.ParseAddrPort(args[0])
