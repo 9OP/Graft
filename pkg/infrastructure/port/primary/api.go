@@ -16,6 +16,7 @@ type ServerAdapter interface {
 	Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
 	ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
 	Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
+	Ping(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
 }
 
 type rpcServerPort struct {
@@ -136,4 +137,9 @@ func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.
 func (p *rpcServerPort) Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
 	p.adapter.Shutdown()
 	return &p2pRpc.Nil{}, nil
+}
+
+func (p *rpcServerPort) Ping(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	err := p.adapter.Ping()
+	return &p2pRpc.Nil{}, err
 }

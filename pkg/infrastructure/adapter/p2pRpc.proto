@@ -69,6 +69,7 @@ service Rpc {
     // Rename Configuration
     rpc ClusterConfiguration(nil) returns (ClusterConfigurationOutput) {}
     rpc Shutdown(nil) returns (nil) {}
+    rpc Ping(nil) returns (nil) {}
 }
 
 message ExecuteInput {

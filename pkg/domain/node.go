@@ -351,7 +351,7 @@ func (n *Node) ApplyLogs() {
 	}
 }
 
-func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
+func (n Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
 	result := make(chan ExecuteOutput, 1)
 	newEntry := LogEntry{
 		Index: uint64(n.lastLogIndex()),
@@ -361,12 +361,14 @@ func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
 		C:     result,
 	}
 
-	go (func() {
-		n.AppendLogs(n.lastLogIndex(), newEntry)
-		n.synchronizeLogs()
-	})()
+	go n.dispatch(newEntry)
 
 	return result
+}
+
+func (n Node) dispatch(entry LogEntry) {
+	n.AppendLogs(n.lastLogIndex(), entry)
+	n.synchronizeLogs()
 }
 
 // func (c ClusterNode) ExecuteQuery(query string) chan domain.ExecuteOutput {

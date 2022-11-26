@@ -130,3 +130,14 @@ func (r *grpcClient) Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, er
 			return c.Shutdown(ctx, input)
 		})
 }
+
+func (r *grpcClient) Ping(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+			return c.Ping(ctx, input)
+		})
+}

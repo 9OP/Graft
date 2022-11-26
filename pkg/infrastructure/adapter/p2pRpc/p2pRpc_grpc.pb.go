@@ -32,6 +32,7 @@ type RpcClient interface {
 	// Rename Configuration
 	ClusterConfiguration(ctx context.Context, in *Nil, opts ...grpc.CallOption) (*ClusterConfigurationOutput, error)
 	Shutdown(ctx context.Context, in *Nil, opts ...grpc.CallOption) (*Nil, error)
+	Ping(ctx context.Context, in *Nil, opts ...grpc.CallOption) (*Nil, error)
 }
 
 type rpcClient struct {
@@ -105,6 +106,15 @@ func (c *rpcClient) Shutdown(ctx context.Context, in *Nil, opts ...grpc.CallOpti
 	return out, nil
 }
 
+func (c *rpcClient) Ping(ctx context.Context, in *Nil, opts ...grpc.CallOption) (*Nil, error) {
+	out := new(Nil)
+	err := c.cc.Invoke(ctx, "/p2pRpc.Rpc/Ping", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RpcServer is the server API for Rpc service.
 // All implementations must embed UnimplementedRpcServer
 // for forward compatibility
@@ -118,6 +128,7 @@ type RpcServer interface {
 	// Rename Configuration
 	ClusterConfiguration(context.Context, *Nil) (*ClusterConfigurationOutput, error)
 	Shutdown(context.Context, *Nil) (*Nil, error)
+	Ping(context.Context, *Nil) (*Nil, error)
 	mustEmbedUnimplementedRpcServer()
 }
 
@@ -150,6 +161,10 @@ func (UnimplementedRpcServer) ClusterConfiguration(context.Context, *Nil) (*Clus
 
 func (UnimplementedRpcServer) Shutdown(context.Context, *Nil) (*Nil, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Shutdown not implemented")
+}
+
+func (UnimplementedRpcServer) Ping(context.Context, *Nil) (*Nil, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
 func (UnimplementedRpcServer) mustEmbedUnimplementedRpcServer() {}
 
@@ -290,6 +305,24 @@ func _Rpc_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Rpc_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Nil)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RpcServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/p2pRpc.Rpc/Ping",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RpcServer).Ping(ctx, req.(*Nil))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Rpc_ServiceDesc is the grpc.ServiceDesc for Rpc service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -324,6 +357,10 @@ var Rpc_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Shutdown",
 			Handler:    _Rpc_Shutdown_Handler,
+		},
+		{
+			MethodName: "Ping",
+			Handler:    _Rpc_Ping_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

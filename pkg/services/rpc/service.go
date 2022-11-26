@@ -116,6 +116,15 @@ func (s *service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, er
 		return nil, domain.ErrNotLeader
 	}
 
+	// // Confirm the node is up before activating it.
+	// if entry.Type == LogConfiguration {
+	// 	var config ConfigurationUpdate
+	// 	json.Unmarshal(entry.Data, &config)
+	// 	if config.Type == ConfActivatePeer {
+
+	// 	}
+	// }
+
 	res := <-s.node.ExecuteCommand(*input)
 
 	// Should we separate res.Err and error ? arent they the same ?
@@ -137,4 +146,11 @@ func (s *service) Shutdown() {
 		fmt.Println("shutdown")
 		close(s.quit)
 	})
+}
+
+func (s *service) Ping() error {
+	if s.node.IsShuttingDown() {
+		return domain.ErrShuttingDown
+	}
+	return nil
 }

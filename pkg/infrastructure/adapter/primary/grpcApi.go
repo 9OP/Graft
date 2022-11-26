@@ -41,3 +41,7 @@ func (s *grpcApi) ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (
 func (s *grpcApi) Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
 	return s.adapter.Shutdown(ctx, input)
 }
+
+func (s *grpcApi) Ping(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	return s.adapter.Ping(ctx, input)
+}

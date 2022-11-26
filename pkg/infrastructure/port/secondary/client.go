@@ -16,6 +16,7 @@ type ClientAdapter interface {
 	Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
 	ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
 	Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
+	Ping(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
 }
 
 type rpcClientPort struct {
@@ -132,5 +133,10 @@ func (p *rpcClientPort) ClusterConfiguration(peer domain.Peer) (*domain.ClusterC
 
 func (p *rpcClientPort) Shutdown(peer domain.Peer) error {
 	_, err := p.adapter.Shutdown(peer.Target(), &p2pRpc.Nil{})
+	return err
+}
+
+func (p *rpcClientPort) Ping(peer domain.Peer) error {
+	_, err := p.adapter.Ping(peer.Target(), &p2pRpc.Nil{})
 	return err
 }
