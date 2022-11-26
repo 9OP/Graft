@@ -15,12 +15,6 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type UseCaseGrpcClient interface {
-	AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
-	RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-}
-
 type grpcClient struct{}
 
 func NewGrpcClient() *grpcClient {
@@ -48,7 +42,13 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 	return credentials.NewTLS(config), nil
 }
 
-func withClient[K *p2pRpc.AppendEntriesOutput | *p2pRpc.RequestVoteOutput](target string, fn func(c p2pRpc.RpcClient) (K, error)) (K, error) {
+func withClient[
+	K *p2pRpc.AppendEntriesOutput |
+		*p2pRpc.RequestVoteOutput |
+		*p2pRpc.ClusterConfigurationOutput |
+		*p2pRpc.ExecuteOutput |
+		*p2pRpc.Nil](target string, fn func(c p2pRpc.RpcClient) (K, error),
+) (K, error) {
 	// Dial options
 	creds, err := loadTLSCredentials()
 	if err != nil {
@@ -95,5 +95,49 @@ func (r *grpcClient) PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2
 		target,
 		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
 			return c.PreVote(ctx, input)
+		})
+}
+
+func (r *grpcClient) Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.ExecuteOutput, error) {
+			return c.Execute(ctx, input)
+		})
+}
+
+func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.ClusterConfigurationOutput, error) {
+			return c.ClusterConfiguration(ctx, input)
+		})
+}
+
+func (r *grpcClient) Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+			return c.Shutdown(ctx, input)
+		})
+}
+
+func (r *grpcClient) Ping(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+			return c.Ping(ctx, input)
 		})
 }

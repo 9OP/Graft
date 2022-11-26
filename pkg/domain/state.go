@@ -93,11 +93,35 @@ func (s state) withLeaderInitialization() state {
 	return s
 }
 
+func (s state) withPeers(peers Peers) state {
+	s.peers = peers
+	return s
+}
+
+func (s state) IsActivePeer(peerId string) bool {
+	if peer, ok := s.peers[peerId]; ok {
+		return peer.Active
+	}
+	return false
+}
+
+func (s state) activePeers() Peers {
+	activePeers := make(Peers, len(s.peers))
+	for peerId, peer := range s.peers {
+		if peer.Active {
+			activePeers[peerId] = peer
+		}
+	}
+	return activePeers
+}
+
 // Quorum is defined as the absolute majority of nodes:
 // (N + 1) / 2, where N is the number of nodes in the cluster
 // which can recover from up to (N - 1) / 2 failures
 func (s state) Quorum() int {
-	numberNodes := float64(len(s.peers) + 1) // add self
+	activePeers := s.activePeers()
+	delete(activePeers, s.id)
+	numberNodes := float64(len(activePeers) + 1) // add self
 	return int(math.Ceil((numberNodes + 1) / 2.0))
 }
 
@@ -149,11 +173,11 @@ func (s state) nextIndexForPeer(peerId string) uint32 {
 	if idx, ok := s.nextIndex[peerId]; ok {
 		return idx
 	}
-	return 0
+	return s.lastLogIndex()
 }
 
 func (s state) withNextIndex(peerId string, index uint32) state {
-	if idx, ok := s.nextIndex[peerId]; (idx == index && ok) || !ok {
+	if idx, ok := s.nextIndex[peerId]; idx == index && ok {
 		return s
 	}
 	nextIndex := utils.CopyMap(s.nextIndex)
@@ -163,9 +187,10 @@ func (s state) withNextIndex(peerId string, index uint32) state {
 }
 
 func (s state) withDecrementNextIndex(peerId string) state {
-	if idx, ok := s.nextIndex[peerId]; ok && idx > 0 {
+	if idx := s.nextIndexForPeer(peerId); idx > 0 {
 		return s.withNextIndex(peerId, idx-1)
 	}
+
 	return s
 }
 
@@ -177,7 +202,7 @@ func (s state) matchIndexForPeer(peerId string) uint32 {
 }
 
 func (s state) withMatchIndex(peerId string, index uint32) state {
-	if idx, ok := s.matchIndex[peerId]; (idx == index && ok) || !ok {
+	if idx, ok := s.matchIndex[peerId]; idx == index && ok {
 		return s
 	}
 	matchIndex := utils.CopyMap(s.matchIndex)

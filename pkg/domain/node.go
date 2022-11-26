@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"encoding/json"
+	"errors"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -65,19 +68,30 @@ func (s signals) resetTimeout() {
 	s.ResetElectionTimer <- struct{}{}
 }
 
+type NodeConfig struct {
+	Id              string
+	Host            netip.AddrPort
+	ElectionTimeout int
+	LeaderHeartbeat int
+}
+
 type Node struct {
 	*state
 	signals
+	config NodeConfig
+	exit   bool
 }
 
 func NewNode(
-	id string,
+	config NodeConfig,
 	peers Peers,
 	persistent PersistentState,
 ) *Node {
 	return &Node{
-		state:   newState(id, peers, persistent),
+		state:   newState(config.Id, peers, persistent),
 		signals: newSignals(),
+		config:  config,
+		exit:    false,
 	}
 }
 
@@ -97,8 +111,26 @@ func (n *Node) swapState(s interface{}) {
 	n.saveState()
 }
 
-func (n Node) GetState() state {
+func (n *Node) GetState() state {
 	return *n.state
+}
+
+func (n *Node) GetClusterConfiguration() ClusterConfiguration {
+	return ClusterConfiguration{
+		Peers:           utils.CopyMap(n.peers),
+		LeaderId:        n.leaderId,
+		ElectionTimeout: n.config.ElectionTimeout,
+		LeaderHeartbeat: n.config.LeaderHeartbeat,
+	}
+}
+
+func (n *Node) Shutdown() {
+	n.exit = true
+	n.DowngradeFollower(n.currentTerm)
+}
+
+func (n *Node) IsShuttingDown() bool {
+	return n.exit
 }
 
 func (n *Node) DowngradeFollower(term uint32) {
@@ -127,6 +159,10 @@ func (n *Node) IncrementCandidateTerm() {
 }
 
 func (n *Node) UpgradeCandidate() {
+	if n.exit {
+		return
+	}
+
 	if n.Role() == Follower {
 		log.Info("UPGRADE TO CANDIDATE")
 		newState := n.
@@ -162,13 +198,35 @@ func (n *Node) UpgradeLeader() {
 	log.Warn("CANNOT UPGRADE LEADER FOR ", n.Role())
 }
 
-func (n Node) Heartbeat() {
+func (n *Node) Heartbeat() {
 	n.resetTimeout()
 }
 
-func (n Node) Broadcast(fn func(p Peer)) {
+type BroadcastType uint8
+
+const (
+	BroadcastAll BroadcastType = iota
+	BroadcastActive
+	BroadcastInactive
+)
+
+func (n *Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
 	var wg sync.WaitGroup
-	for _, peer := range n.peers {
+	var peers Peers
+
+	switch broadcastType {
+	case BroadcastAll:
+		peers = utils.CopyMap(n.peers)
+	case BroadcastActive:
+		peers = n.activePeers()
+	default:
+		peers = Peers{}
+	}
+
+	// Prevent sending requests to itself
+	delete(peers, n.id)
+
+	for _, peer := range peers {
 		wg.Add(1)
 		go func(p Peer, w *sync.WaitGroup) {
 			defer w.Done()
@@ -245,30 +303,133 @@ func (n *Node) GrantVote(peerId string) {
 }
 
 func (n *Node) ApplyLogs() {
+	if n.exit {
+		return
+	}
+
+	hasApply := false
 	commitIndex := n.commitIndex
 	lastApplied := n.lastApplied
 
 	for lastApplied < commitIndex {
+		hasApply = true
 		// if lastApplied == 0 {
 		// 	c.initFsm()
 		// }
+
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
 		if log, err := n.Log(lastApplied); err == nil {
-			if log.Type != LogCommand {
+			switch log.Type {
+			case LogCommand:
+				// do command
+				// res := c.evalFsm(log.Value, "COMMAND")
+				// if log.C != nil {
+				// 	log.C <- res
+				// }
+			case LogConfiguration:
+
+				var config ConfigurationUpdate
+				if err := json.Unmarshal(log.Data, &config); err == nil {
+					if res := n.configurationUpdate(config); log.C != nil {
+						log.C <- res
+					}
+				}
+			case LogNoop:
+				continue
+			default:
 				continue
 			}
-			// res := c.evalFsm(log.Value, "COMMAND")
-			// if log.C != nil {
-			// 	log.C <- res
-			// }
 		}
 	}
 
 	// Swap only once
-	if lastApplied > n.lastApplied {
+	if hasApply {
 		newState := n.withLastApplied(lastApplied)
 		n.swapState(&newState)
 	}
+}
+
+func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
+	result := make(chan ExecuteOutput, 1)
+	newEntry := LogEntry{
+		Index: uint64(n.lastLogIndex()),
+		Term:  n.currentTerm,
+		Type:  cmd.Type,
+		Data:  cmd.Data,
+		C:     result,
+	}
+
+	go n.dispatch(newEntry)
+
+	return result
+}
+
+func (n *Node) dispatch(entry LogEntry) {
+	n.AppendLogs(n.lastLogIndex(), entry)
+	n.synchronizeLogs()
+}
+
+// func (c ClusterNode) ExecuteQuery(query string) chan domain.ExecuteOutput {
+// 	result := make(chan domain.ExecuteOutput, 1)
+// 	go (func() { result <- c.evalFsm(query, "QUERY") })()
+// 	return result
+// }
+
+var (
+	errPeerAlreadyExists = errors.New("peer already exists")
+	errPeerDoesNotExist  = errors.New("peer does not exist")
+)
+
+func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutput) {
+	res = ExecuteOutput{
+		Out: nil,
+		Err: nil,
+	}
+
+	var peers Peers
+	peer := config.Peer
+
+	switch config.Type {
+	case ConfAddPeer:
+		if p, ok := n.peers[peer.Id]; ok && p.Active {
+			res.Err = errPeerAlreadyExists
+			return
+		}
+		log.Info("configuration update: add peer", peer.Id)
+		peer.Active = false
+		peers = n.peers.addPeer(peer)
+
+	case ConfActivatePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
+		log.Info("configuration update: activate peer", peer.Id)
+		peers = n.peers.activatePeer(peer.Id)
+
+	case ConfDeactivatePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
+		log.Info("configuration update: deactivate peer", peer.Id)
+		peers = n.peers.deactivatePeer(peer.Id)
+
+	case ConfRemovePeer:
+		if _, ok := n.peers[peer.Id]; !ok {
+			res.Err = errPeerDoesNotExist
+			return
+		}
+		log.Info("configuration update: remove peer", peer.Id)
+		peers = n.peers.removePeer(peer.Id)
+
+	default:
+		return
+	}
+
+	newState := n.withPeers(peers)
+	n.swapState(&newState)
+	return
 }

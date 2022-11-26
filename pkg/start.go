@@ -1,6 +1,10 @@
 package pkg
 
 import (
+	"fmt"
+	"log"
+	"net/netip"
+
 	"graft/pkg/domain"
 
 	primaryAdapter "graft/pkg/infrastructure/adapter/primary"
@@ -9,53 +13,56 @@ import (
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 	"graft/pkg/infrastructure/server"
 
-	"graft/pkg/services/api"
 	"graft/pkg/services/core"
 	"graft/pkg/services/rpc"
-	"graft/pkg/utils"
 )
 
 func Start(
 	id string,
+	host netip.AddrPort,
 	peers domain.Peers,
-	persistentLocation string,
 	electionTimeout int,
-	heartbeatTimeout int,
-	rpcPort string,
-	apiPort string,
-	fsmInit string,
-	fsmEval string,
-	logLevel string,
-) {
-	utils.ConfigureLogger(logLevel)
+	leaderHeartbeat int,
+) chan struct{} {
+	quit := make(chan struct{})
 
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewGrpcClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
-	persisterPort := secondaryPort.NewPersisterPort(persistentLocation, jsonPersisterAdapter)
+	persisterPort := secondaryPort.NewPersisterPort(fmt.Sprintf(".%s.json", id), jsonPersisterAdapter)
 
 	// Domain
 	persistent, _ := persisterPort.Load()
-	node := domain.NewNode(id, peers, persistent)
+	config := domain.NodeConfig{
+		Id:              id,
+		Host:            host,
+		ElectionTimeout: electionTimeout,
+		LeaderHeartbeat: leaderHeartbeat,
+	}
+	node := domain.NewNode(config, peers, persistent)
 
 	// Services
-	coreService := core.NewService(node, rpcClientPort, persisterPort, electionTimeout, heartbeatTimeout)
-	rpcService := rpc.NewService(node)
-	apiService := api.NewService(node)
+	coreService := core.NewService(node, rpcClientPort, persisterPort)
+	rpcService := rpc.NewService(node, rpcClientPort, quit)
 
 	// Driving port/adapter (infra -> domain)
 	rpcServerPort := primaryPort.NewRpcServerPort(rpcService)
 	grpcServerAdapter := primaryAdapter.NewGrpcApi(rpcServerPort)
 
 	// Infrastructure
-	runnerServer := server.NewRunner(coreService)
-	grpcServer := server.NewRpc(grpcServerAdapter)
-	clusterServer := server.NewClusterServer(apiService)
+	core := server.NewRunner(coreService)
+	rpc := server.NewRpc(grpcServerAdapter, host.Port())
 
-	// Start servers: p2p rpc, API and runner
-	go grpcServer.Start(rpcPort)
-	go clusterServer.Start(apiPort)
-	runnerServer.Start()
+	// Start servers
+	go (func() {
+		err := rpc.Start()
+		if err != nil {
+			log.Fatalf("Cannot start rpc server: %v", err)
+		}
+	})()
+	go core.Start()
+
+	return quit
 }

@@ -1,14 +1,22 @@
 package cmd
 
 import (
-	"fmt"
+	"crypto/sha1"
+	"encoding/hex"
+	"net/netip"
 	"os"
 
 	"graft/pkg"
 	"graft/pkg/domain"
+	"graft/pkg/utils"
 
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
+)
+
+var (
+	level  = INFO
+	config string
 )
 
 type configuration struct {
@@ -20,13 +28,6 @@ type configuration struct {
 		Election  int `yaml:"election"`
 		Heartbeat int `yaml:"heartbeat"`
 	}
-	Peers map[string]struct {
-		Host  string `yaml:"host"`
-		Ports struct {
-			P2p string `yaml:"p2p"`
-			Api string `yaml:"api"`
-		} `yaml:"ports"`
-	} `yaml:"peers"`
 }
 
 func loadConfiguration(path string) (*configuration, error) {
@@ -46,103 +47,61 @@ func loadConfiguration(path string) (*configuration, error) {
 	return &cfg, nil
 }
 
-type logLevel string
-
-const (
-	DEBUG logLevel = "DEBUG"
-	INFO  logLevel = "INFO"
-	ERROR logLevel = "ERROR"
-)
-
-func (l *logLevel) String() string {
-	return string(*l)
+func hashString(str string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(str))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
-
-func (l *logLevel) Set(v string) error {
-	switch v {
-	case "DEBUG", "INFO", "ERROR":
-		*l = logLevel(v)
-		return nil
-	default:
-		return fmt.Errorf("must be one of 'DEBUG', 'INFO', or 'ERROR'")
-	}
-}
-
-func (l *logLevel) Type() string {
-	return "logLevel"
-}
-
-var (
-	level      = INFO
-	configPath string
-	config     *configuration
-	peers      domain.Peers
-)
 
 var startCmd = &cobra.Command{
-	Use:   "start [peer]",
-	Short: "Start a cluster node",
+	Use:   "start [<ip>:<port>]",
+	Short: "Start a new cluster",
 	Args: func(cmd *cobra.Command, args []string) error {
-		// Custom args validator
-		// ensures that passed `peer` is declared
-		// in the configuration file.
-
-		configPath, _ := cmd.Flags().GetString("config")
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
 		}
 
-		id := args[0]
-		c, err := loadConfiguration(configPath)
+		if _, err := netip.ParseAddrPort(args[0]); err != nil {
+			return err
+		}
+
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		utils.ConfigureLogger(level.String())
+		host, _ := netip.ParseAddrPort(args[0])
+		id := hashString(host.String())
+
+		cf, err := loadConfiguration(config)
 		if err != nil {
 			return err
 		}
 
-		config = c
-		if _, ok := config.Peers[id]; ok {
-			// Validate peers format
-			validPeers := domain.Peers{}
-			for peerId, peer := range config.Peers {
-				validPeer, err := domain.NewPeer(peerId, peer.Host, peer.Ports.P2p, peer.Ports.Api)
-				if err != nil {
-					return err
-				}
-				if peerId == id {
-					continue
-				}
-				validPeers[peerId] = *validPeer
-			}
-			peers = validPeers
-			return nil
+		peers := domain.Peers{
+			id: domain.Peer{
+				Id:     id,
+				Host:   host,
+				Active: true,
+			},
 		}
 
-		peers := make([]string, 0, len(config.Peers))
-		for k := range config.Peers {
-			peers = append(peers, k)
-		}
-		return fmt.Errorf(" invalid peer: %s\n\tauthorised peers: %s", id, peers)
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		id := args[0]
-		persistentLocation := fmt.Sprintf("conf/persistent_%s.json", id)
-
-		pkg.Start(
+		quit := pkg.Start(
 			id,
+			host,
 			peers,
-			persistentLocation,
-			config.Timeouts.Election,
-			config.Timeouts.Heartbeat,
-			config.Peers[id].Ports.P2p,
-			config.Peers[id].Ports.Api,
-			config.Fsm.Init,
-			config.Fsm.Eval,
-			level.String(),
+			cf.Timeouts.Election,
+			cf.Timeouts.Heartbeat,
 		)
+
+		// wait
+		<-quit
+		return nil
 	},
 }
 
 func init() {
-	startCmd.Flags().VarP(&level, "log-level", "l", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
-	startCmd.Flags().StringVarP(&configPath, "config", "c", "conf/graft-config.yml", "Configuration file path")
+	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
+	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
+
 	rootCmd.AddCommand(startCmd)
 }

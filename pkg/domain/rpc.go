@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type AppendEntriesInput struct {
 	LeaderId     string
@@ -26,10 +29,30 @@ type RequestVoteOutput struct {
 	VoteGranted bool
 }
 
+type ExecuteInput struct {
+	Type LogType
+	Data []byte
+}
+
+type ExecuteOutput struct {
+	Out []byte
+	Err error
+}
+
+// TODO add Date value
+type LogEntry struct {
+	Index uint64             `json:"index"`
+	Term  uint32             `json:"term"`
+	Data  []byte             `json:"value"`
+	Type  LogType            `json:"type"`
+	C     chan ExecuteOutput `json:"-"`
+}
+
 type LogType uint8
 
 const (
 	LogCommand LogType = iota
+	LogQuery
 	LogNoop
 	LogConfiguration
 )
@@ -38,6 +61,8 @@ func (lt LogType) String() string {
 	switch lt {
 	case LogCommand:
 		return "LogCommand"
+	case LogQuery:
+		return "LogQuery"
 	case LogNoop:
 		return "LogNoop"
 	case LogConfiguration:
@@ -47,15 +72,31 @@ func (lt LogType) String() string {
 	}
 }
 
-type LogEntry struct {
-	Index uint64          `json:"index"`
-	Term  uint32          `json:"term"`
-	Data  []byte          `json:"value"`
-	Type  LogType         `json:"type"`
-	C     chan EvalResult `json:"-"`
+type ConfigurationUpdateType uint8
+
+const (
+	ConfAddPeer ConfigurationUpdateType = iota
+	ConfActivatePeer
+	ConfDeactivatePeer
+	ConfRemovePeer
+)
+
+type ConfigurationUpdate struct {
+	Type ConfigurationUpdateType
+	Peer
 }
 
-type EvalResult struct {
-	Out []byte
-	Err error
+type ClusterConfiguration struct {
+	Peers           Peers
+	LeaderId        string
+	ElectionTimeout int
+	LeaderHeartbeat int
+}
+
+func (c ClusterConfiguration) ToJSON() ([]byte, error) {
+	data, err := json.MarshalIndent(c, "", "\t")
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

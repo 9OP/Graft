@@ -97,13 +97,12 @@ curl  -X GET  -H 'Content-Type: text/plain' --data "SELECT * FROM users;" http:/
 
 ```
 TODO:
-- Client command (support for leader redirection)
 - FSM execution bindings
 - API error sanitization
-- Mutual TLS
-- API (command/query) TLS
 - Document graph of deps / hexagonal architecture
-- Rename the use case and the servers
+- (done) Client command (support for leader redirection)
+- (done) Mutual TLS
+- (done) Rename the use case and the servers
 - (done) Log level sanitization
 - (done) Refactor FSM state => immutable, return copy, Getters/Withers
 ```
@@ -118,8 +117,49 @@ DONE:
 - Pre vote
 
 TODO:
-- Log compaction
 - Membership change
+  - remove node
+- Log compaction
 - Leadership transfer execution
 
 ```
+
+```sh
+# Start / stop node
+graft start [node] -c <cluster-config-path>
+graft stop [node]
+
+# Update cluster config
+graft cluster [cluster] add [node]
+graft cluster [cluster] remove [node]
+graft cluster [cluster] leader [node] # TODO
+graft cluster [cluster] configuration
+
+# Send command/query
+graft execute [cluster] command [cmd] # TODO
+graft execute [cluster] query [qry] # TODO
+# Should support sending files, bytes data
+```
+TODO:
+What happen when starting a node but the cluster cannot connect back ? Ex Node behind a NAT ?
+
+
+TODO:
+graceful stop grpc when quit
+
+TODO:
+what happen when removing a node ?
+=> create log configuration update logs (deactivate + remove)
+=> if add back, it will also create 2 update logs
+
+But, bug when
+=> start cluster with node
+=> remove node, the node is alone now and cannot give peers info when
+   requested the cluster config. Should not happen because starting a single
+   node cluster is weird.
+
+  25/11
+  todo
+  - error handling start server
+  - "" rpc execute
+  - execute cmd

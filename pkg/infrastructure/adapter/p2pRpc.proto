@@ -4,12 +4,14 @@ package p2pRpc;
 
 option go_package = "./p2pRpc";
 
+enum LogType {
+    LogCommand = 0;
+    LogQuery = 1;
+    LogNoop = 2;
+    LogConfiguration = 3;
+}
+
 message LogEntry {
-    enum LogType {
-        LogCommand = 0;
-        LogNoop = 1;
-        LogConfiguration = 2;
-    }
     uint64 index = 1;
     uint32 term = 2;
     bytes data = 3;
@@ -55,9 +57,46 @@ message InstallSnapshotOutput {
     uint32 term = 1;
 }
 
+
+// Rename service P2P
 service Rpc {
     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
     rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
+    // Move to different service named Cluster
+    rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
+    // Rename Configuration
+    rpc ClusterConfiguration(nil) returns (ClusterConfigurationOutput) {}
+    rpc Shutdown(nil) returns (nil) {}
+    rpc Ping(nil) returns (nil) {}
 }
+
+message ExecuteInput {
+    LogType type = 1;
+    bytes data = 2;
+}
+
+message ExecuteOutput {
+    bytes data = 1;
+    string err = 2;
+}
+
+message Peer {
+    string id = 1;
+    string host = 2;
+    bool active = 3;
+}
+
+message nil {}
+
+message ClusterConfigurationOutput {
+    uint32 electionTimeout = 1;
+    uint32 leaderHeartbeat = 2;
+    string leaderId = 3;
+    map<string, Peer> peers = 4;
+}
+
+
+// service Api {
+// }
