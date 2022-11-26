@@ -35,19 +35,49 @@ func TestHasLeader(t *testing.T) {
 func TestWithInitializeLeader(t *testing.T) {
 }
 
+func TestActivePeers(t *testing.T) {
+	peers := Peers{
+		"1": Peer{Active: true},
+		"2": Peer{Active: false, Id: "2"},
+		"3": Peer{Active: false},
+		"4": Peer{},
+	}
+	expected := Peers{
+		"1": Peer{Active: true},
+	}
+
+	state := state{peers: peers}
+	activePeers := state.activePeers()
+
+	if !reflect.DeepEqual(activePeers, expected) {
+		t.Errorf("active peers got %v, want %v", activePeers, expected)
+	}
+
+	// Mutate
+	p := peers["2"]
+	p.Active = true
+	peers["2"] = p
+
+	if activePeers["2"].Active == true {
+		t.Errorf("mutate copy")
+	}
+}
+
 func TestQuorum(t *testing.T) {
-	p := Peer{}
+	p1 := Peer{Active: true}
+	p2 := Peer{Active: false}
 	res := []struct {
 		// state
 		peers Peers
 		// output
 		quorum int
 	}{
-		{Peers{"peer1": p, "peer2": p}, 2},                         // tolerate 1 failure
-		{Peers{"peer1": p, "peer2": p, "peer3": p}, 3},             // tolerate 1 failure
-		{Peers{"peer1": p, "peer2": p, "peer3": p, "peer4": p}, 3}, // tolerate 2 failures
-		{Peers{"peer1": p}, 2},                                     // tolerate 0 failure
-		{Peers{}, 1},                                               // tolerate 0 failure
+		{Peers{"peer1": p1, "peer2": p1}, 2},                           // tolerate 1 failure
+		{Peers{"peer1": p1, "peer2": p1, "peer3": p1}, 3},              // tolerate 1 failure
+		{Peers{"peer1": p1, "peer2": p1, "peer3": p1, "peer4": p1}, 3}, // tolerate 2 failures
+		{Peers{"peer1": p1}, 2},                                        // tolerate 0 failure
+		{Peers{"peer1": p1, "peer2": p2, "peer3": p2}, 2},
+		{Peers{}, 1}, // tolerate 0 failure
 	}
 	for _, tt := range res {
 		t.Run(fmt.Sprintf("%v", tt.peers), func(t *testing.T) {
@@ -219,7 +249,7 @@ func TestComputeNewCommitIndex(t *testing.T) {
 		{Term: 10, Data: []byte("val6")},
 	}
 	// 4 + 1 nodes cluster
-	p := Peer{}
+	p := Peer{Active: true}
 	peers := Peers{
 		"peer1": p,
 		"peer2": p,
@@ -299,7 +329,7 @@ func TestWithNextMatchIndex(t *testing.T) {
 	}{
 		{"peerId", 12, peerIndex{"peerId": 12}},
 		{"peerId", 10, peerIndex{"peerId": 10}},
-		{"newPeerId", 0, peerIndex{"peerId": 10}},
+		{"newPeerId", 0, peerIndex{"peerId": 10, "newPeerId": 0}},
 	}
 	for _, tt := range res {
 		t.Run(tt.peerId, func(t *testing.T) {

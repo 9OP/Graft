@@ -187,11 +187,6 @@ func (s state) withNextIndex(peerId string, index uint32) state {
 }
 
 func (s state) withDecrementNextIndex(peerId string) state {
-	// if idx, ok := s.nextIndex[peerId]; ok && idx > 0 {
-	// 	return s.withNextIndex(peerId, idx-1)
-	// }
-	// return s
-
 	if idx := s.nextIndexForPeer(peerId); idx > 0 {
 		return s.withNextIndex(peerId, idx-1)
 	}
