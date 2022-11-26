@@ -89,9 +89,9 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}
 	}
 }
 
-func RemoveClusterPeer(oldPeer domain.Peer) error {
+func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 	// 1. Get cluster leader
-	leader, err := getClusterLeader(oldPeer)
+	leader, err := getClusterLeader(clusterPeer)
 	if err != nil {
 		return err
 	}
@@ -108,12 +108,6 @@ func RemoveClusterPeer(oldPeer domain.Peer) error {
 		return err
 	}
 
-	// 4. Shutdown peer
-	err = Shutdown(oldPeer)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -123,7 +117,10 @@ var (
 )
 
 func Shutdown(peer domain.Peer) error {
-	return client.Shutdown(peer)
+	if err := client.Shutdown(peer); err != nil {
+		return fmt.Errorf("cannot shutdown %v: %w", peer.Host, err)
+	}
+	return nil
 }
 
 func ClusterConfiguration(clusterPeer domain.Peer) (*domain.ClusterConfiguration, error) {

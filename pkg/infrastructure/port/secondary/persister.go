@@ -33,5 +33,6 @@ func (p persisterPort) Load() (domain.PersistentState, error) {
 }
 
 func (p persisterPort) Save(state domain.PersistentState) error {
-	return p.adapter.Save(p.location, state.CurrentTerm, state.VotedFor, state.MachineLogs)
+	return nil // for development
+	// return p.adapter.Save(p.location, state.CurrentTerm, state.VotedFor, state.MachineLogs)
 }

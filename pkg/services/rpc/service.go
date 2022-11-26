@@ -16,73 +16,79 @@ func NewService(node *domain.Node, quit chan struct{}) *service {
 	return &service{node, quit}
 }
 
-func (s service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
-	node := s.node
+func (s *service) AppendEntries(input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
+	if !s.node.IsActivePeer(input.LeaderId) {
+		return nil, domain.ErrNotActive
+	}
 
 	output := &domain.AppendEntriesOutput{
-		Term:    node.CurrentTerm(),
+		Term:    s.node.CurrentTerm(),
 		Success: false,
 	}
-	if input.Term < node.CurrentTerm() || !s.node.IsActivePeer(input.LeaderId) {
+	if input.Term < s.node.CurrentTerm() {
 		return output, nil
 	}
-	if input.Term > node.CurrentTerm() {
-		node.DowngradeFollower(input.Term)
+	if input.Term > s.node.CurrentTerm() {
+		s.node.DowngradeFollower(input.Term)
 	}
 
-	node.SetLeader(input.LeaderId)
-	node.Heartbeat()
+	s.node.SetLeader(input.LeaderId)
+	s.node.Heartbeat()
 
-	localPrevLog, err := node.Log(input.PrevLogIndex)
+	localPrevLog, err := s.node.Log(input.PrevLogIndex)
 	if localPrevLog.Term == input.PrevLogTerm && err == nil {
-		node.AppendLogs(input.PrevLogIndex, input.Entries...)
+		s.node.AppendLogs(input.PrevLogIndex, input.Entries...)
 		output.Success = true
 	} else {
-		node.DeleteLogsFrom(input.PrevLogIndex)
+		s.node.DeleteLogsFrom(input.PrevLogIndex)
 	}
 
-	node.UpdateLeaderCommitIndex(input.LeaderCommit)
+	if !s.node.IsShuttingDown() {
+		// Prevent applying new logs when shutting down
+		s.node.UpdateLeaderCommitIndex(input.LeaderCommit)
+	}
 
 	return output, nil
 }
 
-func (s service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	node := s.node
+func (s *service) RequestVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
+	if !s.node.IsActivePeer(input.CandidateId) {
+		return nil, domain.ErrNotActive
+	}
 
 	output := &domain.RequestVoteOutput{
-		Term:        node.CurrentTerm(),
+		Term:        s.node.CurrentTerm(),
 		VoteGranted: false,
 	}
-	if input.Term < node.CurrentTerm() || !s.node.IsActivePeer(input.CandidateId) {
+	if input.Term < s.node.CurrentTerm() {
 		return output, nil
 	}
-	if input.Term > node.CurrentTerm() {
-		node.DowngradeFollower(input.Term)
+	if input.Term > s.node.CurrentTerm() {
+		s.node.DowngradeFollower(input.Term)
 	}
 
-	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
-	canGrantVote := node.CanGrantVote(input.CandidateId)
+	isUpToDate := s.node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
+	canGrantVote := s.node.CanGrantVote(input.CandidateId)
 
 	if canGrantVote && isUpToDate {
-		node.Heartbeat()
-		node.GrantVote(input.CandidateId)
+		s.node.Heartbeat()
+		s.node.GrantVote(input.CandidateId)
 		output.VoteGranted = true
 	}
 
 	return output, nil
 }
 
-func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	node := s.node
+func (s *service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
 
 	output := &domain.RequestVoteOutput{
-		Term:        node.CurrentTerm(),
+		Term:        s.node.CurrentTerm(),
 		VoteGranted: false,
 	}
 
@@ -90,8 +96,8 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 		return output, nil
 	}
 
-	hasLeader := node.HasLeader()
-	isUpToDate := node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
+	hasLeader := s.node.HasLeader()
+	isUpToDate := s.node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
 
 	if !hasLeader && isUpToDate {
 		output.VoteGranted = true
@@ -100,7 +106,7 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 	return output, nil
 }
 
-func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+func (s *service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
 	if s.node.IsShuttingDown() {
 		return nil, domain.ErrShuttingDown
 	}
@@ -117,12 +123,12 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 	return &res, nil
 }
 
-func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
+func (s *service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }
 
-func (s service) Shutdown() {
+func (s *service) Shutdown() {
 	fmt.Println("shutting down in 3s")
 
 	s.node.Shutdown()

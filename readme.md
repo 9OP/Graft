@@ -133,14 +133,15 @@ graft stop [node]
 graft cluster [cluster] add [node]
 graft cluster [cluster] remove [node]
 graft cluster [cluster] leader [node] # TODO
-graft cluster [cluster] configuration # TODO
+graft cluster [cluster] configuration
 
 # Send command/query
 graft execute [cluster] command [cmd] # TODO
 graft execute [cluster] query [qry] # TODO
 # Should support sending files, bytes data
 ```
-
+TODO:
+What happen when starting a node but the cluster cannot connect back ? Ex Node behind a NAT ?
 
 
 TODO:

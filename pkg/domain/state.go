@@ -173,11 +173,11 @@ func (s state) nextIndexForPeer(peerId string) uint32 {
 	if idx, ok := s.nextIndex[peerId]; ok {
 		return idx
 	}
-	return 0
+	return s.lastLogIndex()
 }
 
 func (s state) withNextIndex(peerId string, index uint32) state {
-	if idx, ok := s.nextIndex[peerId]; (idx == index && ok) || !ok {
+	if idx, ok := s.nextIndex[peerId]; idx == index && ok {
 		return s
 	}
 	nextIndex := utils.CopyMap(s.nextIndex)
@@ -187,9 +187,15 @@ func (s state) withNextIndex(peerId string, index uint32) state {
 }
 
 func (s state) withDecrementNextIndex(peerId string) state {
-	if idx, ok := s.nextIndex[peerId]; ok && idx > 0 {
+	// if idx, ok := s.nextIndex[peerId]; ok && idx > 0 {
+	// 	return s.withNextIndex(peerId, idx-1)
+	// }
+	// return s
+
+	if idx := s.nextIndexForPeer(peerId); idx > 0 {
 		return s.withNextIndex(peerId, idx-1)
 	}
+
 	return s
 }
 
@@ -201,7 +207,7 @@ func (s state) matchIndexForPeer(peerId string) uint32 {
 }
 
 func (s state) withMatchIndex(peerId string, index uint32) state {
-	if idx, ok := s.matchIndex[peerId]; (idx == index && ok) || !ok {
+	if idx, ok := s.matchIndex[peerId]; idx == index && ok {
 		return s
 	}
 	matchIndex := utils.CopyMap(s.matchIndex)

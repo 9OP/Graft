@@ -51,6 +51,8 @@ var addNodeCmd = &cobra.Command{
 	},
 }
 
+var shutdown bool
+
 var removeNodeCmd = &cobra.Command{
 	Use:   "remove [<ip>:<port>]",
 	Short: "Remove node from live cluster",
@@ -76,9 +78,18 @@ var removeNodeCmd = &cobra.Command{
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
 		peer := domain.Peer{Id: id, Host: host}
+		clusterPeer := domain.Peer{Host: cluster.AddrPort}
 
-		if err := pkg.RemoveClusterPeer(peer); err != nil {
+		if err := pkg.RemoveClusterPeer(peer, clusterPeer); err != nil {
 			return fmt.Errorf("did not remove cluster peer %s: %v", host, err.Error())
+		}
+
+		fmt.Printf("Node %v removed from cluster\n", peer.Host)
+
+		if shutdown {
+			if err := pkg.Shutdown(peer); err != nil {
+				return err
+			}
 		}
 
 		return nil
@@ -87,6 +98,7 @@ var removeNodeCmd = &cobra.Command{
 
 func init() {
 	addNodeCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
+	removeNodeCmd.Flags().BoolVarP(&shutdown, "shutdown", "s", false, "Shutdown node once removed")
 
 	clusterCmd.AddCommand(addNodeCmd)
 	clusterCmd.AddCommand(removeNodeCmd)
