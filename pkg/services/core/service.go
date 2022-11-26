@@ -57,9 +57,6 @@ func (s *service) followerFlow() {
 		defer s.sync.running.Unlock()
 
 		s.node.UpgradeCandidate()
-		if wonElection := s.runElection(); wonElection {
-			s.node.UpgradeLeader()
-		}
 	}
 }
 

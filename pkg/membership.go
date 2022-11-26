@@ -3,6 +3,7 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -117,20 +118,27 @@ func RemoveClusterPeer(oldPeer domain.Peer) error {
 }
 
 var (
-	client                      = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
-	errLeaderNotFound           = errors.New("leader not found")
-	errConfigurationNotFound    = errors.New("cannot fetch cluster configuration")
-	errApplyConfigurationUpdate = errors.New("cannot apply cluster configuration update")
+	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewGrpcClient())
+	errLeaderNotFound = errors.New("leader not found")
 )
 
 func Shutdown(peer domain.Peer) error {
 	return client.Shutdown(peer)
 }
 
+func ClusterConfiguration(clusterPeer domain.Peer) (*domain.ClusterConfiguration, error) {
+	leader, err := getClusterLeader(clusterPeer)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.ClusterConfiguration(*leader)
+}
+
 func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 	config, err := client.ClusterConfiguration(clusterPeer)
 	if err != nil {
-		return nil, errConfigurationNotFound
+		return nil, fmt.Errorf("cannot load cluster configuration: %w", err)
 	}
 
 	// If leader available, return it
@@ -169,7 +177,7 @@ func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.P
 		Data: data,
 	}
 	if _, err := client.Execute(leader, &input); err != nil {
-		return errApplyConfigurationUpdate
+		return fmt.Errorf("cannot apply cluster configuration update: %w", err)
 	}
 	return nil
 }

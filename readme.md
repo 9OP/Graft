@@ -97,12 +97,10 @@ curl  -X GET  -H 'Content-Type: text/plain' --data "SELECT * FROM users;" http:/
 
 ```
 TODO:
-- Client command (support for leader redirection)
-  - quit/shutdown rpc
 - FSM execution bindings
 - API error sanitization
-- API (command/query) TLS
 - Document graph of deps / hexagonal architecture
+- (done) Client command (support for leader redirection)
 - (done) Mutual TLS
 - (done) Rename the use case and the servers
 - (done) Log level sanitization
@@ -126,41 +124,27 @@ TODO:
 
 ```
 
-TODO:
-- design adding workflows adding new nodes, starting,/running nodes
-
-Problems:
-- Existing cluster config should be sent to joining node
-- Start a node remotely
-- Send cluster configuration to node
-- Update cluster configuration
-
-I think we can achieve all above use case with a single CLI command.
-
 ```sh
-# Start a node by id from the cluster config
-graft start [node-id] -c <cluster-config-path>
+# Start / stop node
+graft start [node] -c <cluster-config-path>
+graft stop [node]
 
 # Update cluster config
-graft membership -a ... -p ... add [node-definition]
-graft membership -a ... -p ... remove [node-id]
+graft cluster [cluster] add [node]
+graft cluster [cluster] remove [node]
+graft cluster [cluster] leader [node] # TODO
+graft cluster [cluster] configuration # TODO
 
-# When you want to add a new node to the cluster:
-# 1. start node with existing cluster config
-# 2. update cluster config
+# Send command/query
+graft execute [cluster] command [cmd] # TODO
+graft execute [cluster] query [qry] # TODO
+# Should support sending files, bytes data
 ```
 
-OR:
-```yaml
-# Config:
----
-fsm:
-  eval: conf/fsm_eval.py
-  init: conf/fsm_init.py
-timeouts:
-  election: 300 # ms
-  heartbeat: 30 # ms
-```
+
+
+TODO:
+graceful stop grpc when quit
 
 TODO:
 what happen when removing a node ?

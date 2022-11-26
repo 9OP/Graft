@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type AppendEntriesInput struct {
 	LeaderId     string
@@ -88,4 +91,12 @@ type ClusterConfiguration struct {
 	LeaderId        string
 	ElectionTimeout int
 	LeaderHeartbeat int
+}
+
+func (c ClusterConfiguration) ToJSON() ([]byte, error) {
+	data, err := json.MarshalIndent(c, "", "\t")
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }

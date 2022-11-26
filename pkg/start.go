@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"log"
 	"net/netip"
 
 	"graft/pkg/domain"
@@ -55,9 +56,12 @@ func Start(
 	rpc := server.NewRpc(grpcServerAdapter, host.Port())
 
 	// Start servers
-	// TODO: servers should return err
-	// Should stop servers when one raise an error
-	go rpc.Start()
+	go (func() {
+		err := rpc.Start()
+		if err != nil {
+			log.Fatalf("Cannot start rpc server: %v", err)
+		}
+	})()
 	go core.Start()
 
 	return quit

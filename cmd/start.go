@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	level       = INFO
-	config      string
-	persistence bool
+	level  = INFO
+	config string
 )
 
 type configuration struct {
@@ -55,14 +54,8 @@ func hashString(str string) string {
 }
 
 var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "Start a cluster node",
-	Long: `Start a cluster node:
-
-	This command allows to:
-	- starts a new cluster (start the first node)
-	- start a new node and append an existing cluster config
-	`,
+	Use:   "start [<ip>:<port>]",
+	Short: "Start a new cluster",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -78,57 +71,37 @@ var startCmd = &cobra.Command{
 		utils.ConfigureLogger(level.String())
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
-		isClusterProvided := cmd.Flags().Changed("cluster")
 
-		if isClusterProvided {
-			clusterPeer := domain.Peer{Host: cluster.AddrPort}
-			newPeer := domain.Peer{Id: id, Host: host, Active: false}
-
-			quit, err := pkg.AddClusterPeer(newPeer, clusterPeer)
-			if err != nil {
-				return err
-			}
-
-			// wait
-			<-quit
-			return nil
-
-		} else {
-			cf, err := loadConfiguration(config)
-			if err != nil {
-				return err
-			}
-
-			peers := domain.Peers{
-				id: domain.Peer{
-					Id:     id,
-					Host:   host,
-					Active: true,
-				},
-			}
-
-			quit := pkg.Start(
-				id,
-				host,
-				peers,
-				cf.Timeouts.Election,
-				cf.Timeouts.Heartbeat,
-			)
-
-			// wait
-			<-quit
-			return nil
+		cf, err := loadConfiguration(config)
+		if err != nil {
+			return err
 		}
+
+		peers := domain.Peers{
+			id: domain.Peer{
+				Id:     id,
+				Host:   host,
+				Active: true,
+			},
+		}
+
+		quit := pkg.Start(
+			id,
+			host,
+			peers,
+			cf.Timeouts.Election,
+			cf.Timeouts.Heartbeat,
+		)
+
+		// wait
+		<-quit
+		return nil
 	},
 }
 
 func init() {
-	startCmd.Flags().BoolVar(&persistence, "persistence", true, "Persist state")
 	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
 	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
-
-	// This is a debug flag to prevent creating persistence
-	startCmd.Flag("persistence").Hidden = true
 
 	rootCmd.AddCommand(startCmd)
 }
