@@ -6,18 +6,18 @@ import (
 	"net"
 	"net/netip"
 
-	"graft/pkg/infrastructure/adapter/p2pRpc"
+	"graft/pkg/infrastructure/adapter/clusterRpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
 type rpcServer struct {
-	api  p2pRpc.RpcServer
+	api  clusterRpc.ClusterServer
 	port uint16
 }
 
-func NewRpc(api p2pRpc.RpcServer, port uint16) *rpcServer {
+func NewRpc(api clusterRpc.ClusterServer, port uint16) *rpcServer {
 	return &rpcServer{api, port}
 }
 
@@ -33,7 +33,7 @@ func (r *rpcServer) Start() error {
 	}
 
 	server := grpc.NewServer(grpc.Creds(creds))
-	p2pRpc.RegisterRpcServer(server, r.api)
+	clusterRpc.RegisterClusterServer(server, r.api)
 
 	lis, err := net.Listen("tcp", addr.String())
 	if err != nil {

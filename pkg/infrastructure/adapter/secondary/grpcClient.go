@@ -9,16 +9,16 @@ import (
 	"os"
 	"time"
 
-	"graft/pkg/infrastructure/adapter/p2pRpc"
+	"graft/pkg/infrastructure/adapter/clusterRpc"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
-type grpcClient struct{}
+type clusterClient struct{}
 
-func NewGrpcClient() *grpcClient {
-	return &grpcClient{}
+func NewClusterClient() *clusterClient {
+	return &clusterClient{}
 }
 
 func loadTLSCredentials() (credentials.TransportCredentials, error) {
@@ -43,11 +43,11 @@ func loadTLSCredentials() (credentials.TransportCredentials, error) {
 }
 
 func withClient[
-	K *p2pRpc.AppendEntriesOutput |
-		*p2pRpc.RequestVoteOutput |
-		*p2pRpc.ClusterConfigurationOutput |
-		*p2pRpc.ExecuteOutput |
-		*p2pRpc.Nil](target string, fn func(c p2pRpc.RpcClient) (K, error),
+	K *clusterRpc.AppendEntriesOutput |
+		*clusterRpc.RequestVoteOutput |
+		*clusterRpc.ConfigurationOutput |
+		*clusterRpc.ExecuteOutput |
+		*clusterRpc.Nil](target string, fn func(c clusterRpc.ClusterClient) (K, error),
 ) (K, error) {
 	// Dial options
 	creds, err := loadTLSCredentials()
@@ -61,83 +61,94 @@ func withClient[
 	}
 
 	defer conn.Close()
-	c := p2pRpc.NewRpcClient(conn)
+	c := clusterRpc.NewClusterClient(conn)
 	return fn(c)
 }
 
-func (r *grpcClient) AppendEntries(target string, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
+func (r *clusterClient) AppendEntries(target string, input *clusterRpc.AppendEntriesInput) (*clusterRpc.AppendEntriesOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.AppendEntriesOutput, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.AppendEntriesOutput, error) {
 			return c.AppendEntries(ctx, input)
 		})
 }
 
-func (r *grpcClient) RequestVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+func (r *clusterClient) RequestVote(target string, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.RequestVoteOutput, error) {
 			return c.RequestVote(ctx, input)
 		})
 }
 
-func (r *grpcClient) PreVote(target string, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+func (r *clusterClient) PreVote(target string, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.RequestVoteOutput, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.RequestVoteOutput, error) {
 			return c.PreVote(ctx, input)
 		})
 }
 
-func (r *grpcClient) Execute(target string, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
+func (r *clusterClient) Execute(target string, input *clusterRpc.ExecuteInput) (*clusterRpc.ExecuteOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.ExecuteOutput, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.ExecuteOutput, error) {
 			return c.Execute(ctx, input)
 		})
 }
 
-func (r *grpcClient) ClusterConfiguration(target string, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
+func (r *clusterClient) LeadershipTransfer(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.ClusterConfigurationOutput, error) {
-			return c.ClusterConfiguration(ctx, input)
+		func(c clusterRpc.ClusterClient) (*clusterRpc.Nil, error) {
+			return c.LeadershipTransfer(ctx, input)
 		})
 }
 
-func (r *grpcClient) Shutdown(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+func (r *clusterClient) Configuration(target string, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.ConfigurationOutput, error) {
+			return c.Configuration(ctx, input)
+		})
+}
+
+func (r *clusterClient) Shutdown(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
+	defer cancel()
+
+	return withClient(
+		target,
+		func(c clusterRpc.ClusterClient) (*clusterRpc.Nil, error) {
 			return c.Shutdown(ctx, input)
 		})
 }
 
-func (r *grpcClient) Ping(target string, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+func (r *clusterClient) Ping(target string, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 350*time.Millisecond)
 	defer cancel()
 
 	return withClient(
 		target,
-		func(c p2pRpc.RpcClient) (*p2pRpc.Nil, error) {
+		func(c clusterRpc.ClusterClient) (*clusterRpc.Nil, error) {
 			return c.Ping(ctx, input)
 		})
 }

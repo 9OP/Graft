@@ -4,19 +4,21 @@ import (
 	"context"
 
 	"graft/pkg/domain"
-	"graft/pkg/infrastructure/adapter/p2pRpc"
+	"graft/pkg/infrastructure/adapter/clusterRpc"
 	"graft/pkg/services/rpc"
 )
 
 type ServerAdapter interface {
-	AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error)
-	RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error)
-	//
-	Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error)
-	ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error)
-	Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
-	Ping(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error)
+	// P2P
+	AppendEntries(ctx context.Context, input *clusterRpc.AppendEntriesInput) (*clusterRpc.AppendEntriesOutput, error)
+	RequestVote(ctx context.Context, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error)
+	PreVote(ctx context.Context, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error)
+	// Cluster
+	Configuration(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error)
+	LeadershipTransfer(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
+	Execute(ctx context.Context, input *clusterRpc.ExecuteInput) (*clusterRpc.ExecuteOutput, error)
+	Shutdown(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
+	Ping(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error)
 }
 
 type rpcServerPort struct {
@@ -27,7 +29,7 @@ func NewRpcServerPort(adapter rpc.UseCase) *rpcServerPort {
 	return &rpcServerPort{adapter}
 }
 
-func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendEntriesInput) (*p2pRpc.AppendEntriesOutput, error) {
+func (p *rpcServerPort) AppendEntries(ctx context.Context, input *clusterRpc.AppendEntriesInput) (*clusterRpc.AppendEntriesOutput, error) {
 	entries := make([]domain.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
 		logType := domain.LogType(log.Type)
@@ -51,13 +53,13 @@ func (p *rpcServerPort) AppendEntries(ctx context.Context, input *p2pRpc.AppendE
 		return nil, err
 	}
 
-	return &p2pRpc.AppendEntriesOutput{
+	return &clusterRpc.AppendEntriesOutput{
 		Term:    output.Term,
 		Success: output.Success,
 	}, nil
 }
 
-func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+func (p *rpcServerPort) RequestVote(ctx context.Context, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error) {
 	output, err := p.adapter.RequestVote(&domain.RequestVoteInput{
 		CandidateId:  input.CandidateId,
 		Term:         input.Term,
@@ -68,13 +70,13 @@ func (p *rpcServerPort) RequestVote(ctx context.Context, input *p2pRpc.RequestVo
 		return nil, err
 	}
 
-	return &p2pRpc.RequestVoteOutput{
+	return &clusterRpc.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
 	}, nil
 }
 
-func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteInput) (*p2pRpc.RequestVoteOutput, error) {
+func (p *rpcServerPort) PreVote(ctx context.Context, input *clusterRpc.RequestVoteInput) (*clusterRpc.RequestVoteOutput, error) {
 	output, err := p.adapter.PreVote(&domain.RequestVoteInput{
 		CandidateId:  input.CandidateId,
 		Term:         input.Term,
@@ -85,13 +87,13 @@ func (p *rpcServerPort) PreVote(ctx context.Context, input *p2pRpc.RequestVoteIn
 		return nil, err
 	}
 
-	return &p2pRpc.RequestVoteOutput{
+	return &clusterRpc.RequestVoteOutput{
 		Term:        output.Term,
 		VoteGranted: output.VoteGranted,
 	}, nil
 }
 
-func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput) (*p2pRpc.ExecuteOutput, error) {
+func (p *rpcServerPort) Execute(ctx context.Context, input *clusterRpc.ExecuteInput) (*clusterRpc.ExecuteOutput, error) {
 	output, err := p.adapter.Execute(&domain.ExecuteInput{
 		Type: domain.LogType(input.Type),
 		Data: input.Data,
@@ -105,28 +107,33 @@ func (p *rpcServerPort) Execute(ctx context.Context, input *p2pRpc.ExecuteInput)
 		e = output.Err.Error()
 	}
 
-	return &p2pRpc.ExecuteOutput{
+	return &clusterRpc.ExecuteOutput{
 		Data: output.Out,
 		Err:  e,
 	}, nil
 }
 
-func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.ClusterConfigurationOutput, error) {
-	output, err := p.adapter.ClusterConfiguration()
+func (p *rpcServerPort) LeadershipTransfer(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
+	p.adapter.LeadershipTransfer()
+	return &clusterRpc.Nil{}, nil
+}
+
+func (p *rpcServerPort) Configuration(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.ConfigurationOutput, error) {
+	output, err := p.adapter.Configuration()
 	if err != nil {
 		return nil, err
 	}
 
-	peers := make(map[string]*p2pRpc.Peer, len(output.Peers))
+	peers := make(map[string]*clusterRpc.Peer, len(output.Peers))
 	for _, peer := range output.Peers {
-		peers[peer.Id] = &p2pRpc.Peer{
+		peers[peer.Id] = &clusterRpc.Peer{
 			Id:     peer.Id,
 			Host:   peer.Target(),
 			Active: peer.Active,
 		}
 	}
 
-	return &p2pRpc.ClusterConfigurationOutput{
+	return &clusterRpc.ConfigurationOutput{
 		Peers:           peers,
 		LeaderId:        output.LeaderId,
 		ElectionTimeout: uint32(output.ElectionTimeout),
@@ -134,12 +141,12 @@ func (p *rpcServerPort) ClusterConfiguration(ctx context.Context, input *p2pRpc.
 	}, nil
 }
 
-func (p *rpcServerPort) Shutdown(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+func (p *rpcServerPort) Shutdown(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
 	p.adapter.Shutdown()
-	return &p2pRpc.Nil{}, nil
+	return &clusterRpc.Nil{}, nil
 }
 
-func (p *rpcServerPort) Ping(ctx context.Context, input *p2pRpc.Nil) (*p2pRpc.Nil, error) {
+func (p *rpcServerPort) Ping(ctx context.Context, input *clusterRpc.Nil) (*clusterRpc.Nil, error) {
 	err := p.adapter.Ping()
-	return &p2pRpc.Nil{}, err
+	return &clusterRpc.Nil{}, err
 }

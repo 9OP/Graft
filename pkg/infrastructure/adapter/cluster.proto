@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package p2pRpc;
+package clusterRpc;
 
-option go_package = "./p2pRpc";
+option go_package = "./clusterRpc";
 
 enum LogType {
     LogCommand = 0;
@@ -57,20 +57,12 @@ message InstallSnapshotOutput {
     uint32 term = 1;
 }
 
-
-// Rename service P2P
-service Rpc {
-    rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
-    rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
-    rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
-    rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
-    // Move to different service named Cluster
-    rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
-    // Rename Configuration
-    rpc ClusterConfiguration(nil) returns (ClusterConfigurationOutput) {}
-    rpc Shutdown(nil) returns (nil) {}
-    rpc Ping(nil) returns (nil) {}
-}
+// service P2P {
+//     rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
+//     rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
+//     rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
+//     rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
+// }
 
 message ExecuteInput {
     LogType type = 1;
@@ -90,13 +82,23 @@ message Peer {
 
 message nil {}
 
-message ClusterConfigurationOutput {
+message ConfigurationOutput {
     uint32 electionTimeout = 1;
     uint32 leaderHeartbeat = 2;
     string leaderId = 3;
     map<string, Peer> peers = 4;
 }
 
-
-// service Api {
-// }
+service Cluster {
+    // P2P
+    rpc AppendEntries(AppendEntriesInput) returns (AppendEntriesOutput) {}
+    rpc RequestVote(RequestVoteInput) returns (RequestVoteOutput) {}
+    rpc PreVote(RequestVoteInput) returns (RequestVoteOutput) {}
+    rpc InstallSnapshot(InstallSnapshotInput) returns (InstallSnapshotOutput) {}
+    //
+    rpc Configuration(nil) returns (ConfigurationOutput) {}
+    rpc LeadershipTransfer(nil) returns (nil) {}
+    rpc Execute(ExecuteInput) returns (ExecuteOutput) {}
+    rpc Shutdown(nil) returns (nil) {}
+    rpc Ping(nil) returns (nil) {}
+}

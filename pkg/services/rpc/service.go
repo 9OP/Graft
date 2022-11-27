@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"graft/pkg/domain"
+	"graft/pkg/services/lib"
 )
 
 type service struct {
@@ -97,10 +98,9 @@ func (s service) PreVote(input *domain.RequestVoteInput) (*domain.RequestVoteOut
 		VoteGranted: false,
 	}
 
-	hasLeader := s.node.HasLeader()
 	isUpToDate := s.node.IsLogUpToDate(input.LastLogIndex, input.LastLogTerm)
 
-	if !hasLeader && isUpToDate {
+	if isUpToDate {
 		output.VoteGranted = true
 	}
 
@@ -151,7 +151,28 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 	return nil
 }
 
-func (s service) ClusterConfiguration() (*domain.ClusterConfiguration, error) {
+func (s service) LeadershipTransfer() error {
+	if s.node.IsShuttingDown() {
+		return domain.ErrShuttingDown
+	}
+
+	if !lib.PreVote(s.node, s.client) {
+		return domain.ErrPreVoteFailed
+	}
+
+	s.node.UpgradeCandidate()
+	s.node.IncrementCandidateTerm()
+
+	if !lib.RequestVote(s.node, s.client) {
+		return domain.ErrReqVoteFailed
+	}
+
+	s.node.UpgradeLeader()
+
+	return nil
+}
+
+func (s service) Configuration() (*domain.ClusterConfiguration, error) {
 	configuration := s.node.GetClusterConfiguration()
 	return &configuration, nil
 }

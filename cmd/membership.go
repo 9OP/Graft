@@ -11,6 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func argAddrValidator(cmd *cobra.Command, args []string) error {
+	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+		return err
+	}
+
+	if _, err := netip.ParseAddrPort(args[0]); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 var addNodeCmd = &cobra.Command{
 	Use:   "add [<ip>:<port>]",
 	Short: "Add new node to live cluster",
@@ -21,17 +33,7 @@ var addNodeCmd = &cobra.Command{
 3. Start new node
 4. Update configuration with new node as active
 	`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			return err
-		}
-
-		if _, err := netip.ParseAddrPort(args[0]); err != nil {
-			return err
-		}
-
-		return nil
-	},
+	Args: argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		utils.ConfigureLogger(level.String())
 
@@ -63,17 +65,7 @@ var removeNodeCmd = &cobra.Command{
 3. Update configuration with old node removed
 4. Shutdown old node
 	`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			return err
-		}
-
-		if _, err := netip.ParseAddrPort(args[0]); err != nil {
-			return err
-		}
-
-		return nil
-	},
+	Args: argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
