@@ -3,10 +3,10 @@ package rpc
 import (
 	"encoding/json"
 	"fmt"
-	"sync/atomic"
 	"time"
 
 	"graft/pkg/domain"
+	"graft/pkg/services/lib"
 )
 
 type service struct {
@@ -156,33 +156,20 @@ func (s service) LeadershipTransfer() error {
 		return domain.ErrShuttingDown
 	}
 
-	if !s.preVote() {
+	if !lib.PreVote(s.node, s.client) {
 		return domain.ErrPreVoteFailed
 	}
 
 	s.node.UpgradeCandidate()
 	s.node.IncrementCandidateTerm()
 
-	return nil
-}
-
-// Copied from core/service
-func (s service) preVote() bool {
-	input := s.node.RequestVoteInput()
-	quorum := s.node.Quorum()
-	var prevotesGranted uint32 = 1 // vote for self
-
-	preVoteRoutine := func(p domain.Peer) {
-		if res, err := s.client.PreVote(p, &input); err == nil {
-			if res.VoteGranted {
-				atomic.AddUint32(&prevotesGranted, 1)
-			}
-		}
+	if !lib.RequestVote(s.node, s.client) {
+		return domain.ErrReqVoteFailed
 	}
-	s.node.Broadcast(preVoteRoutine, domain.BroadcastActive)
 
-	quorumReached := int(prevotesGranted) >= quorum
-	return quorumReached
+	s.node.UpgradeLeader()
+
+	return nil
 }
 
 func (s service) Configuration() (*domain.ClusterConfiguration, error) {

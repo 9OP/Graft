@@ -274,9 +274,13 @@ func (n *Node) UpdateLeaderCommitIndex(leaderCommitIndex uint32) {
 	}
 }
 
-func (n *Node) UpdateNewCommitIndex() {
-	newCommitIndex := n.computeNewCommitIndex()
-	n.setCommitIndex(newCommitIndex)
+func (n *Node) ComputeNewCommitIndex() {
+	if n.Role() == Leader {
+		newCommitIndex := n.computeNewCommitIndex()
+		n.setCommitIndex(newCommitIndex)
+		return
+	}
+	log.Warnf("cannot compute new commit index for: %v", n.Role())
 }
 
 func (n *Node) SetNextMatchIndex(peerId string, index uint32) {

@@ -1,9 +1,8 @@
 package core
 
 import (
-	"sync/atomic"
-
 	"graft/pkg/domain"
+	"graft/pkg/services/lib"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -16,7 +15,7 @@ type synchronise struct {
 
 type service struct {
 	node    *domain.Node
-	client  client
+	client  lib.Client
 	persist persister
 
 	timeout *timeout
@@ -25,7 +24,7 @@ type service struct {
 
 func NewService(
 	node *domain.Node,
-	client client,
+	client lib.Client,
 	persister persister,
 ) service {
 	config := node.GetClusterConfiguration()
@@ -51,16 +50,24 @@ func (s service) Run() {
 	}
 }
 
-func (s service) followerFlow() {
+func (s service) followerTimeout() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
 
+		if s.node.IsShuttingDown() {
+			return
+		}
+
 		s.node.UpgradeCandidate()
+
+		if wonElection := s.runElection(); wonElection {
+			s.node.UpgradeLeader()
+		}
 	}
 }
 
-func (s service) candidateFlow() {
+func (s service) candidateTimeout() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
@@ -71,7 +78,7 @@ func (s service) candidateFlow() {
 	}
 }
 
-func (s service) leaderFlow() {
+func (s service) leaderHeartbeat() {
 	// Prevent multiple flow from running together
 	if s.sync.running.Lock() {
 		defer s.sync.running.Unlock()
@@ -87,7 +94,7 @@ func (s service) runFollower() {
 	for s.node.Role() == domain.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
-			go s.followerFlow()
+			go s.followerTimeout()
 
 		case <-s.node.Commit:
 			go s.commit()
@@ -108,7 +115,7 @@ func (s service) runCandidate() {
 	for s.node.Role() == domain.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
-			go s.candidateFlow()
+			go s.candidateTimeout()
 
 		case <-s.node.ResetElectionTimer:
 			go s.timeout.resetElectionTimer()
@@ -129,13 +136,13 @@ func (s service) runLeader() {
 	for s.node.Role() == domain.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
-			go s.leaderFlow()
+			go s.leaderHeartbeat()
 
 		// Should batch execution
 		case <-s.node.SynchronizeLogs:
 			go (func() {
 				s.timeout.resetLeaderTicker()
-				s.leaderFlow()
+				s.leaderHeartbeat()
 			})()
 
 		case <-s.node.Commit:
@@ -168,94 +175,16 @@ func (s service) saveState() {
 }
 
 func (s service) runElection() bool {
-	// Prevent candidate with outdated logs
-	// From running election
-	if !s.preVote() {
-		log.Debug("FAILED PRE-VOTE")
+	if !lib.PreVote(s.node, s.client) {
+		s.node.DowngradeFollower(s.node.CurrentTerm())
 		return false
 	}
-
 	s.node.IncrementCandidateTerm()
-
-	return s.requestVote()
-}
-
-func (s service) preVote() bool {
-	input := s.node.RequestVoteInput()
-	quorum := s.node.Quorum()
-	var prevotesGranted uint32 = 1 // vote for self
-
-	preVoteRoutine := func(p domain.Peer) {
-		if res, err := s.client.PreVote(p, &input); err == nil {
-			if res.VoteGranted {
-				atomic.AddUint32(&prevotesGranted, 1)
-			}
-		}
-	}
-	s.node.Broadcast(preVoteRoutine, domain.BroadcastActive)
-
-	quorumReached := int(prevotesGranted) >= quorum
-	return quorumReached
-}
-
-func (s service) requestVote() bool {
-	input := s.node.RequestVoteInput()
-	quorum := s.node.Quorum()
-	var votesGranted uint32 = 1 // vote for self
-
-	gatherVotesRoutine := func(p domain.Peer) {
-		if res, err := s.client.RequestVote(p, &input); err == nil {
-			if res.Term > s.node.CurrentTerm() {
-				s.node.DowngradeFollower(res.Term)
-				return
-			}
-			if res.VoteGranted {
-				atomic.AddUint32(&votesGranted, 1)
-			}
-		}
-	}
-	s.node.Broadcast(gatherVotesRoutine, domain.BroadcastActive)
-
-	isCandidate := s.node.Role() == domain.Candidate
-	quorumReached := int(votesGranted) >= quorum
-	return isCandidate && quorumReached
+	return lib.RequestVote(s.node, s.client)
 }
 
 func (s service) heartbeat() bool {
-	quorumReached := s.synchronizeLogs()
-
-	if s.node.Role() == domain.Leader {
-		s.node.UpdateNewCommitIndex()
-	}
-
-	return quorumReached
-}
-
-func (s service) synchronizeLogs() bool {
-	quorum := s.node.Quorum()
-	var peersAlive uint32 = 1 // self
-
-	synchroniseLogsRoutine := func(p domain.Peer) {
-		input := s.node.AppendEntriesInput(p.Id)
-		if res, err := s.client.AppendEntries(p, &input); err == nil {
-			atomic.AddUint32(&peersAlive, 1)
-			if res.Term > s.node.CurrentTerm() {
-				s.node.DowngradeFollower(res.Term)
-				return
-			}
-			if res.Success {
-				// newPeerLastLogIndex is always the sum of len(entries) and prevLogIndex
-				// Even if peer was send logs it already has, because prevLogIndex is the number
-				// of logs already contained at least in peer, and len(entries) is the additional
-				// entries accepted.
-				newPeerLastLogIndex := input.PrevLogIndex + uint32(len(input.Entries))
-				s.node.SetNextMatchIndex(p.Id, newPeerLastLogIndex)
-			} else {
-				s.node.DecrementNextIndex(p.Id)
-			}
-		}
-	}
-	s.node.Broadcast(synchroniseLogsRoutine, domain.BroadcastAll)
-	quorumReached := int(peersAlive) >= quorum
+	quorumReached := lib.AppendEntries(s.node, s.client)
+	s.node.ComputeNewCommitIndex()
 	return quorumReached
 }

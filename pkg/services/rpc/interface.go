@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"graft/pkg/domain"
+	"graft/pkg/services/lib"
 )
 
 type UseCase interface {
@@ -17,6 +18,6 @@ type UseCase interface {
 }
 
 type client interface {
-	PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
+	lib.Client
 	Ping(peer domain.Peer) error
 }

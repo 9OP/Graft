@@ -29,6 +29,7 @@ TODO:
 
 ```
 DONE:
+- Leadership transfer execution
 - Membership change
 - Leader election
 - Log replication
@@ -37,7 +38,6 @@ DONE:
 
 TODO:
 - Log compaction
-- Leadership transfer execution
 
 ```
 
@@ -49,7 +49,7 @@ graft stop [node]
 # Update cluster config
 graft cluster [cluster] add [node]
 graft cluster [cluster] remove [node]
-graft cluster [cluster] leader [node] # TODO
+graft cluster [cluster] leader [node]
 graft cluster [cluster] configuration
 
 # Send command/query
