@@ -16,7 +16,7 @@ var (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start [<ip>:<port>]",
+	Use:   "start [ip:port]",
 	Short: "Start a new cluster",
 	Args:  argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {

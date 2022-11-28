@@ -10,17 +10,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var stopCmd = &cobra.Command{
-	Use:   "stop [ip:port]",
-	Short: "Shutdown node",
+var leadershipTransferCmd = &cobra.Command{
+	Use:   "leader [ip:port]",
+	Short: "Leadership transfer to peer",
 	Args:  argAddrValidator,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
 		peer := domain.Peer{Id: id, Host: host}
 
-		if err := pkg.Shutdown(peer); err != nil {
-			return fmt.Errorf("did not shutdown cluster peer %s: %v", host, err.Error())
+		if err := pkg.LeadeshipTransfer(peer); err != nil {
+			return fmt.Errorf("did not transfer leadership to peer %s: %v", host, err.Error())
 		}
 
 		return nil
@@ -28,5 +28,5 @@ var stopCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(stopCmd)
+	rootCmd.AddCommand(leadershipTransferCmd)
 }

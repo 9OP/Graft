@@ -117,10 +117,7 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 	}
 
 	res := <-s.node.Execute(*input)
-	// if res.Err != nil {
-	// 	return &res, res.Err
-	// }
-	// Should not mix error and res.Err
+
 	return &res, nil
 }
 
