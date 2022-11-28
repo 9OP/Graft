@@ -58,12 +58,37 @@ var leadershipTransferCmd = &cobra.Command{
 	},
 }
 
+var executeCmd = &cobra.Command{
+	Use:   "execute [command]",
+	Short: "Execute command on FSM",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			return err
+		}
+		return nil
+	},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		clusterPeer := domain.Peer{Host: cluster.AddrPort}
+		entry := args[0]
+
+		res, err := pkg.Execute(entry, clusterPeer)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(res)
+
+		return nil
+	},
+}
+
 func init() {
 	clusterCmd.PersistentFlags().Var(&cluster, "cluster", "Live cluster peer for sending commands")
 	clusterCmd.Flag("cluster").DefValue = "<nil>"
 	clusterCmd.MarkPersistentFlagRequired("cluster")
 
 	clusterCmd.AddCommand(configurationCmd)
+	clusterCmd.AddCommand(executeCmd)
 	rootCmd.AddCommand(clusterCmd)
 	rootCmd.AddCommand(leadershipTransferCmd)
 }

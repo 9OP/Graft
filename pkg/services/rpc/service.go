@@ -121,9 +121,10 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 		return nil, err
 	}
 
-	res := <-s.node.ExecuteCommand(*input)
-
-	// Should we separate res.Err and error ? arent they the same ?
+	res := <-s.node.Execute(*input)
+	if res.Err != nil {
+		return &res, res.Err
+	}
 
 	return &res, nil
 }

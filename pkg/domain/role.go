@@ -3,7 +3,7 @@ package domain
 type Role uint8
 
 const (
-	Undefined Role = iota
+	_ Role = iota
 	Follower
 	Candidate
 	Leader

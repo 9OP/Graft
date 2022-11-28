@@ -111,6 +111,20 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 	return nil
 }
 
+func Execute(entry string, clusterPeer domain.Peer) (*domain.ExecuteOutput, error) {
+	leader, err := getClusterLeader(clusterPeer)
+	if err != nil {
+		return nil, err
+	}
+
+	input := domain.ExecuteInput{
+		Type: domain.LogCommand,
+		Data: []byte(entry),
+	}
+
+	return client.Execute(*leader, &input)
+}
+
 func LeadeshipTransfer(peer domain.Peer) error {
 	if err := client.LeadershipTransfer(peer); err != nil {
 		return fmt.Errorf("cannot transfer leadership: %w", err)
