@@ -39,8 +39,6 @@ func (f fsm) eval(input EvalInput) ExecuteOutput {
 	cmd.Stderr = &errb
 
 	err := cmd.Run()
-	fmt.Println("out: ", outb.String())
-	fmt.Println("err: ", errb.String(), err)
 	if err != nil {
 		return ExecuteOutput{
 			Out: outb.Bytes(),

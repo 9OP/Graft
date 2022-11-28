@@ -112,11 +112,6 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 		return nil, domain.ErrShuttingDown
 	}
 
-	// TODO: implements consistency
-	if !s.node.IsLeader() {
-		return nil, domain.ErrNotLeader
-	}
-
 	if err := s.validateExecuteInput(input); err != nil {
 		return nil, err
 	}
@@ -130,15 +125,18 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 }
 
 func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
-	// Before activating a node
-	// We need to confirm that the node is up
-	// And that we can communicate with it.
-	// Example: the new node is behing a NAT and we can connect to it.
+	switch input.Type {
+	/*
+		Before activating a node
+		We need to confirm that the node is up
+		And that we can communicate with it.
+		Example: the new node is behing a NAT and we can connect to it.
 
-	// This is necessary because adding multiple node behing NATs
-	// Could break the cluster by updating the Quorum with unreachable
-	// nodes.
-	if input.Type == domain.LogConfiguration {
+		This is necessary because adding multiple node behing NATs
+		Could break the cluster by updating the Quorum with unreachable
+		nodes.
+	*/
+	case domain.LogConfiguration:
 		var config domain.ConfigurationUpdate
 		json.Unmarshal(input.Data, &config)
 
@@ -147,6 +145,22 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 				return domain.ErrUnreachable
 			}
 		}
+
+	/*
+		LogCommand can only run on leader as they write FSM changes
+	*/
+	case domain.LogCommand:
+		if !s.node.IsLeader() {
+			return domain.ErrNotLeader
+		}
+
+	/*
+		LogQuery are reads, they do not modify the FSM, there are 2 consistency type:
+		- weak consistency: execute on a follower (potentially stale read)
+		- strong consistency: execyte on the leader (safe and up-to-date read)
+	*/
+	case domain.LogQuery:
+		break
 	}
 
 	return nil

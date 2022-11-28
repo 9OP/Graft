@@ -41,23 +41,23 @@ func hashString(str string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-type execType string
+type executeType string
 
-func (e execType) String() string {
+func (e executeType) String() string {
 	return "<nil>"
 }
 
-func (e *execType) Set(v string) error {
+func (e *executeType) Set(v string) error {
 	switch v {
 	case "QUERY", "COMMAND":
-		*e = execType(v)
+		*e = executeType(v)
 		return nil
 	default:
 		return fmt.Errorf("\n\tmust be one of 'COMMAND' or 'QUERY'")
 	}
 }
 
-func (e execType) Type() string {
+func (e executeType) Type() string {
 	return `COMMAND|QUERY`
 }
 

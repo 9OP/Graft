@@ -112,9 +112,16 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 }
 
 func Execute(entry string, logType domain.LogType, clusterPeer domain.Peer) (*domain.ExecuteOutput, error) {
-	leader, err := getClusterLeader(clusterPeer)
-	if err != nil {
-		return nil, err
+	var peer domain.Peer
+
+	if logType == domain.LogCommand || logType == domain.LogConfiguration {
+		p, err := getClusterLeader(clusterPeer)
+		if err != nil {
+			return nil, err
+		}
+		peer = *p
+	} else {
+		peer = clusterPeer
 	}
 
 	input := domain.ExecuteInput{
@@ -122,7 +129,7 @@ func Execute(entry string, logType domain.LogType, clusterPeer domain.Peer) (*do
 		Data: []byte(entry),
 	}
 
-	return client.Execute(*leader, &input)
+	return client.Execute(peer, &input)
 }
 
 func LeadeshipTransfer(peer domain.Peer) error {

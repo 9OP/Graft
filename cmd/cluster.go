@@ -12,7 +12,7 @@ import (
 
 var (
 	cluster ipAddr
-	exType  execType
+	exType  executeType
 )
 
 var clusterCmd = &cobra.Command{
@@ -74,7 +74,6 @@ var executeCmd = &cobra.Command{
 		clusterPeer := domain.Peer{Host: cluster.AddrPort}
 		entry := args[0]
 		var logType domain.LogType
-
 		switch exType {
 		case "COMMAND":
 			logType = domain.LogCommand
@@ -85,6 +84,10 @@ var executeCmd = &cobra.Command{
 		res, err := pkg.Execute(entry, logType, clusterPeer)
 		if err != nil {
 			return err
+		}
+
+		if res.Err != nil {
+			return res.Err
 		}
 
 		fmt.Println(string(res.Out))
