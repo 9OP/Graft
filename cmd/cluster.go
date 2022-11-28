@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var cluster ipAddr
+var (
+	cluster ipAddr
+	exType  execType
+)
 
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
@@ -70,13 +73,21 @@ var executeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		clusterPeer := domain.Peer{Host: cluster.AddrPort}
 		entry := args[0]
+		var logType domain.LogType
 
-		res, err := pkg.Execute(entry, clusterPeer)
+		switch exType {
+		case "COMMAND":
+			logType = domain.LogCommand
+		case "QUERY":
+			logType = domain.LogQuery
+		}
+
+		res, err := pkg.Execute(entry, logType, clusterPeer)
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(res)
+		fmt.Println(string(res.Out))
 
 		return nil
 	},
@@ -84,8 +95,10 @@ var executeCmd = &cobra.Command{
 
 func init() {
 	clusterCmd.PersistentFlags().Var(&cluster, "cluster", "Live cluster peer for sending commands")
-	clusterCmd.Flag("cluster").DefValue = "<nil>"
 	clusterCmd.MarkPersistentFlagRequired("cluster")
+
+	executeCmd.Flags().Var(&exType, "type", `Execute type`)
+	executeCmd.MarkFlagRequired("type")
 
 	clusterCmd.AddCommand(configurationCmd)
 	clusterCmd.AddCommand(executeCmd)

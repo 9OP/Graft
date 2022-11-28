@@ -111,14 +111,14 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 	return nil
 }
 
-func Execute(entry string, clusterPeer domain.Peer) (*domain.ExecuteOutput, error) {
+func Execute(entry string, logType domain.LogType, clusterPeer domain.Peer) (*domain.ExecuteOutput, error) {
 	leader, err := getClusterLeader(clusterPeer)
 	if err != nil {
 		return nil, err
 	}
 
 	input := domain.ExecuteInput{
-		Type: domain.LogCommand,
+		Type: logType,
 		Data: []byte(entry),
 	}
 

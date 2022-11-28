@@ -40,9 +40,12 @@ def command(input: Input):
 
 def query(input: Input):
     con = sqlite3.connect(f"conf/{input.id}.db")
+    con.row_factory = sqlite3.Row
     cur = con.cursor()
+    res = []
     for row in cur.execute(input.data):
-        print(row)
+        res.append(dict(row))
+    print(json.dumps(res, indent=2))
 
 if __name__ == "__main__":
     input = get_input()
