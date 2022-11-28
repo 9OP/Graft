@@ -9,7 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var exType executeType
+var (
+	exType      executeType
+	consistency bool
+)
 
 var executeCmd = &cobra.Command{
 	Use:   "execute [entry]",
@@ -48,6 +51,7 @@ var executeCmd = &cobra.Command{
 }
 
 func init() {
+	executeCmd.Flags().BoolVarP(&consistency, "consistency", "c", true, "Require strong consistency. Only for QUERY.")
 	executeCmd.Flags().Var(&exType, "type", `Execute type`)
 	executeCmd.MarkFlagRequired("type")
 	clusterCmd.AddCommand(executeCmd)

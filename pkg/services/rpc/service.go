@@ -162,7 +162,12 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 		- strong consistency: execyte on the leader (safe and up-to-date read)
 	*/
 	case domain.LogQuery:
-		break
+		// Get strongConsistency value from the input:
+		// in Data or inanother key
+		strongConsistency := false
+		if strongConsistency && !s.node.IsLeader() {
+			return domain.ErrStrongConsistency
+		}
 	}
 
 	return nil

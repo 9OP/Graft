@@ -39,14 +39,13 @@ func (f fsm) eval(input EvalInput) ExecuteOutput {
 	cmd.Stderr = &errb
 
 	err := cmd.Run()
-	// fmt.Println("eval", err, outb.String(), errb.String())
 	if err != nil {
 		return ExecuteOutput{
 			Out: outb.Bytes(),
 			Err: fmt.Errorf("fsm.eval error: %v", errb.String()),
 		}
 	}
-	// fmt.Println("no err")
+
 	return ExecuteOutput{
 		Out: outb.Bytes(),
 		Err: nil,
