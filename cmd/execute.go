@@ -37,7 +37,8 @@ var executeCmd = &cobra.Command{
 		}
 
 		if res.Err != nil {
-			return err
+			fmt.Println("err", res.Err)
+			return res.Err
 		}
 
 		fmt.Println(string(res.Out))

@@ -87,6 +87,7 @@ message ConfigurationOutput {
     uint32 leaderHeartbeat = 2;
     string leaderId = 3;
     map<string, Peer> peers = 4;
+    string fsm = 5;
 }
 
 service Cluster {

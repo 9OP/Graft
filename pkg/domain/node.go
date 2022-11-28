@@ -85,6 +85,7 @@ type Node struct {
 
 func NewNode(
 	config NodeConfig,
+	fsm string,
 	peers Peers,
 	persistent PersistentState,
 ) *Node {
@@ -93,7 +94,7 @@ func NewNode(
 		signals: newSignals(),
 		config:  config,
 		exit:    false,
-		fsm:     NewFsm("conf/fsm.py"),
+		fsm:     NewFsm(fsm),
 	}
 }
 
@@ -121,6 +122,7 @@ func (n *Node) GetClusterConfiguration() ClusterConfiguration {
 	return ClusterConfiguration{
 		Peers:           utils.CopyMap(n.peers),
 		LeaderId:        n.leaderId,
+		Fsm:             n.fsm.path,
 		ElectionTimeout: n.config.ElectionTimeout,
 		LeaderHeartbeat: n.config.LeaderHeartbeat,
 	}

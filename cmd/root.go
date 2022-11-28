@@ -21,6 +21,7 @@ var (
 
 func Execute() {
 	rootCmd.PersistentFlags().SortFlags = false
+	rootCmd.SilenceUsage = true
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

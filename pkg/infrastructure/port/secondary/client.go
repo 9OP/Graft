@@ -102,9 +102,14 @@ func (p *rpcClientPort) Execute(target string, input *domain.ExecuteInput) (*dom
 		return nil, err
 	}
 
+	var outputErr error
+	if output.Err != "" {
+		outputErr = errors.New(output.Err)
+	}
+
 	return &domain.ExecuteOutput{
 		Out: output.Data,
-		Err: errors.New(output.Err),
+		Err: outputErr,
 	}, nil
 }
 
@@ -132,6 +137,7 @@ func (p *rpcClientPort) Configuration(target string) (*domain.ClusterConfigurati
 	return &domain.ClusterConfiguration{
 		Peers:           peers,
 		LeaderId:        output.LeaderId,
+		Fsm:             output.Fsm,
 		ElectionTimeout: int(output.ElectionTimeout),
 		LeaderHeartbeat: int(output.LeaderHeartbeat),
 	}, nil

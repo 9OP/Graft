@@ -46,6 +46,7 @@ func AddClusterPeer(newPeer domain.Peer, cluster string) (chan struct{}, error) 
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
+			config.Fsm,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
 		)
@@ -71,6 +72,7 @@ func AddClusterPeer(newPeer domain.Peer, cluster string) (chan struct{}, error) 
 			newPeer.Id,
 			newPeer.Host,
 			config.Peers,
+			config.Fsm,
 			config.ElectionTimeout,
 			config.LeaderHeartbeat,
 		)

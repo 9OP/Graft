@@ -72,10 +72,10 @@ func (e executeType) Type() string {
 	return `COMMAND|QUERY`
 }
 
-type ipAddr struct{ netip.AddrPort }
+type ipAddr string
 
 func (i ipAddr) String() string {
-	return "<nil>"
+	return string(i)
 }
 
 func (i *ipAddr) Set(v string) error {
@@ -83,7 +83,7 @@ func (i *ipAddr) Set(v string) error {
 	if err != nil {
 		return err
 	}
-	i.AddrPort = ip
+	*i = ipAddr(ip.String())
 	return nil
 }
 

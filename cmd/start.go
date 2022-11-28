@@ -43,6 +43,7 @@ var startCmd = &cobra.Command{
 			id,
 			host,
 			peers,
+			cf.Fsm,
 			cf.Timeouts.Election,
 			cf.Timeouts.Heartbeat,
 		)
