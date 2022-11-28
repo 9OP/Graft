@@ -89,6 +89,7 @@ type ConfigurationUpdate struct {
 type ClusterConfiguration struct {
 	Peers           Peers
 	LeaderId        string
+	Fsm             string
 	ElectionTimeout int
 	LeaderHeartbeat int
 }

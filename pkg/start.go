@@ -21,6 +21,7 @@ func Start(
 	id string,
 	host netip.AddrPort,
 	peers domain.Peers,
+	fsm string,
 	electionTimeout int,
 	leaderHeartbeat int,
 ) chan struct{} {
@@ -41,7 +42,7 @@ func Start(
 		ElectionTimeout: electionTimeout,
 		LeaderHeartbeat: leaderHeartbeat,
 	}
-	node := domain.NewNode(config, peers, persistent)
+	node := domain.NewNode(config, fsm, peers, persistent)
 
 	// Services
 	coreService := core.NewService(node, rpcClientPort, persisterPort)

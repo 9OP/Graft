@@ -102,14 +102,14 @@ func (p *rpcServerPort) Execute(ctx context.Context, input *clusterRpc.ExecuteIn
 		return nil, err
 	}
 
-	var e string
+	var outputErr string
 	if output.Err != nil {
-		e = output.Err.Error()
+		outputErr = output.Err.Error()
 	}
 
 	return &clusterRpc.ExecuteOutput{
 		Data: output.Out,
-		Err:  e,
+		Err:  outputErr,
 	}, nil
 }
 
@@ -136,6 +136,7 @@ func (p *rpcServerPort) Configuration(ctx context.Context, input *clusterRpc.Nil
 	return &clusterRpc.ConfigurationOutput{
 		Peers:           peers,
 		LeaderId:        output.LeaderId,
+		Fsm:             output.Fsm,
 		ElectionTimeout: uint32(output.ElectionTimeout),
 		LeaderHeartbeat: uint32(output.LeaderHeartbeat),
 	}, nil

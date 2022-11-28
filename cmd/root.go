@@ -19,15 +19,9 @@ var (
 	}
 )
 
-/*
-Commands; todo
-- start / add node
-- shutdown node
-- print config
-*/
-
 func Execute() {
-	rootCmd.Flags().SortFlags = false
+	rootCmd.PersistentFlags().SortFlags = false
+	rootCmd.SilenceUsage = true
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

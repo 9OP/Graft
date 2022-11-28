@@ -112,39 +112,61 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 		return nil, domain.ErrShuttingDown
 	}
 
-	// TODO: implements consistency
-	if !s.node.IsLeader() {
-		return nil, domain.ErrNotLeader
-	}
-
 	if err := s.validateExecuteInput(input); err != nil {
 		return nil, err
 	}
 
-	res := <-s.node.ExecuteCommand(*input)
-
-	// Should we separate res.Err and error ? arent they the same ?
+	res := <-s.node.Execute(*input)
 
 	return &res, nil
 }
 
 func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
-	// Before activating a node
-	// We need to confirm that the node is up
-	// And that we can communicate with it.
-	// Example: the new node is behing a NAT and we can connect to it.
+	switch input.Type {
+	/*
+		Before activating a node
+		We need to confirm that the node is up
+		And that we can communicate with it.
+		Example: the new node is behing a NAT and we can connect to it.
 
-	// This is necessary because adding multiple node behing NATs
-	// Could break the cluster by updating the Quorum with unreachable
-	// nodes.
-	if input.Type == domain.LogConfiguration {
+		This is necessary because adding multiple node behing NATs
+		Could break the cluster by updating the Quorum with unreachable
+		nodes.
+	*/
+	case domain.LogConfiguration:
+		if !s.node.IsLeader() {
+			return domain.ErrNotLeader
+		}
+
 		var config domain.ConfigurationUpdate
 		json.Unmarshal(input.Data, &config)
 
 		if config.Type == domain.ConfActivatePeer {
-			if err := s.client.Ping(config.Peer); err != nil {
+			peer := config.Peer
+			if err := s.client.Ping(peer.Target()); err != nil {
 				return domain.ErrUnreachable
 			}
+		}
+
+	/*
+		LogCommand can only run on leader as they write FSM changes
+	*/
+	case domain.LogCommand:
+		if !s.node.IsLeader() {
+			return domain.ErrNotLeader
+		}
+
+	/*
+		LogQuery are reads, they do not modify the FSM, there are 2 consistency type:
+		- weak consistency: execute on a follower (potentially stale read)
+		- strong consistency: execyte on the leader (safe and up-to-date read)
+	*/
+	case domain.LogQuery:
+		// Get strongConsistency value from the input:
+		// in Data or inanother key
+		strongConsistency := false
+		if strongConsistency && !s.node.IsLeader() {
+			return domain.ErrStrongConsistency
 		}
 	}
 

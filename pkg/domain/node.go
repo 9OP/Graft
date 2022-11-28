@@ -80,10 +80,12 @@ type Node struct {
 	signals
 	config NodeConfig
 	exit   bool
+	fsm    fsm
 }
 
 func NewNode(
 	config NodeConfig,
+	fsm string,
 	peers Peers,
 	persistent PersistentState,
 ) *Node {
@@ -92,6 +94,7 @@ func NewNode(
 		signals: newSignals(),
 		config:  config,
 		exit:    false,
+		fsm:     NewFsm(fsm),
 	}
 }
 
@@ -119,6 +122,7 @@ func (n *Node) GetClusterConfiguration() ClusterConfiguration {
 	return ClusterConfiguration{
 		Peers:           utils.CopyMap(n.peers),
 		LeaderId:        n.leaderId,
+		Fsm:             n.fsm.path,
 		ElectionTimeout: n.config.ElectionTimeout,
 		LeaderHeartbeat: n.config.LeaderHeartbeat,
 	}
@@ -317,9 +321,13 @@ func (n *Node) ApplyLogs() {
 
 	for lastApplied < commitIndex {
 		hasApply = true
-		// if lastApplied == 0 {
-		// 	c.initFsm()
-		// }
+		if lastApplied == 0 {
+			input := EvalInput{
+				Id:       n.id,
+				EvalType: INIT,
+			}
+			n.fsm.eval(input)
+		}
 
 		// Increment last applied first
 		// because lastApplied = 0 is not a valid logEntry
@@ -327,21 +335,27 @@ func (n *Node) ApplyLogs() {
 		if log, err := n.Log(lastApplied); err == nil {
 			switch log.Type {
 			case LogCommand:
-				// do command
-				// res := c.evalFsm(log.Value, "COMMAND")
-				// if log.C != nil {
-				// 	log.C <- res
-				// }
-			case LogConfiguration:
+				input := EvalInput{
+					Id:       n.id,
+					Data:     string(log.Data),
+					EvalType: COMMAND,
+				}
+				res := n.fsm.eval(input)
+				if log.C != nil {
+					log.C <- res
+				}
 
+			case LogConfiguration:
 				var config ConfigurationUpdate
 				if err := json.Unmarshal(log.Data, &config); err == nil {
 					if res := n.configurationUpdate(config); log.C != nil {
 						log.C <- res
 					}
 				}
+
 			case LogNoop:
 				continue
+
 			default:
 				continue
 			}
@@ -355,31 +369,42 @@ func (n *Node) ApplyLogs() {
 	}
 }
 
-func (n *Node) ExecuteCommand(cmd ExecuteInput) chan ExecuteOutput {
+func (n *Node) Execute(cmd ExecuteInput) chan ExecuteOutput {
 	result := make(chan ExecuteOutput, 1)
-	newEntry := LogEntry{
-		Index: uint64(n.lastLogIndex()),
-		Term:  n.currentTerm,
-		Type:  cmd.Type,
-		Data:  cmd.Data,
-		C:     result,
-	}
 
-	go n.dispatch(newEntry)
+	switch cmd.Type {
+	case LogCommand, LogConfiguration:
+		newEntry := LogEntry{
+			Index: uint64(n.lastLogIndex()),
+			Term:  n.currentTerm,
+			Type:  cmd.Type,
+			Data:  cmd.Data,
+			C:     result,
+		}
+		dispatch := func() {
+			n.AppendLogs(n.lastLogIndex(), newEntry)
+			n.synchronizeLogs()
+		}
+
+		go dispatch()
+
+	case LogQuery:
+		dispatch := func() {
+			input := EvalInput{
+				Id:       n.id,
+				Data:     string(cmd.Data),
+				EvalType: QUERY,
+			}
+			result <- n.fsm.eval(input)
+		}
+		go dispatch()
+
+	default:
+		result <- ExecuteOutput{}
+	}
 
 	return result
 }
-
-func (n *Node) dispatch(entry LogEntry) {
-	n.AppendLogs(n.lastLogIndex(), entry)
-	n.synchronizeLogs()
-}
-
-// func (c ClusterNode) ExecuteQuery(query string) chan domain.ExecuteOutput {
-// 	result := make(chan domain.ExecuteOutput, 1)
-// 	go (func() { result <- c.evalFsm(query, "QUERY") })()
-// 	return result
-// }
 
 var (
 	errPeerAlreadyExists = errors.New("peer already exists")
