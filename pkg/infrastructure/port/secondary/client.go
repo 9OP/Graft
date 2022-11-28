@@ -28,7 +28,7 @@ func NewRpcClientPort(adapter ClientAdapter) *rpcClientPort {
 	return &rpcClientPort{adapter}
 }
 
-func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
+func (p *rpcClientPort) AppendEntries(target string, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error) {
 	entries := make([]*clusterRpc.LogEntry, 0, len(input.Entries))
 	for _, log := range input.Entries {
 		logType := clusterRpc.LogType(clusterRpc.LogType_value[log.Type.String()])
@@ -41,7 +41,7 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 		entries = append(entries, entry)
 	}
 
-	output, err := p.adapter.AppendEntries(peer.Target(), &clusterRpc.AppendEntriesInput{
+	output, err := p.adapter.AppendEntries(target, &clusterRpc.AppendEntriesInput{
 		Term:         input.Term,
 		LeaderId:     input.LeaderId,
 		PrevLogIndex: input.PrevLogIndex,
@@ -59,8 +59,8 @@ func (p *rpcClientPort) AppendEntries(peer domain.Peer, input *domain.AppendEntr
 	}, nil
 }
 
-func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	output, err := p.adapter.RequestVote(peer.Target(), &clusterRpc.RequestVoteInput{
+func (p *rpcClientPort) RequestVote(target string, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+	output, err := p.adapter.RequestVote(target, &clusterRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
@@ -76,8 +76,8 @@ func (p *rpcClientPort) RequestVote(peer domain.Peer, input *domain.RequestVoteI
 	}, nil
 }
 
-func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
-	output, err := p.adapter.PreVote(peer.Target(), &clusterRpc.RequestVoteInput{
+func (p *rpcClientPort) PreVote(target string, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error) {
+	output, err := p.adapter.PreVote(target, &clusterRpc.RequestVoteInput{
 		Term:         input.Term,
 		CandidateId:  input.CandidateId,
 		LastLogIndex: input.LastLogIndex,
@@ -93,8 +93,8 @@ func (p *rpcClientPort) PreVote(peer domain.Peer, input *domain.RequestVoteInput
 	}, nil
 }
 
-func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
-	output, err := p.adapter.Execute(peer.Target(), &clusterRpc.ExecuteInput{
+func (p *rpcClientPort) Execute(target string, input *domain.ExecuteInput) (*domain.ExecuteOutput, error) {
+	output, err := p.adapter.Execute(target, &clusterRpc.ExecuteInput{
 		Type: clusterRpc.LogType(input.Type),
 		Data: input.Data,
 	})
@@ -108,13 +108,13 @@ func (p *rpcClientPort) Execute(peer domain.Peer, input *domain.ExecuteInput) (*
 	}, nil
 }
 
-func (p *rpcClientPort) LeadershipTransfer(peer domain.Peer) error {
-	_, err := p.adapter.LeadershipTransfer(peer.Target(), &clusterRpc.Nil{})
+func (p *rpcClientPort) LeadershipTransfer(target string) error {
+	_, err := p.adapter.LeadershipTransfer(target, &clusterRpc.Nil{})
 	return err
 }
 
-func (p *rpcClientPort) Configuration(peer domain.Peer) (*domain.ClusterConfiguration, error) {
-	output, err := p.adapter.Configuration(peer.Target(), &clusterRpc.Nil{})
+func (p *rpcClientPort) Configuration(target string) (*domain.ClusterConfiguration, error) {
+	output, err := p.adapter.Configuration(target, &clusterRpc.Nil{})
 	if err != nil {
 		return nil, err
 	}
@@ -137,12 +137,12 @@ func (p *rpcClientPort) Configuration(peer domain.Peer) (*domain.ClusterConfigur
 	}, nil
 }
 
-func (p *rpcClientPort) Shutdown(peer domain.Peer) error {
-	_, err := p.adapter.Shutdown(peer.Target(), &clusterRpc.Nil{})
+func (p *rpcClientPort) Shutdown(target string) error {
+	_, err := p.adapter.Shutdown(target, &clusterRpc.Nil{})
 	return err
 }
 
-func (p *rpcClientPort) Ping(peer domain.Peer) error {
-	_, err := p.adapter.Ping(peer.Target(), &clusterRpc.Nil{})
+func (p *rpcClientPort) Ping(target string) error {
+	_, err := p.adapter.Ping(target, &clusterRpc.Nil{})
 	return err
 }

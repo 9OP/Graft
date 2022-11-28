@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"graft/pkg"
-	"graft/pkg/domain"
 
 	"github.com/spf13/cobra"
 )
@@ -13,10 +12,9 @@ var configurationCmd = &cobra.Command{
 	Use:   "configuration",
 	Short: "Print cluster configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		clusterPeer := domain.Peer{Host: cluster.AddrPort}
-		configuration, err := pkg.ClusterConfiguration(clusterPeer)
+		configuration, err := pkg.ClusterConfiguration(cluster.String())
 		if err != nil {
-			return err
+			return fmt.Errorf("failed load configuration\n%v", err.Error())
 		}
 
 		c, err := configuration.ToJSON()

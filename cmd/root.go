@@ -20,7 +20,7 @@ var (
 )
 
 func Execute() {
-	rootCmd.Flags().SortFlags = false
+	rootCmd.PersistentFlags().SortFlags = false
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

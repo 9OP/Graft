@@ -7,9 +7,9 @@ import (
 )
 
 type Client interface {
-	AppendEntries(peer domain.Peer, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error)
-	RequestVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
-	PreVote(peer domain.Peer, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
+	AppendEntries(target string, input *domain.AppendEntriesInput) (*domain.AppendEntriesOutput, error)
+	RequestVote(target string, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
+	PreVote(target string, input *domain.RequestVoteInput) (*domain.RequestVoteOutput, error)
 }
 
 func PreVote(node *domain.Node, client Client) bool {
@@ -18,7 +18,7 @@ func PreVote(node *domain.Node, client Client) bool {
 	var prevotesGranted uint32 = 1 // vote for self
 
 	gatherPreVote := func(p domain.Peer) {
-		if res, err := client.PreVote(p, &input); err == nil {
+		if res, err := client.PreVote(p.Target(), &input); err == nil {
 			if res.VoteGranted {
 				atomic.AddUint32(&prevotesGranted, 1)
 			}
@@ -36,7 +36,7 @@ func RequestVote(node *domain.Node, client Client) bool {
 	var votesGranted uint32 = 1 // vote for self
 
 	gatherVote := func(p domain.Peer) {
-		if res, err := client.RequestVote(p, &input); err == nil {
+		if res, err := client.RequestVote(p.Target(), &input); err == nil {
 			if res.Term > node.CurrentTerm() {
 				node.DowngradeFollower(res.Term)
 				return
@@ -59,7 +59,7 @@ func AppendEntries(node *domain.Node, client Client) bool {
 
 	synchroniseLogsRoutine := func(p domain.Peer) {
 		input := node.AppendEntriesInput(p.Id)
-		if res, err := client.AppendEntries(p, &input); err == nil {
+		if res, err := client.AppendEntries(p.Target(), &input); err == nil {
 			atomic.AddUint32(&peersAlive, 1)
 			if res.Term > node.CurrentTerm() {
 				node.DowngradeFollower(res.Term)

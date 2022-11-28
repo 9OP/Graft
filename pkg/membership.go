@@ -3,17 +3,16 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 )
 
-func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}, error) {
+func AddClusterPeer(newPeer domain.Peer, cluster string) (chan struct{}, error) {
 	// 1. Get cluster leader
 	leaderNotFound := false
-	leader, err := getClusterLeader(clusterPeer)
+	leader, err := getClusterLeader(cluster)
 	switch err {
 	case nil:
 		break
@@ -29,7 +28,7 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}
 
 		// Fall back to a cluster peer to fetch the configuration
 		// the cluster configuration is potentially stale
-		config, err := client.Configuration(clusterPeer)
+		config, err := client.Configuration(cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -89,9 +88,9 @@ func AddClusterPeer(newPeer domain.Peer, clusterPeer domain.Peer) (chan struct{}
 	}
 }
 
-func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
+func RemoveClusterPeer(oldPeer domain.Peer, cluster string) error {
 	// 1. Get cluster leader
-	leader, err := getClusterLeader(clusterPeer)
+	leader, err := getClusterLeader(cluster)
 	if err != nil {
 		return err
 	}
@@ -111,17 +110,17 @@ func RemoveClusterPeer(oldPeer domain.Peer, clusterPeer domain.Peer) error {
 	return nil
 }
 
-func Execute(entry string, logType domain.LogType, clusterPeer domain.Peer) (*domain.ExecuteOutput, error) {
-	var peer domain.Peer
+func Execute(entry string, logType domain.LogType, cluster string) (*domain.ExecuteOutput, error) {
+	var peer string
 
 	if logType == domain.LogCommand || logType == domain.LogConfiguration {
-		p, err := getClusterLeader(clusterPeer)
+		p, err := getClusterLeader(cluster)
 		if err != nil {
 			return nil, err
 		}
 		peer = *p
 	} else {
-		peer = clusterPeer
+		peer = cluster
 	}
 
 	input := domain.ExecuteInput{
@@ -132,26 +131,19 @@ func Execute(entry string, logType domain.LogType, clusterPeer domain.Peer) (*do
 	return client.Execute(peer, &input)
 }
 
-func LeadeshipTransfer(peer domain.Peer) error {
-	if err := client.LeadershipTransfer(peer); err != nil {
-		return fmt.Errorf("cannot transfer leadership: %w", err)
-	}
-	return nil
+func LeadeshipTransfer(peer string) error {
+	return client.LeadershipTransfer(peer)
 }
 
-func Shutdown(peer domain.Peer) error {
-	if err := client.Shutdown(peer); err != nil {
-		return fmt.Errorf("cannot shutdown %v: %w", peer.Host, err)
-	}
-	return nil
+func Shutdown(peer string) error {
+	return client.Shutdown(peer)
 }
 
-func ClusterConfiguration(clusterPeer domain.Peer) (*domain.ClusterConfiguration, error) {
-	leader, err := getClusterLeader(clusterPeer)
+func ClusterConfiguration(cluster string) (*domain.ClusterConfiguration, error) {
+	leader, err := getClusterLeader(cluster)
 	if err != nil {
 		return nil, err
 	}
-
 	return client.Configuration(*leader)
 }
 
@@ -160,20 +152,21 @@ var (
 	errLeaderNotFound = errors.New("leader not found")
 )
 
-func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
-	config, err := client.Configuration(clusterPeer)
+func getClusterLeader(cluster string) (*string, error) {
+	config, err := client.Configuration(cluster)
 	if err != nil {
-		return nil, fmt.Errorf("cannot load cluster configuration: %w", err)
+		return nil, err
 	}
 
 	// If leader available, return it
 	if leader, ok := config.Peers[config.LeaderId]; ok {
-		return &leader, nil
+		target := leader.Target()
+		return &target, nil
 	}
 
 	// Otherwise ask known peers about the leader
 	for _, peer := range config.Peers {
-		config, err := client.Configuration(peer)
+		config, err := client.Configuration(peer.Target())
 		if err != nil {
 			// No worries, peer might be out
 			// ask the next one for leader info
@@ -181,7 +174,8 @@ func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 		}
 
 		if leader, ok := config.Peers[config.LeaderId]; ok {
-			return &leader, nil
+			target := leader.Target()
+			return &target, nil
 		}
 	}
 
@@ -192,7 +186,7 @@ func getClusterLeader(clusterPeer domain.Peer) (*domain.Peer, error) {
 	return nil, errLeaderNotFound
 }
 
-func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.Peer, leader domain.Peer) error {
+func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.Peer, leader string) error {
 	data, _ := json.Marshal(&domain.ConfigurationUpdate{
 		Type: tp,
 		Peer: peer,
@@ -202,7 +196,7 @@ func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.P
 		Data: data,
 	}
 	if _, err := client.Execute(leader, &input); err != nil {
-		return fmt.Errorf("cannot apply cluster configuration update: %w", err)
+		return err
 	}
 	return nil
 }

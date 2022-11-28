@@ -15,5 +15,7 @@ var clusterCmd = &cobra.Command{
 }
 
 func init() {
+	clusterCmd.PersistentFlags().Var(&cluster, "cluster", "Live cluster peer for sending commands")
+	clusterCmd.MarkPersistentFlagRequired("cluster")
 	rootCmd.AddCommand(clusterCmd)
 }

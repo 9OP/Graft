@@ -2,10 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"net/netip"
 
 	"graft/pkg"
-	"graft/pkg/domain"
 
 	"github.com/spf13/cobra"
 )
@@ -13,14 +11,12 @@ import (
 var leadershipTransferCmd = &cobra.Command{
 	Use:   "leader [ip:port]",
 	Short: "Leadership transfer to peer",
-	Args:  argAddrValidator,
+	Args:  validateAddrArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		host, _ := netip.ParseAddrPort(args[0])
-		id := hashString(host.String())
-		peer := domain.Peer{Id: id, Host: host}
+		host := args[0]
 
-		if err := pkg.LeadeshipTransfer(peer); err != nil {
-			return fmt.Errorf("did not transfer leadership to peer %s: %v", host, err.Error())
+		if err := pkg.LeadeshipTransfer(host); err != nil {
+			return fmt.Errorf("failed leadership transfer\n%v", err.Error())
 		}
 
 		return nil

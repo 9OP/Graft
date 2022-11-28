@@ -7,8 +7,19 @@ import (
 	"net/netip"
 	"os"
 
+	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
 )
+
+func validateAddrArg(cmd *cobra.Command, args []string) error {
+	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+		return err
+	}
+	if _, err := netip.ParseAddrPort(args[0]); err != nil {
+		return err
+	}
+	return nil
+}
 
 type configuration struct {
 	Fsm      string `yaml:"fsm"`

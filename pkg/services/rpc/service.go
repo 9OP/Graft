@@ -134,11 +134,16 @@ func (s service) validateExecuteInput(input *domain.ExecuteInput) error {
 		nodes.
 	*/
 	case domain.LogConfiguration:
+		if !s.node.IsLeader() {
+			return domain.ErrNotLeader
+		}
+
 		var config domain.ConfigurationUpdate
 		json.Unmarshal(input.Data, &config)
 
 		if config.Type == domain.ConfActivatePeer {
-			if err := s.client.Ping(config.Peer); err != nil {
+			peer := config.Peer
+			if err := s.client.Ping(peer.Target()); err != nil {
 				return domain.ErrUnreachable
 			}
 		}

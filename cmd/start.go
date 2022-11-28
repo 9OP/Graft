@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/netip"
 
 	"graft/pkg"
@@ -18,15 +19,16 @@ var (
 var startCmd = &cobra.Command{
 	Use:   "start [ip:port]",
 	Short: "Start a new cluster",
-	Args:  argAddrValidator,
+	Args:  validateAddrArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		utils.ConfigureLogger(level.String())
+
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
 
 		cf, err := loadConfiguration(config)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed load configuration\n%v", err.Error())
 		}
 
 		peers := domain.Peers{
@@ -54,6 +56,5 @@ var startCmd = &cobra.Command{
 func init() {
 	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
 	startCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
-
 	rootCmd.AddCommand(startCmd)
 }

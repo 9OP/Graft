@@ -12,8 +12,8 @@ import (
 var exType executeType
 
 var executeCmd = &cobra.Command{
-	Use:   "execute [command]",
-	Short: "Execute command on FSM",
+	Use:   "execute [entry]",
+	Short: "Execute entry on FSM",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
 			return err
@@ -21,7 +21,6 @@ var executeCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		clusterPeer := domain.Peer{Host: cluster.AddrPort}
 		entry := args[0]
 
 		var logType domain.LogType
@@ -32,13 +31,13 @@ var executeCmd = &cobra.Command{
 			logType = domain.LogQuery
 		}
 
-		res, err := pkg.Execute(entry, logType, clusterPeer)
+		res, err := pkg.Execute(entry, logType, cluster.String())
 		if err != nil {
 			return err
 		}
 
 		if res.Err != nil {
-			return fmt.Errorf("fsm eval error:\n\t%v", res.Err.Error())
+			return err
 		}
 
 		fmt.Println(string(res.Out))
@@ -50,6 +49,5 @@ var executeCmd = &cobra.Command{
 func init() {
 	executeCmd.Flags().Var(&exType, "type", `Execute type`)
 	executeCmd.MarkFlagRequired("type")
-
 	clusterCmd.AddCommand(executeCmd)
 }

@@ -27,9 +27,7 @@ def get_input() -> Input:
     )
 
 def init(input: Input):
-    path = f"conf/{input.id}.db"
-    print("init", path)
-    os.remove(path)
+    os.remove(f"conf/{input.id}.db")
 
 def command(input: Input):
     con = sqlite3.connect(f"conf/{input.id}.db")
@@ -39,7 +37,10 @@ def command(input: Input):
     con.close()
 
 def query(input: Input):
-    con = sqlite3.connect(f"conf/{input.id}.db")
+    # Copy db in memory to prevent writes
+    con = sqlite3.connect(":memory:")
+    source = sqlite3.connect(f"conf/{input.id}.db")
+    source.backup(con)
     con.row_factory = sqlite3.Row
     cur = con.cursor()
     res = []
