@@ -12,17 +12,6 @@ import (
 	"graft/pkg/utils/log"
 )
 
-/*
-Implementation note:
-- nodeState is supposed to only expose pure function `Withers` that return a copy
-  instead of mutating the instance.
-- When a mutation needs to be saved in ClusterNode (for instance incrementing nodeState.CurrentTerm)
-  You should call swapState, which atomically change the pointer of ClusterNode.nodeState to your
-  new nodeState version.
-- This means that every ClusterNode method that calls swapState, needs to accept a pointer receiver (n *Node)
-  Because otherwise, swapState is called with a copy of the pointers instead of original pointers
-*/
-
 type signals struct {
 	Commit             chan struct{}
 	ShiftRole          chan struct{}
@@ -34,12 +23,12 @@ type signals struct {
 
 func newSignals() signals {
 	return signals{
-		Commit:             make(chan struct{}, 1),
-		ShiftRole:          make(chan struct{}, 1),
-		SaveState:          make(chan struct{}, 1),
-		SynchronizeLogs:    make(chan struct{}, 1),
-		ResetLeaderTicker:  make(chan struct{}, 1),
-		ResetElectionTimer: make(chan struct{}, 1),
+		Commit:             make(chan struct{}, 10),
+		ShiftRole:          make(chan struct{}, 10),
+		SaveState:          make(chan struct{}, 10),
+		SynchronizeLogs:    make(chan struct{}, 10),
+		ResetLeaderTicker:  make(chan struct{}, 10),
+		ResetElectionTimer: make(chan struct{}, 10),
 	}
 }
 
@@ -78,8 +67,9 @@ type Node struct {
 	*state
 	signals
 	config NodeConfig
-	exit   bool
 	fsm    fsm
+	exit   bool
+	apply  sync.Mutex
 }
 
 func NewNode(
@@ -262,6 +252,11 @@ func (n *Node) SetLeader(leaderId string) {
 }
 
 func (n *Node) setCommitIndex(index uint32) {
+	if index > n.lastLogIndex() {
+		log.Errorf("cannot set commit index (%v) > last log index (%v)", index, n.lastLogIndex())
+		return
+	}
+
 	if n.commitIndex != index {
 		log.Debugf("commit index: %v", index)
 		newState := n.withCommitIndex(index)
@@ -310,62 +305,74 @@ func (n *Node) GrantVote(peerId string) {
 }
 
 func (n *Node) ApplyLogs() {
-	if n.exit {
+	log.Debugf("apply logs to commitIndex %v", n.commitIndex)
+
+	if n.lastApplied >= n.commitIndex || n.exit {
+		log.Warnf("not applying logs")
 		return
 	}
 
-	hasApply := false
-	commitIndex := n.commitIndex
+	/*
+		Critical section:
+		Must not run ApplyLogs concurrently to prevent applying
+		the same log multiple time to the FSM.
+		ApplyLogs should be run by only one goroutine at any given time.
+	*/
+	n.apply.Lock()
+	defer n.apply.Unlock()
+
+	// Must set lastApplied and commitIndex
+	// After calling Lock()
 	lastApplied := n.lastApplied
+	commitIndex := n.commitIndex
+
+	if lastApplied == 0 {
+		input := EvalInput{
+			Id:       n.id,
+			EvalType: INIT,
+		}
+		n.fsm.eval(input)
+	}
 
 	for lastApplied < commitIndex {
-		hasApply = true
-		if lastApplied == 0 {
-			input := EvalInput{
-				Id:       n.id,
-				EvalType: INIT,
-			}
-			n.fsm.eval(input)
-		}
-
-		// Increment last applied first
-		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
-		if lg, err := n.Log(lastApplied); err == nil {
-			switch lg.Type {
-			case LogCommand:
-				input := EvalInput{
-					Id:       n.id,
-					Data:     string(lg.Data),
-					EvalType: COMMAND,
-				}
-				res := n.fsm.eval(input)
-				log.Debugf("fsm apply: %s", string(lg.Data))
-				if lg.C != nil {
-					lg.C <- res
-				}
-
-			case LogConfiguration:
-				var config ConfigurationUpdate
-				if err := json.Unmarshal(lg.Data, &config); err == nil {
-					if res := n.configurationUpdate(config); lg.C != nil {
-						lg.C <- res
-					}
-				}
-
-			case LogNoop:
-				continue
-
-			default:
-				continue
-			}
-		}
+		n.applyLog(lastApplied)
 	}
 
 	// Swap only once
-	if hasApply {
-		newState := n.withLastApplied(lastApplied)
-		n.swapState(&newState)
+	newState := n.withLastApplied(lastApplied)
+	n.swapState(&newState)
+}
+
+func (n *Node) applyLog(index uint32) {
+	if lg, err := n.Log(index); err == nil {
+		switch lg.Type {
+		case LogCommand:
+			input := EvalInput{
+				Id:       n.id,
+				Data:     string(lg.Data),
+				EvalType: COMMAND,
+			}
+			res := n.fsm.eval(input)
+			log.Debugf("fsm apply:\n%s", string(lg.Data))
+			if lg.C != nil {
+				lg.C <- res
+			}
+
+		case LogConfiguration:
+			var config ConfigurationUpdate
+			if err := json.Unmarshal(lg.Data, &config); err == nil {
+				if res := n.configurationUpdate(config); lg.C != nil {
+					lg.C <- res
+				}
+			}
+
+		case LogNoop:
+			return
+
+		default:
+			log.Errorf("log type unknown: %v", lg.Type)
+		}
 	}
 }
 
@@ -400,6 +407,7 @@ func (n *Node) Execute(cmd ExecuteInput) chan ExecuteOutput {
 		go dispatch()
 
 	default:
+		log.Errorf("log type unknown: %v", cmd.Type)
 		result <- ExecuteOutput{}
 	}
 

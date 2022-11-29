@@ -113,6 +113,7 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 	}
 
 	if err := s.validateExecuteInput(input); err != nil {
+		log.Errorf("cannot execute: %v", err)
 		return nil, err
 	}
 

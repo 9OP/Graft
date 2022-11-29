@@ -11,7 +11,7 @@ import (
 
 func ConfigureLogger(id string) {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lmsgprefix)
-	logFile, err := os.OpenFile(fmt.Sprintf("%s/log_%s.txt", utils.GraftPath(), id), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
+	logFile, err := os.OpenFile(fmt.Sprintf("%s/.%s.log", utils.GraftPath(), id), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0o666)
 	if err != nil {
 		panic(err)
 	}
