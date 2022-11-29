@@ -1,5 +1,19 @@
 package utils
 
+func GraftPath() string {
+	// home, err := os.UserHomeDir()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// path := fmt.Sprintf("%s/%s", home, ".graft")
+	// err = os.MkdirAll(path, os.ModePerm)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// return path
+	return "."
+}
+
 func Min[K uint | uint8 | uint16 | uint32 | uint64 | int](value_0, value_1 K) K {
 	if value_0 < value_1 {
 		return value_0

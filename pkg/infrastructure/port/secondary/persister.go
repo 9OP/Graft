@@ -3,7 +3,7 @@ package secondaryPort
 import (
 	"graft/pkg/domain"
 
-	log "github.com/sirupsen/logrus"
+	"graft/pkg/utils/log"
 )
 
 type AdapterPersister interface {
@@ -26,7 +26,7 @@ func NewPersisterPort(location string, adapter AdapterPersister) *persisterPort 
 func (p persisterPort) Load() (domain.PersistentState, error) {
 	state, err := p.adapter.Load(p.location)
 	if err != nil {
-		log.Warn("CANNOT LOAD PERSISTENT STATE, USING DEFAULT")
+		log.Warnf("cannot load config, using default")
 		return domain.DEFAULT_PERSISTENT_STATE, err
 	}
 	return *state, nil

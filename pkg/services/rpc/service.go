@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"graft/pkg/domain"
 	"graft/pkg/services/lib"
+	"graft/pkg/utils/log"
 )
 
 type service struct {
@@ -200,12 +200,12 @@ func (s service) Configuration() (*domain.ClusterConfiguration, error) {
 }
 
 func (s service) Shutdown() {
-	fmt.Println("shutting down in 3s")
+	log.Debugf("shutting down in 3s")
 
 	s.node.Shutdown()
 
 	time.AfterFunc(3*time.Second, func() {
-		fmt.Println("shutdown")
+		log.Infof("shut down")
 		close(s.quit)
 	})
 }

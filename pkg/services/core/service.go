@@ -4,7 +4,7 @@ import (
 	"graft/pkg/domain"
 	"graft/pkg/services/lib"
 
-	log "github.com/sirupsen/logrus"
+	"graft/pkg/utils/log"
 )
 
 type synchronise struct {
@@ -84,7 +84,7 @@ func (s service) leaderHeartbeat() {
 		defer s.sync.running.Unlock()
 
 		if quorumReached := s.heartbeat(); !quorumReached {
-			log.Debug("STEP DOWN")
+			log.Debugf("leader step down")
 			s.node.DowngradeFollower(s.node.CurrentTerm())
 		}
 	}

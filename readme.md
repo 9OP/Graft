@@ -11,6 +11,25 @@ Why do you need Graft for ?
 
 Graft help you make any state machine resilient and distributed through distributed consensus.
 
+<br />
+<br />
+
+### Code architecture
+
+```sh
+godepgraph -novendor -s -p github.com,google.golang.org,gopkg.in ./pkg | dot -Tpng -o graft.png
+```
+
+![deps](docs/dependencies.png)
+
+
+The architecture is based on Clean/Hexagonal principles:
+- **The inner most dependency is `pkg/domain`.** It is imported by all, and it imports no-one. This is were the business logic lives. It depends on nothing, and **everything** depends on it.
+- **The middle dependency is `pkg/services`.** It implements use-cases, services, API logic. It provide services and application logic that consume the domain and provide response for the outside world.
+- **The outer most dependency is `pkg/infrastructure`**. It implements adapter and port for providing interfaces to access use-case/services and domain logic. This is where framework, drivers, libs etc... lives. **Nothing** depends on the infrastructure layer.
+
+
+
 ### Graft refactoring status
 
 ```

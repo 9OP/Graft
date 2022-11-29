@@ -6,7 +6,7 @@ import (
 
 	"graft/pkg"
 	"graft/pkg/domain"
-	"graft/pkg/utils"
+	"graft/pkg/utils/log"
 
 	"github.com/spf13/cobra"
 )
@@ -23,10 +23,9 @@ var addNodeCmd = &cobra.Command{
 	`,
 	Args: validateAddrArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		utils.ConfigureLogger(level.String())
-
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
+		log.ConfigureLogger(id)
 		newPeer := domain.Peer{Id: id, Host: host, Active: false}
 
 		quit, err := pkg.AddClusterPeer(newPeer, cluster.String())
@@ -75,7 +74,6 @@ var removeNodeCmd = &cobra.Command{
 }
 
 func init() {
-	addNodeCmd.Flags().Var(&level, "log", `log level. allowed: "DEBUG", "INFO", "ERROR"`)
 	removeNodeCmd.Flags().BoolVarP(&shutdown, "shutdown", "s", false, "Shutdown node once removed")
 	clusterCmd.AddCommand(addNodeCmd)
 	clusterCmd.AddCommand(removeNodeCmd)
