@@ -34,11 +34,12 @@ The architecture is based on Clean/Hexagonal principles:
 
 ```
 TODO:
-- logging interface, + remove logrus dependencies
+- add command options, start/add in same command ?
 - graceful stop grpc when quit
 - gRPC API error with status code
-- Document graph of deps / hexagonal architecture
-- (don) FSM execution bindings
+- (done) logging interface, + remove logrus dependencies
+- (done) Document graph of deps / hexagonal architecture
+- (done) FSM execution bindings
 - (done) Client command (support for leader redirection)
 - (done) Mutual TLS
 - (done) Rename the use case and the servers
@@ -59,3 +60,29 @@ DONE:
 
 TODO:
 - Log compaction
+```
+
+FIX:
+1. start cluster
+2. add 2 peers
+3. shutdown leader
+4. restart leader
+=> start leader fails disturb the cluster as existing peers dont know about the old leader
+=> need to restart leader with `cluster add` to prevent disturbing the cluster
+
+```sh
+# Command organization:
+
+start [id:port] --cluster [id:port] -> start node and append to cluster
+stop [id:port] --cluster [id:port] -> remove node from cluster + stop
+
+
+start
+stop
+add
+remove
+
+leader
+execute
+configuration
+```

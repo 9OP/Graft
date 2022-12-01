@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/netip"
+	"time"
 
 	"graft/pkg"
 	"graft/pkg/domain"
@@ -14,43 +15,69 @@ import (
 var config string
 
 var startCmd = &cobra.Command{
-	Use:   "start [ip:port]",
-	Short: "Start a new cluster",
-	Args:  validateAddrArg,
+	Use:     "start [ip:port]",
+	GroupID: "membership",
+	Short:   "Start cluster node",
+	Long: `Start cluster node:
+
+	If specified cluster flag is equal to [ip:port], then starts
+	a new cluster with first node [ip:port].
+	`,
+	Args: validateAddrArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		host, _ := netip.ParseAddrPort(args[0])
 		id := hashString(host.String())
+
+		peer := domain.Peer{
+			Id:   id,
+			Host: host,
+		}
+
 		log.ConfigureLogger(id)
 
-		cf, err := loadConfiguration(config)
-		if err != nil {
-			return fmt.Errorf("failed load configuration\n%v", err.Error())
+		// Start new cluster
+		if host.String() == cluster.String() {
+			cf, err := loadConfiguration(config)
+			if err != nil {
+				return fmt.Errorf("failed load configuration\n%v", err.Error())
+			}
+
+			quit := pkg.Start(
+				id,
+				host,
+				domain.Peers{id: peer},
+				cf.Fsm,
+				cf.Timeouts.Election,
+				cf.Timeouts.Heartbeat,
+			)
+
+			// wait for peer to upgrade leader
+			time.Sleep(3 * time.Second)
+
+			err = pkg.AddSelf(peer)
+			if err != nil {
+				return err
+			}
+
+			// wait
+			<-quit
+		} else {
+			// Add new peer to cluster
+			quit, err := pkg.AddClusterPeer(peer, cluster.String())
+			if err != nil {
+				return fmt.Errorf("failed add peer\n%v", err.Error())
+			}
+
+			// wait
+			<-quit
+
 		}
 
-		peers := domain.Peers{
-			id: domain.Peer{
-				Id:     id,
-				Host:   host,
-				Active: true,
-			},
-		}
-
-		quit := pkg.Start(
-			id,
-			host,
-			peers,
-			cf.Fsm,
-			cf.Timeouts.Election,
-			cf.Timeouts.Heartbeat,
-		)
-
-		// wait
-		<-quit
 		return nil
 	},
 }
 
 func init() {
-	startCmd.Flags().StringVarP(&config, "config", "c", "conf/graft-config.yml", "Configuration file path")
+	startCmd.Flags().StringVar(&config, "config", "conf/graft-config.yml", "Configuration file path")
 	rootCmd.AddCommand(startCmd)
 }

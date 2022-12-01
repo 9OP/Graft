@@ -11,15 +11,27 @@ var (
 	rootCmd = &cobra.Command{
 		Use:     "graft",
 		Version: version,
-		Short:   "Graft is a simple implementation of Raft distributed consensus",
-		Long:    `Makes any FSM distributed and resilient to single point of failure.`,
+		Short:   "Raft distributed consensus",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
 )
 
+var (
+	cluster         ipAddr
+	adminGroup      = &cobra.Group{ID: "cluster", Title: "Cluster administration commands:"}
+	membershipGroup = &cobra.Group{ID: "membership", Title: "Cluster membership commands:"}
+	fsmGroup        = &cobra.Group{ID: "fsm", Title: "State machine commands:"}
+)
+
 func Execute() {
+	rootCmd.AddGroup(membershipGroup)
+	rootCmd.AddGroup(fsmGroup)
+	rootCmd.AddGroup(adminGroup)
+
+	rootCmd.PersistentFlags().VarP(&cluster, "cluster", "c", "Any live cluster peer")
+	rootCmd.MarkPersistentFlagRequired("cluster")
 	rootCmd.PersistentFlags().SortFlags = false
 	rootCmd.SilenceUsage = true
 

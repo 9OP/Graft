@@ -9,16 +9,14 @@ import (
 )
 
 var leadershipTransferCmd = &cobra.Command{
-	Use:   "leader [ip:port]",
-	Short: "Leadership transfer to peer",
-	Args:  validateAddrArg,
+	Use:     "leader [ip:port]",
+	GroupID: "cluster",
+	Short:   "Transfer cluster leadership",
+	Args:    validateAddrArg,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		host := args[0]
-
-		if err := pkg.LeadeshipTransfer(host); err != nil {
+		if err := pkg.LeadeshipTransfer(args[0]); err != nil {
 			return fmt.Errorf("failed leadership transfer\n%v", err.Error())
 		}
-
 		return nil
 	},
 }

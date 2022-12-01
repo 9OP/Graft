@@ -354,7 +354,7 @@ func (n *Node) applyLog(index uint32) {
 				EvalType: COMMAND,
 			}
 			res := n.fsm.eval(input)
-			log.Debugf("fsm apply:\n%s", string(lg.Data))
+			log.Debugf("apply\n%s", string(lg.Data))
 			if lg.C != nil {
 				lg.C <- res
 			}

@@ -26,7 +26,7 @@ func Start(
 	electionTimeout int,
 	leaderHeartbeat int,
 ) chan struct{} {
-	quit := make(chan struct{})
+	quit := make(chan struct{}, 1)
 
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewClusterClient()
@@ -61,7 +61,7 @@ func Start(
 	go (func() {
 		err := rpc.Start()
 		if err != nil {
-			log.Fatalf("Cannot start rpc server: %v", err)
+			log.Fatalf("cannot start rpc server: %v", err)
 		}
 	})()
 	go core.Start()
