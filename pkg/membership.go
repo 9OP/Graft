@@ -9,14 +9,20 @@ import (
 )
 
 func AddSelf(peer domain.Peer) error {
-	// 1. Add newPeer to cluster configuration
-	err := executeConfigurationUpdate(domain.ConfAddPeer, peer, peer.Target())
+	// 1. Wait for leader to be available
+	leader, err := getClusterLeaderWithTimeout(peer.Target())
 	if err != nil {
 		return err
 	}
 
-	// 2. Set newPeer to active
-	err = executeConfigurationUpdate(domain.ConfActivatePeer, peer, peer.Target())
+	// 2. Add newPeer to cluster configuration
+	err = executeConfigurationUpdate(domain.ConfAddPeer, peer, *leader)
+	if err != nil {
+		return err
+	}
+
+	// 3. Set newPeer to active
+	err = executeConfigurationUpdate(domain.ConfActivatePeer, peer, *leader)
 	if err != nil {
 		return err
 	}

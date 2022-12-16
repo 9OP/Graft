@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"net/netip"
-	"time"
 
 	"graft/pkg"
 	"graft/pkg/domain"
@@ -50,9 +49,6 @@ var startCmd = &cobra.Command{
 				cf.Timeouts.Election,
 				cf.Timeouts.Heartbeat,
 			)
-
-			// wait for peer to upgrade leader
-			time.Sleep(3 * time.Second)
 
 			err = pkg.AddSelf(peer)
 			if err != nil {

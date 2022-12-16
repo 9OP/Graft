@@ -435,7 +435,7 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutpu
 			return
 		}
 		log.Infof("configuration: add %v", peer.Id)
-		peer.Active = false
+		peer.Active = false // TODO: fix
 		peers = n.peers.addPeer(peer)
 
 	case ConfActivatePeer:

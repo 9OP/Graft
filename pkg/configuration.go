@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"errors"
+	"time"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -53,4 +54,21 @@ func getClusterLeader(cluster string) (*string, error) {
 	// - network partition
 	// - cluster has failed quorum and no leader can be elected
 	return nil, errLeaderNotFound
+}
+
+func getClusterLeaderWithTimeout(cluster string) (*string, error) {
+	timeout := time.NewTimer(5 * time.Second)
+	polling := time.NewTicker(200 * time.Millisecond)
+
+	for {
+		select {
+		case <-polling.C:
+			if l, err := getClusterLeader(cluster); err == nil {
+				return l, nil
+			}
+		case <-timeout.C:
+			return nil, errLeaderNotFound
+
+		}
+	}
 }

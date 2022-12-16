@@ -3,7 +3,6 @@ package cmd
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"fmt"
 	"net/netip"
 	"os"
 
@@ -50,26 +49,6 @@ func hashString(str string) string {
 	hasher := sha1.New()
 	hasher.Write([]byte(str))
 	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-type executeType string
-
-func (e executeType) String() string {
-	return "<nil>"
-}
-
-func (e *executeType) Set(v string) error {
-	switch v {
-	case "QUERY", "COMMAND":
-		*e = executeType(v)
-		return nil
-	default:
-		return fmt.Errorf("\n\tmust be one of 'COMMAND' or 'QUERY'")
-	}
-}
-
-func (e executeType) Type() string {
-	return `COMMAND|QUERY`
 }
 
 type ipAddr string
