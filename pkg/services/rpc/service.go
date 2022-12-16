@@ -2,11 +2,11 @@ package rpc
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"graft/pkg/domain"
 	"graft/pkg/services/lib"
+	"graft/pkg/utils/log"
 )
 
 type service struct {
@@ -113,6 +113,7 @@ func (s service) Execute(input *domain.ExecuteInput) (*domain.ExecuteOutput, err
 	}
 
 	if err := s.validateExecuteInput(input); err != nil {
+		log.Errorf("cannot execute: %v", err)
 		return nil, err
 	}
 
@@ -200,12 +201,12 @@ func (s service) Configuration() (*domain.ClusterConfiguration, error) {
 }
 
 func (s service) Shutdown() {
-	fmt.Println("shutting down in 3s")
+	log.Debugf("shutting down in 3s")
 
 	s.node.Shutdown()
 
 	time.AfterFunc(3*time.Second, func() {
-		fmt.Println("shutdown")
+		log.Infof("shut down")
 		close(s.quit)
 	})
 }

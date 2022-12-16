@@ -4,32 +4,25 @@ import (
 	"graft/pkg/domain"
 	"graft/pkg/services/lib"
 
-	log "github.com/sirupsen/logrus"
+	"graft/pkg/utils/log"
 )
-
-type synchronise struct {
-	running    binaryLock
-	saving     binaryLock
-	committing binaryLock
-}
 
 type service struct {
 	node    *domain.Node
 	client  lib.Client
 	persist persister
-
 	timeout *timeout
-	sync    synchronise
+	running binaryLock
 }
 
 func NewService(
 	node *domain.Node,
 	client lib.Client,
 	persister persister,
-) service {
+) *service {
 	config := node.GetClusterConfiguration()
 	timeout := newTimeout(config.ElectionTimeout, config.LeaderHeartbeat)
-	return service{
+	return &service{
 		client:  client,
 		timeout: timeout,
 		node:    node,
@@ -37,7 +30,7 @@ func NewService(
 	}
 }
 
-func (s service) Run() {
+func (s *service) Run() {
 	for {
 		switch s.node.Role() {
 		case domain.Follower:
@@ -50,16 +43,19 @@ func (s service) Run() {
 	}
 }
 
-func (s service) followerTimeout() {
+func (s *service) followerTimeout() {
 	// Prevent multiple flow from running together
-	if s.sync.running.Lock() {
-		defer s.sync.running.Unlock()
-
-		if s.node.IsShuttingDown() {
-			return
-		}
+	if s.running.Lock() {
+		defer s.running.Unlock()
 
 		s.node.UpgradeCandidate()
+	}
+}
+
+func (s *service) candidateTimeout() {
+	// Prevent multiple flow from running together
+	if s.running.Lock() {
+		defer s.running.Unlock()
 
 		if wonElection := s.runElection(); wonElection {
 			s.node.UpgradeLeader()
@@ -67,43 +63,32 @@ func (s service) followerTimeout() {
 	}
 }
 
-func (s service) candidateTimeout() {
+func (s *service) leaderHeartbeat() {
 	// Prevent multiple flow from running together
-	if s.sync.running.Lock() {
-		defer s.sync.running.Unlock()
-
-		if wonElection := s.runElection(); wonElection {
-			s.node.UpgradeLeader()
-		}
-	}
-}
-
-func (s service) leaderHeartbeat() {
-	// Prevent multiple flow from running together
-	if s.sync.running.Lock() {
-		defer s.sync.running.Unlock()
+	if s.running.Lock() {
+		defer s.running.Unlock()
 
 		if quorumReached := s.heartbeat(); !quorumReached {
-			log.Debug("STEP DOWN")
+			log.Debugf("leader step down")
 			s.node.DowngradeFollower(s.node.CurrentTerm())
 		}
 	}
 }
 
-func (s service) runFollower() {
+func (s *service) runFollower() {
 	for s.node.Role() == domain.Follower {
 		select {
 		case <-s.timeout.ElectionTimer.C:
 			go s.followerTimeout()
 
 		case <-s.node.Commit:
-			go s.commit()
+			go s.node.ApplyLogs()
 
 		case <-s.node.ResetElectionTimer:
 			go s.timeout.resetElectionTimer()
 
 		case <-s.node.SaveState:
-			go s.saveState()
+			go s.persist.Save(s.node.ToPersistent())
 
 		case <-s.node.ShiftRole:
 			return
@@ -111,7 +96,7 @@ func (s service) runFollower() {
 	}
 }
 
-func (s service) runCandidate() {
+func (s *service) runCandidate() {
 	for s.node.Role() == domain.Candidate {
 		select {
 		case <-s.timeout.ElectionTimer.C:
@@ -121,10 +106,10 @@ func (s service) runCandidate() {
 			go s.timeout.resetElectionTimer()
 
 		case <-s.node.Commit:
-			go s.commit()
+			go s.node.ApplyLogs()
 
 		case <-s.node.SaveState:
-			go s.saveState()
+			go s.persist.Save(s.node.ToPersistent())
 
 		case <-s.node.ShiftRole:
 			return
@@ -132,7 +117,7 @@ func (s service) runCandidate() {
 	}
 }
 
-func (s service) runLeader() {
+func (s *service) runLeader() {
 	for s.node.Role() == domain.Leader {
 		select {
 		case <-s.timeout.LeaderTicker.C:
@@ -146,10 +131,10 @@ func (s service) runLeader() {
 			})()
 
 		case <-s.node.Commit:
-			go s.commit()
+			go s.node.ApplyLogs()
 
 		case <-s.node.SaveState:
-			go s.saveState()
+			go s.persist.Save(s.node.ToPersistent())
 
 		case <-s.node.ResetLeaderTicker:
 			go s.timeout.resetLeaderTicker()
@@ -160,21 +145,7 @@ func (s service) runLeader() {
 	}
 }
 
-func (s service) commit() {
-	if s.sync.committing.Lock() {
-		defer s.sync.committing.Unlock()
-		s.node.ApplyLogs()
-	}
-}
-
-func (s service) saveState() {
-	if s.sync.saving.Lock() {
-		defer s.sync.saving.Unlock()
-		s.persist.Save(s.node.ToPersistent())
-	}
-}
-
-func (s service) runElection() bool {
+func (s *service) runElection() bool {
 	if !lib.PreVote(s.node, s.client) {
 		s.node.DowngradeFollower(s.node.CurrentTerm())
 		return false
@@ -183,7 +154,7 @@ func (s service) runElection() bool {
 	return lib.RequestVote(s.node, s.client)
 }
 
-func (s service) heartbeat() bool {
+func (s *service) heartbeat() bool {
 	quorumReached := lib.AppendEntries(s.node, s.client)
 	s.node.ComputeNewCommitIndex()
 	return quorumReached

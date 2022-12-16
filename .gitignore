@@ -3,5 +3,6 @@
 *.key
 *.csr
 *.pem
+*.log
 build/
 .DS_Store

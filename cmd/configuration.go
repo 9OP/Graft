@@ -9,8 +9,9 @@ import (
 )
 
 var configurationCmd = &cobra.Command{
-	Use:   "configuration",
-	Short: "Print cluster configuration",
+	Use:     "configuration",
+	GroupID: "cluster",
+	Short:   "Show cluster configuration",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configuration, err := pkg.ClusterConfiguration(cluster.String())
 		if err != nil {
@@ -29,5 +30,5 @@ var configurationCmd = &cobra.Command{
 }
 
 func init() {
-	clusterCmd.AddCommand(configurationCmd)
+	rootCmd.AddCommand(configurationCmd)
 }

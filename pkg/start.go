@@ -2,10 +2,11 @@ package pkg
 
 import (
 	"fmt"
-	"log"
 	"net/netip"
 
 	"graft/pkg/domain"
+	"graft/pkg/utils"
+	"graft/pkg/utils/log"
 
 	primaryAdapter "graft/pkg/infrastructure/adapter/primary"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
@@ -25,14 +26,14 @@ func Start(
 	electionTimeout int,
 	leaderHeartbeat int,
 ) chan struct{} {
-	quit := make(chan struct{})
+	quit := make(chan struct{}, 1)
 
 	// Driven port/adapter (domain -> infra)
 	grpcClientAdapter := secondaryAdapter.NewClusterClient()
 	jsonPersisterAdapter := secondaryAdapter.NewJsonPersister()
 
 	rpcClientPort := secondaryPort.NewRpcClientPort(grpcClientAdapter)
-	persisterPort := secondaryPort.NewPersisterPort(fmt.Sprintf(".%s.json", id), jsonPersisterAdapter)
+	persisterPort := secondaryPort.NewPersisterPort(fmt.Sprintf("%s/.%s.json", utils.GraftPath(), id), jsonPersisterAdapter)
 
 	// Domain
 	persistent, _ := persisterPort.Load()
@@ -60,10 +61,12 @@ func Start(
 	go (func() {
 		err := rpc.Start()
 		if err != nil {
-			log.Fatalf("Cannot start rpc server: %v", err)
+			log.Fatalf("cannot start rpc server: %v", err)
 		}
 	})()
 	go core.Start()
+
+	log.Infof("start")
 
 	return quit
 }

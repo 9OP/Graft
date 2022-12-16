@@ -2,14 +2,37 @@ package pkg
 
 import (
 	"encoding/json"
-	"errors"
 
 	"graft/pkg/domain"
 	secondaryAdapter "graft/pkg/infrastructure/adapter/secondary"
 	secondaryPort "graft/pkg/infrastructure/port/secondary"
 )
 
+func AddSelf(peer domain.Peer) error {
+	// 1. Wait for leader to be available
+	leader, err := getClusterLeaderWithTimeout(peer.Target())
+	if err != nil {
+		return err
+	}
+
+	// 2. Add newPeer to cluster configuration
+	err = executeConfigurationUpdate(domain.ConfAddPeer, peer, *leader)
+	if err != nil {
+		return err
+	}
+
+	// 3. Set newPeer to active
+	err = executeConfigurationUpdate(domain.ConfActivatePeer, peer, *leader)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func AddClusterPeer(newPeer domain.Peer, cluster string) (chan struct{}, error) {
+	client := secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
+
 	// 1. Get cluster leader
 	leaderNotFound := false
 	leader, err := getClusterLeader(cluster)
@@ -112,83 +135,9 @@ func RemoveClusterPeer(oldPeer domain.Peer, cluster string) error {
 	return nil
 }
 
-func Execute(entry string, logType domain.LogType, cluster string) (*domain.ExecuteOutput, error) {
-	var peer string
-
-	if logType == domain.LogCommand || logType == domain.LogConfiguration {
-		p, err := getClusterLeader(cluster)
-		if err != nil {
-			return nil, err
-		}
-		peer = *p
-	} else {
-		peer = cluster
-	}
-
-	input := domain.ExecuteInput{
-		Type: logType,
-		Data: []byte(entry),
-	}
-
-	return client.Execute(peer, &input)
-}
-
-func LeadeshipTransfer(peer string) error {
-	return client.LeadershipTransfer(peer)
-}
-
-func Shutdown(peer string) error {
-	return client.Shutdown(peer)
-}
-
-func ClusterConfiguration(cluster string) (*domain.ClusterConfiguration, error) {
-	leader, err := getClusterLeader(cluster)
-	if err != nil {
-		return nil, err
-	}
-	return client.Configuration(*leader)
-}
-
-var (
-	client            = secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
-	errLeaderNotFound = errors.New("leader not found")
-)
-
-func getClusterLeader(cluster string) (*string, error) {
-	config, err := client.Configuration(cluster)
-	if err != nil {
-		return nil, err
-	}
-
-	// If leader available, return it
-	if leader, ok := config.Peers[config.LeaderId]; ok {
-		target := leader.Target()
-		return &target, nil
-	}
-
-	// Otherwise ask known peers about the leader
-	for _, peer := range config.Peers {
-		config, err := client.Configuration(peer.Target())
-		if err != nil {
-			// No worries, peer might be out
-			// ask the next one for leader info
-			continue
-		}
-
-		if leader, ok := config.Peers[config.LeaderId]; ok {
-			target := leader.Target()
-			return &target, nil
-		}
-	}
-
-	// The leader is still unknown.
-	// either:
-	// - network partition
-	// - cluster has failed quorum and no leader can be elected
-	return nil, errLeaderNotFound
-}
-
 func executeConfigurationUpdate(tp domain.ConfigurationUpdateType, peer domain.Peer, leader string) error {
+	client := secondaryPort.NewRpcClientPort(secondaryAdapter.NewClusterClient())
+
 	data, _ := json.Marshal(&domain.ConfigurationUpdate{
 		Type: tp,
 		Peer: peer,

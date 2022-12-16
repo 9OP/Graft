@@ -31,7 +31,7 @@ type PersistentState struct {
 	MachineLogs []LogEntry `json:"machine_logs"`
 }
 
-func (n Node) ToPersistent() PersistentState {
+func (n state) ToPersistent() PersistentState {
 	return PersistentState{
 		CurrentTerm: n.currentTerm,
 		VotedFor:    n.votedFor,

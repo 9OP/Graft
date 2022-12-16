@@ -9,20 +9,8 @@ import (
 	"unsafe"
 
 	"graft/pkg/utils"
-
-	log "github.com/sirupsen/logrus"
+	"graft/pkg/utils/log"
 )
-
-/*
-Implementation note:
-- nodeState is supposed to only expose pure function `Withers` that return a copy
-  instead of mutating the instance.
-- When a mutation needs to be saved in ClusterNode (for instance incrementing nodeState.CurrentTerm)
-  You should call swapState, which atomically change the pointer of ClusterNode.nodeState to your
-  new nodeState version.
-- This means that every ClusterNode method that calls swapState, needs to accept a pointer receiver (n *Node)
-  Because otherwise, swapState is called with a copy of the pointers instead of original pointers
-*/
 
 type signals struct {
 	Commit             chan struct{}
@@ -35,12 +23,12 @@ type signals struct {
 
 func newSignals() signals {
 	return signals{
-		Commit:             make(chan struct{}, 1),
-		ShiftRole:          make(chan struct{}, 1),
-		SaveState:          make(chan struct{}, 1),
-		SynchronizeLogs:    make(chan struct{}, 1),
-		ResetLeaderTicker:  make(chan struct{}, 1),
-		ResetElectionTimer: make(chan struct{}, 1),
+		Commit:             make(chan struct{}, 10),
+		ShiftRole:          make(chan struct{}, 10),
+		SaveState:          make(chan struct{}, 10),
+		SynchronizeLogs:    make(chan struct{}, 10),
+		ResetLeaderTicker:  make(chan struct{}, 10),
+		ResetElectionTimer: make(chan struct{}, 10),
 	}
 }
 
@@ -79,8 +67,9 @@ type Node struct {
 	*state
 	signals
 	config NodeConfig
-	exit   bool
 	fsm    fsm
+	exit   bool
+	apply  sync.Mutex
 }
 
 func NewNode(
@@ -138,7 +127,7 @@ func (n *Node) IsShuttingDown() bool {
 }
 
 func (n *Node) DowngradeFollower(term uint32) {
-	log.Infof("DOWNGRADE TO FOLLOWER TERM: %d\n", term)
+	log.Infof("downgrade Follower %v", term)
 	newState := n.
 		withRole(Follower).
 		withCurrentTerm(term).
@@ -151,7 +140,7 @@ func (n *Node) DowngradeFollower(term uint32) {
 func (n *Node) IncrementCandidateTerm() {
 	if n.Role() == Candidate {
 		term := n.currentTerm + 1
-		log.Debugf("INCREMENT CANDIDATE TERM %d\n", term)
+		log.Debugf("increment term %v", term)
 		newState := n.
 			withCurrentTerm(term).
 			withVotedFor(n.id)
@@ -159,7 +148,7 @@ func (n *Node) IncrementCandidateTerm() {
 		n.resetTimeout()
 		return
 	}
-	log.Warn("CANNOT INCREMENT TERM FOR ", n.Role())
+	log.Warnf("cannot increment: %v", n.Role())
 }
 
 func (n *Node) UpgradeCandidate() {
@@ -168,7 +157,7 @@ func (n *Node) UpgradeCandidate() {
 	}
 
 	if n.Role() == Follower {
-		log.Info("UPGRADE TO CANDIDATE")
+		log.Infof("upgrade Candidate")
 		newState := n.
 			withRole(Candidate).
 			withLeader("")
@@ -177,12 +166,12 @@ func (n *Node) UpgradeCandidate() {
 		n.resetTimeout()
 		return
 	}
-	log.Warn("CANNOT UPGRADE CANDIDATE FOR ", n.Role())
+	log.Warnf("cannot upgrade candidate: %v", n.Role())
 }
 
 func (n *Node) UpgradeLeader() {
 	if n.Role() == Candidate {
-		log.Infof("UPGRADE TO LEADER TERM %d\n", n.currentTerm)
+		log.Infof("upgrade Leader %v", n.currentTerm)
 		newState := n.
 			withLeaderInitialization().
 			withLeader(n.id).
@@ -199,7 +188,7 @@ func (n *Node) UpgradeLeader() {
 		n.resetLeaderTicker()
 		return
 	}
-	log.Warn("CANNOT UPGRADE LEADER FOR ", n.Role())
+	log.Warnf("cannot upgrade leader: %v", n.Role())
 }
 
 func (n *Node) Heartbeat() {
@@ -242,29 +231,34 @@ func (n *Node) Broadcast(fn func(p Peer), broadcastType BroadcastType) {
 
 func (n *Node) DeleteLogsFrom(index uint32) {
 	if newState, changed := n.withDeleteLogsFrom(index); changed {
-		log.Debug("DELETE LOGS", index)
+		log.Warnf("delete logs from index %v", index)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) AppendLogs(prevLogIndex uint32, entries ...LogEntry) {
 	if newState, changed := n.withAppendLogs(prevLogIndex, entries...); changed {
-		log.Debug("APPEND LOGS", prevLogIndex)
+		log.Debugf("append logs from index %v", prevLogIndex)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) SetLeader(leaderId string) {
 	if n.Leader().Id != leaderId {
-		log.Debug("SET LEADER", leaderId)
+		log.Infof("follow leader: %v", leaderId)
 		newState := n.withLeader(leaderId)
 		n.swapState(&newState)
 	}
 }
 
 func (n *Node) setCommitIndex(index uint32) {
+	if index > n.lastLogIndex() {
+		log.Errorf("cannot set commit index (%v) > last log index (%v)", index, n.lastLogIndex())
+		return
+	}
+
 	if n.commitIndex != index {
-		log.Debug("SET COMMIT INDEX", index)
+		log.Debugf("commit index: %v", index)
 		newState := n.withCommitIndex(index)
 		n.swapState(&newState)
 		n.commit()
@@ -311,61 +305,74 @@ func (n *Node) GrantVote(peerId string) {
 }
 
 func (n *Node) ApplyLogs() {
-	if n.exit {
+	log.Debugf("apply logs to commitIndex %v", n.commitIndex)
+
+	if n.lastApplied >= n.commitIndex || n.exit {
+		log.Warnf("not applying logs")
 		return
 	}
 
-	hasApply := false
-	commitIndex := n.commitIndex
+	/*
+		Critical section:
+		Must not run ApplyLogs concurrently to prevent applying
+		the same log multiple time to the FSM.
+		ApplyLogs should be run by only one goroutine at any given time.
+	*/
+	n.apply.Lock()
+	defer n.apply.Unlock()
+
+	// Must set lastApplied and commitIndex
+	// After calling Lock()
 	lastApplied := n.lastApplied
+	commitIndex := n.commitIndex
+
+	if lastApplied == 0 {
+		input := EvalInput{
+			Id:       n.id,
+			EvalType: INIT,
+		}
+		n.fsm.eval(input)
+	}
 
 	for lastApplied < commitIndex {
-		hasApply = true
-		if lastApplied == 0 {
-			input := EvalInput{
-				Id:       n.id,
-				EvalType: INIT,
-			}
-			n.fsm.eval(input)
-		}
-
-		// Increment last applied first
-		// because lastApplied = 0 is not a valid logEntry
 		lastApplied += 1
-		if log, err := n.Log(lastApplied); err == nil {
-			switch log.Type {
-			case LogCommand:
-				input := EvalInput{
-					Id:       n.id,
-					Data:     string(log.Data),
-					EvalType: COMMAND,
-				}
-				res := n.fsm.eval(input)
-				if log.C != nil {
-					log.C <- res
-				}
-
-			case LogConfiguration:
-				var config ConfigurationUpdate
-				if err := json.Unmarshal(log.Data, &config); err == nil {
-					if res := n.configurationUpdate(config); log.C != nil {
-						log.C <- res
-					}
-				}
-
-			case LogNoop:
-				continue
-
-			default:
-				continue
-			}
-		}
+		n.applyLog(lastApplied)
 	}
 
 	// Swap only once
-	if hasApply {
-		newState := n.withLastApplied(lastApplied)
-		n.swapState(&newState)
+	newState := n.withLastApplied(lastApplied)
+	n.swapState(&newState)
+}
+
+func (n *Node) applyLog(index uint32) {
+	if lg, err := n.Log(index); err == nil {
+		switch lg.Type {
+		case LogCommand:
+			input := EvalInput{
+				Id:       n.id,
+				Data:     string(lg.Data),
+				EvalType: COMMAND,
+			}
+			res := n.fsm.eval(input)
+			log.Debugf("apply\n%s", string(lg.Data))
+			if lg.C != nil {
+				lg.C <- res
+			}
+
+		case LogConfiguration:
+			var config ConfigurationUpdate
+			if err := json.Unmarshal(lg.Data, &config); err == nil {
+				if res := n.configurationUpdate(config); lg.C != nil {
+					lg.C <- res
+				}
+			}
+
+		case LogNoop:
+			return
+
+		default:
+			log.Errorf("log type unknown: %v", lg.Type)
+		}
 	}
 }
 
@@ -400,6 +407,7 @@ func (n *Node) Execute(cmd ExecuteInput) chan ExecuteOutput {
 		go dispatch()
 
 	default:
+		log.Errorf("log type unknown: %v", cmd.Type)
 		result <- ExecuteOutput{}
 	}
 
@@ -426,8 +434,8 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutpu
 			res.Err = errPeerAlreadyExists
 			return
 		}
-		log.Info("configuration update: add peer", peer.Id)
-		peer.Active = false
+		log.Infof("configuration: add %v", peer.Id)
+		peer.Active = false // TODO: fix
 		peers = n.peers.addPeer(peer)
 
 	case ConfActivatePeer:
@@ -435,7 +443,7 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutpu
 			res.Err = errPeerDoesNotExist
 			return
 		}
-		log.Info("configuration update: activate peer", peer.Id)
+		log.Infof("configuration: activate %v", peer.Id)
 		peers = n.peers.activatePeer(peer.Id)
 
 	case ConfDeactivatePeer:
@@ -443,7 +451,7 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutpu
 			res.Err = errPeerDoesNotExist
 			return
 		}
-		log.Info("configuration update: deactivate peer", peer.Id)
+		log.Infof("configuration: deactivate %v", peer.Id)
 		peers = n.peers.deactivatePeer(peer.Id)
 
 	case ConfRemovePeer:
@@ -451,7 +459,7 @@ func (n *Node) configurationUpdate(config ConfigurationUpdate) (res ExecuteOutpu
 			res.Err = errPeerDoesNotExist
 			return
 		}
-		log.Info("configuration update: remove peer", peer.Id)
+		log.Infof("configuration: remove %v", peer.Id)
 		peers = n.peers.removePeer(peer.Id)
 
 	default:
