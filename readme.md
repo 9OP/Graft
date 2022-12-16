@@ -87,7 +87,8 @@ VALUES
 ./main stop 127.0.0.1:8080 --cluster 127.0.0.1:8080
 ```
 
-![demo](docs/demo.gif)
+![](docs/demo.gif)
+
 
 ### Raft features & extensions
 
